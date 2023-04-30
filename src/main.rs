@@ -1,3 +1,5 @@
+//! This is the asmap-rs server binary
+//!
 fn main() {
-    println!("Hello, world!");
+    println!("Server");
 }
