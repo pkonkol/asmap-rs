@@ -5,6 +5,7 @@
 - asmap-fronend serve empty map
 - asmap-fronend show asns with cords from asdbmaker data 
         - asmap-fronend allow to expand details for selected ASn
+- gather example whois output for all regional registries for as, org, person
 
 # idea
 1 lib crate to parse publicly available APIs and put them into a DB
