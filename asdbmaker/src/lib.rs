@@ -1,6 +1,6 @@
+mod asrank;
+mod ipnetdb;
 mod whois;
-//mod asrank;
-// mod bgpview;
 
 // TODO decide API
 pub fn create_initial_database() -> () {

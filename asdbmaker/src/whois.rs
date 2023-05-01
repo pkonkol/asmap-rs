@@ -8,7 +8,7 @@ pub enum Error {
 }
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "error {self:?}")
+        write!(f, "whois error {self:?}")
     }
 }
 
@@ -34,7 +34,6 @@ impl From<FromUtf8Error> for Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 async fn get_asn_details(asn: u32) -> Result<String> {
-    // tokio::spawn_blocking(move || {
     let out =
         tokio::task::block_in_place(|| Command::new("whois").arg(format!("AS{asn}")).output())?;
 
