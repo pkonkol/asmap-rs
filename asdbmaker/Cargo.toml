@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 mongodb = "2.5.0"
-serde = "1.0.160"
-serde_json = "1.0.96"
-tokio = "1.28.0"
 whois-rust = { version = "1.5.1", features = ["tokio"] }
+serde = {workspace = true}
+serde_json = {workspace = true}
+tokio = {workspace = true}
