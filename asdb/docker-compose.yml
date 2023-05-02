@@ -1,0 +1,25 @@
+version: '3'
+services:
+  asdb-db:
+    image: "docker.io/bitnami/mongodb:4.4"
+    ports:
+      - "27017:27017"
+    volumes:
+      - 'asdb-data:/bitnami/mongodb'
+    environment:
+      - MONGODB_ROOT_PASSWORD=devrootpass
+      - MONGODB_USERNAME=devuser
+      - MONGODB_PASSWORD=devpass
+      - MONGODB_DATABASE=asdb
+    # networks:
+    #   - asdb-net
+
+# networks:
+#   asdb-net:
+#     driver: bridge
+
+volumes:
+  data-volume:
+  asdb-data:
+    driver: local
+

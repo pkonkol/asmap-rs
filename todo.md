@@ -66,6 +66,9 @@ asmap-frontend will be the main binary
 models and objects for the DB which can be used by asdbmaker but also by `asmap-rs`
 frontend to read the data and by `scraper` to update `georesolved` data.
 
+models may need some specific fields for each regional registry, let's focus on RIPE but
+try to make it extendable later through traits.
+
 # asdbmaker
 ## functionality
 - ASn no. & names ~~generate DB overview~~ (just top lvl ASn data? what about orgs)
@@ -75,7 +78,10 @@ frontend to read the data and by `scraper` to update `georesolved` data.
 - generate DB details (which?)
 
 ## sources
-### asrank
+### CAIDA
+https://www.caida.org/catalog/datasets/overview/
+They have a lot of potentialy useful datasets in there. TODO search through them.
+#### asrank
 downloaded through the python script, provides a basic list of orgs and ansn
 orgName provided isn't understood by whois unfortunately
 How to translate this orgName into the one used by whois or at first just by RIPE?
@@ -138,11 +144,36 @@ Taken from the prefixes data.
 ### persons
 Must bee looked up inidividually in whois but sometimes ripe returns them in single req.
 TODO verify.
+### maintainers, irts, roles
+these whosis objects also contain address fields. At least for APNIC
 
 ### asnLinks (TODO later)
 Would this be helpful? It's easily downloadable from asrank .py script.
 It would allow a feature to see related asns.
 Maybe this can be skipped and this data retrieved as complex queries for prefixes and asns.
+
+## regional registries
+## RIPE
+Main focus for now. Europe, russia and arabs.
+They have DBs downloadable at https://ftp.ripe.net/ripe/dbase/
+    Only RIPE is so nice to just give it out. Others require to make some data requests. I will
+    probably get the access if needed as open source research project but let's do RIPE first.
+The orgs and everything are in there and I don't need to scrape them from whois like a retard
+[Advanced queries guide](https://www.ripe.net/analyse/archived-projects/rpsl/queries-in-ripe-db-v3.0-1)
+
+## ARIN
+If ripe will be ready I may move on to this
+https://www.arin.net/reference/research/bulkwhois/
+https://www.arin.net/resources/guide/account/database/
+There is a ftp but seems to lack the d
+http://ftp.arin.net
+## APNIC
+Would be cool to do after ARIN but it looks to be split across national internet registries.
+This may prove to be problematic.
+## LACNIC
+also low priority, also split into NIRs
+## AFRINIC
+Not important
 
 # asmap-frontend (so just asmap-rs)
 create open street map based interactive map with located ASns or ORGs

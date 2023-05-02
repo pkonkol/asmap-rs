@@ -5,6 +5,7 @@ description = "Interactive map of internet autonomous systems, organisations and
 
 [workspace]
 members = [
+    "asdb",
     "asdbmaker",
     "georesolve",
 ]
