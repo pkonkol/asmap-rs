@@ -3,6 +3,7 @@ use std::fmt::Display;
 #[derive(Debug)]
 pub enum Error {
     ConnectionError(String),
+    AsNotFound,
 }
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -1,54 +1,120 @@
-use geo_types::Coord;
 use ipnetwork::IpNetwork;
 use isocountry::CountryCode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
-/// Initially based on asrank asns list, then updated with what exactly?
-pub struct Asn {
-    asn: u32,
-    asrank_data: AsrankData,
-    //ipnetdb_data: IPNetDBData,
-    //whois_data: WhoIsData,
-    // georesolvedData??? probably not, for ex. as5550 doesn't have addres fields
+pub enum Nic {
+    RIPE,
+    ARIN,
+    APNIC,
+    AFRINIC,
+    LACNIC,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Coord {
+    pub lat: f64,
+    pub lon: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct As {
+    pub asn: u32,
+    pub asrank_data: Option<AsrankAsn>,
+    pub ipnetdb_data: Option<IPNetDBAsn>,
+    pub whois_data: Option<WhoIsAsn>,
 }
 
 /// Based on ipnetdb data? or merge ipnetdb with asrank?
 /// details from whois, currently only for RIPE
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Organization {
-    // georesolved: Option<Coord>
+    pub name: String,
+    pub registry: Nic,
+    pub whois: Option<WhoIsOrg>,
+    pub georesolved: Option<Coord>,
 }
 
-/// Based on whois db data
-/// currently available only for RIPE
-pub struct Person {
-    // georesolved: Option<Coord>
-}
-
-/// Based on ipnetdb data
-/// details from whois, currently only for RIPE
+/// Represents
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Prefix {
-    cidr: IpNetwork,
-    // no address by itself to georesolve, only related persons and orgs have one
+    pub cidr: IpNetwork,
+    pub registry: Nic,
+    pub whois: Option<WhoIsPrefix>,
+    pub ipnetdb_data: Option<IPNetDBPrefix>,
+}
+
+/// Person data is available only in whois data from registries so there is no
+/// optional data for it.
+/// currently available only for RIPE
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Person {
+    pub person: String,
+    pub address: String,
+    pub phone: String,
+    pub changed: String,
+    pub source: Nic,
+    pub nic_hdl: Option<String>,
+    pub remarks: Option<String>,
+    pub mnt_by: Option<String>,
+    pub email: Option<String>,
+    pub georesolved: Option<Coord>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AsrankData {
-    rank: u32,
-    organisation_long: String,
-    country: CountryCode,
-    coordinates: Coord,
-    degree: AsrankDegree,
-    prefixes: u64,
-    addresses: u64,
+pub struct AsrankAsn {
+    pub rank: u32,
+    pub organisation_long: String,
+    pub country: CountryCode,
+    pub coordinates: Coord,
+    pub degree: AsrankDegree,
+    pub prefixes: u64,
+    pub addresses: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AsrankDegree {
-    provider: u32,
-    peer: u32,
-    customer: u32,
-    total: u32,
-    transit: u32,
-    sibling: u32,
+    pub provider: u32,
+    pub peer: u32,
+    pub customer: u32,
+    pub total: u32,
+    pub transit: u32,
+    pub sibling: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IPNetDBAsn {}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct WhoIsAsn {}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct WhoIsOrg {}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IPNetDBPrefix {
+    pub prefix: IpNetwork,
+    pub allocation: IpNetwork,
+    pub allocation_cc: CountryCode,
+    pub allocation_registry: Nic,
+    pub asn: u32,
+    pub as_cc: CountryCode,
+    pub as_entity: String,
+    pub as_name: String,
+    pub as_registry: Nic,
+    pub prefix_entity: String,
+    pub prefix_name: String,
+    pub prefix_origin: Vec<u32>,
+    pub prefix_registry: Nic,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct WhoIsPrefix {
+    pub netname: String,
+    pub coutnry: CountryCode,
+    pub org: String,
+    pub remarks: String,
+    pub admin_c: Vec<String>,
+    pub tech_c: Vec<String>,
+    pub mnt_by: String,
 }

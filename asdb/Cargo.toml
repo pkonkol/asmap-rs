@@ -12,4 +12,5 @@ geo-types = "0.7.9"
 isocountry = "0.3.2"
 ipnetwork = "0.20.0"
 serde = {workspace = true}
+futures = "0.3.28"
 # serde_json = {workspace = true}

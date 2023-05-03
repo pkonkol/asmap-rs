@@ -1,10 +1,16 @@
 mod error;
 pub mod models;
 
+use crate::models::Organization;
 pub use error::{Error, Result};
-use models::Asn;
+use models::{As, AsrankAsn, AsrankDegree, Coord, Nic};
 
-use mongodb::{bson::doc, options::ClientOptions, Client};
+use futures::stream::TryStreamExt;
+use mongodb::{
+    bson::doc,
+    options::{ClientOptions, FindOptions},
+    Client,
+};
 
 enum Collection {
     ASNS,
@@ -29,13 +35,6 @@ impl Asdb {
         })
     }
 
-    async fn get_collection_handle<T>(&self, c: Collection) -> Box<mongodb::Collection<T>> {
-        //let admins_collection = c.database(&database).collection::<Admin>("admins");
-        //self.mongo.database(&self.database).collection(c)
-
-        todo!()
-    }
-
     async fn ping(&self) -> Result<()> {
         self.client
             .database(&self.database)
@@ -43,6 +42,75 @@ impl Asdb {
             .await?;
         Ok(())
     }
+
+    async fn clear_database(&self) -> Result<()> {
+        struct T {}
+        for c in ["asns", "organisations", "prefixes", "persons"] {
+            self.client
+                .database(&self.database)
+                .collection::<T>(c)
+                .drop(None)
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn prepare_database(&self) -> Result<()> {
+        // create indexes for unique keys
+        Ok(())
+    }
+
+    pub async fn get_ases(&self, limit: i64, skip: u64) -> Result<Vec<As>> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let opts = FindOptions::builder()
+            .skip(skip)
+            .limit(limit)
+            .sort(doc! { "asn": 1 })
+            .build();
+        let res = collection.find(doc! {}, opts).await?;
+        let ases: Vec<As> = res.try_collect().await?;
+        Ok(ases)
+    }
+
+    pub async fn get_as(&self, asn: u32) -> Result<As> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let res = collection.find_one(doc! {"asn": asn }, None).await?;
+        res.ok_or(Error::AsNotFound)
+    }
+
+    pub async fn insert_as(&self, a: &As) -> Result<()> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        collection.insert_one(a, None).await?;
+        Ok(())
+    }
+
+    pub async fn insert_ases(&self, a: &[As]) -> Result<()> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        collection.insert_many(a, None).await?;
+        Ok(())
+    }
+
+    pub async fn update_as(&self, a: &As) -> Result<()> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        todo!()
+    }
+
+    // TODO the same for prefixes, orgs and persons
 }
 
 #[cfg(test)]
@@ -52,9 +120,95 @@ mod tests {
     const TESTED_DB: &str = "asdb";
     const TESTED_CONN_STR: &str = "mongodb://devuser:devpass@localhost:27017/?authSource=asdb";
 
+    // TODO individual databases for each test
+
     #[tokio::test]
     async fn asdb_initializes() {
         let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
         asdb.ping().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn get_asns_executes() {
+        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        let asns = asdb.get_ases(0, 0).await.unwrap();
+        println!("{asns:?}");
+    }
+
+    #[tokio::test]
+    async fn insert_asn_executes() {
+        let tested_as = simple_as;
+        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        asdb.insert_as(&tested_as()).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn insert_then_get_asns() {
+        let tested_as = as_with_asrank;
+        let tested_asn = tested_as().asn;
+
+        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        asdb.insert_as(&tested_as()).await.unwrap();
+        let asns = asdb.get_ases(0, 0).await.unwrap();
+        println!("{asns:?}");
+        assert!(asns.iter().find(|x| x.asn == tested_asn).is_some());
+    }
+
+    #[tokio::test]
+    async fn insert_then_get_asn() {
+        let tested_as = as_with_asrank;
+        let tested_asn = tested_as().asn;
+
+        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        asdb.insert_as(&tested_as()).await.unwrap();
+        let asn = asdb.get_as(tested_asn).await.unwrap();
+        println!("{asn:?}");
+    }
+
+    #[tokio::test]
+    async fn clear_database_then_get_asns() {
+        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        asdb.clear_database().await.unwrap();
+        let asns = asdb.get_ases(0, 0).await.unwrap();
+        println!("{asns:?}");
+        assert_eq!(asns.len(), 0);
+    }
+
+    fn simple_as() -> As {
+        As {
+            asn: 5551,
+            asrank_data: None,
+            ipnetdb_data: None,
+            whois_data: None,
+        }
+    }
+
+    fn as_with_asrank() -> As {
+        let asrank = AsrankAsn {
+            rank: 5476,
+            organisation_long: "Technical University of Gdansk, Academic Computer Center TASK"
+                .to_string(),
+            country: isocountry::CountryCode::POL,
+            coordinates: Coord {
+                lon: 18.5620133480526,
+                lat: 54.3745639215642,
+            },
+            degree: AsrankDegree {
+                provider: 2,
+                peer: 10,
+                customer: 2,
+                total: 14,
+                transit: 13,
+                sibling: 1,
+            },
+            prefixes: 1,
+            addresses: 65536,
+        };
+        As {
+            asn: 5550,
+            asrank_data: Some(asrank),
+            ipnetdb_data: None,
+            whois_data: None,
+        }
     }
 }
