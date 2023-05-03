@@ -8,8 +8,8 @@ use models::{As, AsrankAsn, AsrankDegree, Coord, Nic};
 use futures::stream::TryStreamExt;
 use mongodb::{
     bson::doc,
-    options::{ClientOptions, FindOptions},
-    Client,
+    options::{ClientOptions, FindOptions, IndexOptions},
+    Client, IndexModel,
 };
 
 enum Collection {
@@ -56,7 +56,14 @@ impl Asdb {
     }
 
     async fn prepare_database(&self) -> Result<()> {
-        // create indexes for unique keys
+        struct T {}
+        let collection = self.client.database(&self.database).collection::<T>("asns");
+        let index_options = IndexOptions::builder().unique(true).build();
+        let index = IndexModel::builder()
+            .keys(doc! {"asn": 1})
+            .options(index_options)
+            .build();
+        collection.create_index(index, None).await?;
         Ok(())
     }
 
@@ -121,6 +128,7 @@ mod tests {
     const TESTED_CONN_STR: &str = "mongodb://devuser:devpass@localhost:27017/?authSource=asdb";
 
     // TODO individual databases for each test
+    //#[ctor::ctor]
 
     #[tokio::test]
     async fn asdb_initializes() {
@@ -172,6 +180,20 @@ mod tests {
         let asns = asdb.get_ases(0, 0).await.unwrap();
         println!("{asns:?}");
         assert_eq!(asns.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn inserting_twice_after_creating_index_fails() {
+        let tested_as = simple_as;
+
+        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+
+        asdb.clear_database().await.unwrap();
+        asdb.prepare_database().await.unwrap();
+        asdb.insert_as(&tested_as()).await.unwrap();
+        let second_insert = asdb.insert_as(&tested_as()).await;
+
+        assert!(second_insert.is_err());
     }
 
     fn simple_as() -> As {
