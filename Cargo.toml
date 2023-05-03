@@ -23,3 +23,7 @@ tokio = "1.28.0"
 
 [dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[dev-dependencies]
+ctor = "0.2.0"
+
