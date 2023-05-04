@@ -63,9 +63,10 @@ pub struct Person {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AsrankAsn {
-    pub rank: u32,
-    pub organisation_long: String,
-    pub country: CountryCode,
+    pub rank: u64,
+    pub organization: Option<String>,
+    pub country_iso: String,
+    pub country_name: String,
     pub coordinates: Coord,
     pub degree: AsrankDegree,
     pub prefixes: u64,

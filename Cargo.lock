@@ -52,6 +52,7 @@ dependencies = [
  "asdb",
  "ctor",
  "ipnetwork 0.18.0",
+ "isocountry",
  "maxminddb",
  "mongodb",
  "serde",

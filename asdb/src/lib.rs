@@ -19,7 +19,7 @@ enum Collection {
     PRESONS,
 }
 
-struct Asdb {
+pub struct Asdb {
     client: Client,
     database: String,
 }
@@ -208,9 +208,11 @@ mod tests {
     fn as_with_asrank() -> As {
         let asrank = AsrankAsn {
             rank: 5476,
-            organisation_long: "Technical University of Gdansk, Academic Computer Center TASK"
-                .to_string(),
-            country: isocountry::CountryCode::POL,
+            organization: Some(
+                "Technical University of Gdansk, Academic Computer Center TASK".to_string(),
+            ),
+            country_iso: String::from("PL"),
+            country_name: String::from("Poland"),
             coordinates: Coord {
                 lon: 18.5620133480526,
                 lat: 54.3745639215642,
