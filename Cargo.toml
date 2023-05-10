@@ -8,6 +8,8 @@ members = [
     "asdb",
     "asdbmaker",
     "georesolve",
+    "asmap/frontend",
+    "asmap/server",
 ]
 
 [workspace.package]
@@ -20,10 +22,3 @@ license = "MIT"
 serde = "1.0.160"
 serde_json = "1.0.96"
 tokio = "1.28.0"
-
-[dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread"] }
-
-[dev-dependencies]
-ctor = "0.2.0"
-

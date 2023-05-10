@@ -16,3 +16,9 @@ target/
 *.code-workspace
 *.jsonl
 *.json
+
+target-trunk/
+dist/
+/.log/
+.env
+
