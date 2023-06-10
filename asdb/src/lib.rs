@@ -1,9 +1,7 @@
 mod error;
-pub mod models;
 
-use crate::models::Organization;
+use asdb_models::{As, AsrankAsn, AsrankDegree, Coord, Nic, Organization};
 pub use error::{Error, Result};
-use models::{As, AsrankAsn, AsrankDegree, Coord, Nic};
 
 use futures::stream::TryStreamExt;
 use mongodb::{

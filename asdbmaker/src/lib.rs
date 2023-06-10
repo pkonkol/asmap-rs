@@ -5,10 +5,8 @@ mod whois;
 
 use std::path::Path;
 
-use asdb::{
-    models::{As, AsrankAsn},
-    Asdb,
-};
+use asdb::Asdb;
+use asdb_models::{As, AsrankAsn};
 use asrank::import_asns;
 use error::Result;
 

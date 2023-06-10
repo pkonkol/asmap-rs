@@ -9,11 +9,16 @@ edition = "2021"
 mongodb = "2.5.0"
 tokio = {workspace = true}
 geo-types = "0.7.9" 
-isocountry = "0.3.2"
-ipnetwork = "0.20.0"
-serde = {workspace = true}
 futures = "0.3.28"
+serde = {workspace = true}
 # serde_json = {workspace = true}
+asdb-models = { path = "../asdb-models" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+web-sys = "0.3"
+getrandom = { version = "0.2.9", features = ["js"] }
 
 [dev-dependencies]
 ctor = "0.2.0"

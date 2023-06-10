@@ -1,9 +1,10 @@
-use super::map_component::City;
+use super::{api::get_all_as, map_component::City};
 use gloo_console::log;
 use yew::{html::ImplicitClone, prelude::*};
 
 pub enum Msg {
     CityChosen(City),
+    LoadAllAs,
 }
 
 pub struct Control {
@@ -31,6 +32,13 @@ impl Control {
             <button onclick={cb}>{name}</button>
         }
     }
+
+    fn load_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::LoadAllAs);
+        html! {
+            <button onclick={cb}>{"Load ASes"}</button>
+        }
+    }
 }
 
 impl Component for Control {
@@ -49,6 +57,10 @@ impl Component for Control {
                 log!(format!("Update: {:?}", city.name));
                 ctx.props().select_city.emit(city);
             }
+            Msg::LoadAllAs => {
+                log!("load ASes initiatied");
+                // get_all_as().await;
+            }
         }
         true
     }
@@ -64,7 +76,9 @@ impl Component for Control {
                 <div>
                     {for self.cities.iter().map(|city| Self::button(self, ctx, city.clone()))}
                     </div>
-
+                <div>
+                    {Self::load_button(self, ctx)}
+                </div>
             </div>
         }
     }

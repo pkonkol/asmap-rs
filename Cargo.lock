@@ -111,14 +111,26 @@ dependencies = [
 name = "asdb"
 version = "0.1.0"
 dependencies = [
+ "asdb-models",
  "ctor",
  "futures",
  "geo-types",
- "ipnetwork 0.20.0",
- "isocountry",
+ "getrandom",
+ "js-sys",
  "mongodb",
  "serde",
  "tokio",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "asdb-models"
+version = "0.1.0"
+dependencies = [
+ "ipnetwork",
+ "isocountry",
+ "serde",
 ]
 
 [[package]]
@@ -126,8 +138,9 @@ name = "asdbmaker"
 version = "0.1.0"
 dependencies = [
  "asdb",
+ "asdb-models",
  "ctor",
- "ipnetwork 0.18.0",
+ "ipnetwork",
  "isocountry",
  "maxminddb",
  "mongodb",
@@ -718,6 +731,7 @@ dependencies = [
 name = "frontend"
 version = "0.1.0"
 dependencies = [
+ "asdb-models",
  "console_error_panic_hook",
  "gloo-console",
  "gloo-net",
@@ -878,8 +892,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c85e1d9ab2eadba7e5040d4e09cbd6d072b76a557ad64e797c2cb9d4da21d7e4"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1317,15 +1333,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ipnetwork"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf466541e9d546596ee94f9f69590f89473455f88372423e0008fc1a7daf100e"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "iri-string"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1473,7 +1480,7 @@ version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe2ba61113f9f7a9f0e87c519682d39c43a6f3f79c2cc42c3ba3dda83b1fa334"
 dependencies = [
- "ipnetwork 0.18.0",
+ "ipnetwork",
  "log",
  "memchr",
  "serde",
@@ -2247,6 +2254,8 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "asdb",
+ "asdb-models",
  "axum",
  "axum-extra",
  "clap",

@@ -28,7 +28,9 @@ fn switch(routes: Route) -> Html {
         Route::HelloServer => html! { <HelloServer /> },
         Route::Map => html! { <MapContainer /> },
         Route::Struct => html! { <><Struct /><h1>{ "struct component router" }</h1></> },
-        Route::NotFound => html! { <><Redirect<Route> to={Route::Home}/><h1>{ "test 404\nTODO redirect to /" }</h1></> },
+        Route::NotFound => {
+            html! { <><Redirect<Route> to={Route::Home}/><h1>{ "test 404\nTODO redirect to /" }</h1></> }
+        }
     }
 }
 
@@ -43,11 +45,14 @@ impl Component for Struct {
     type Properties = ();
 
     fn create(ctx: &Context<Self>) -> Self {
-        Self { name: String::from("first struct component"), counter: 1 }
+        Self {
+            name: String::from("first struct component"),
+            counter: 1,
+        }
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        html!{
+        html! {
             <>
             <h1>{"struct component view(), cnt: {self.counter} name: {self.name}  "}<br/>{ &self.name }<br/>{ &self.counter }</h1>
             </>

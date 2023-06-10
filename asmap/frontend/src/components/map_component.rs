@@ -1,8 +1,10 @@
 use gloo_utils::document;
-use leaflet::{LatLng, Map, TileLayer, Marker};
+use leaflet::{LatLng, Map, Marker, TileLayer};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Element, HtmlElement, Node};
 use yew::{html::ImplicitClone, prelude::*};
+
+use super::api::*;
 
 pub enum Msg {}
 
