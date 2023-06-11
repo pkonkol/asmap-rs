@@ -1,14 +1,23 @@
-use axum::body::{boxed, Body};
-use axum::http::{Response, StatusCode};
-use axum::{response::IntoResponse, routing::get, Router};
+use axum::{
+    body::{boxed, Body},
+    extract::{
+        ws::{Message, WebSocket},
+        WebSocketUpgrade,
+    },
+    http::{Response, StatusCode},
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
 use clap::Parser;
-use std::net::{IpAddr, Ipv6Addr, SocketAddr};
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{
+    net::{IpAddr, Ipv6Addr, SocketAddr},
+    path::PathBuf,
+    str::FromStr,
+};
 use tokio::fs;
 use tower::{ServiceBuilder, ServiceExt};
-use tower_http::services::ServeDir;
-use tower_http::trace::TraceLayer;
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
 // Setup the command line interface with clap.
 #[derive(Parser, Debug)]
@@ -43,7 +52,8 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let app = Router::new()
-        .route("/api/hello", get(hello))
+        .route("/hello", get(hello))
+        .route("/as", get(handler))
         .fallback_service(get(|req| async move {
             match ServeDir::new(&opt.static_dir).oneshot(req).await {
                 Ok(res) => {
@@ -75,6 +85,7 @@ async fn main() {
                     .expect("error response"),
             }
         }))
+        .layer(CorsLayer::permissive())
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
 
     let sock_addr = SocketAddr::from((
@@ -92,4 +103,41 @@ async fn main() {
 
 async fn hello() -> impl IntoResponse {
     "hello from server!"
+}
+
+async fn handler(ws: WebSocketUpgrade) -> impl IntoResponse {
+    ws.on_upgrade(handle_socket)
+}
+
+async fn handle_socket(mut socket: WebSocket) {
+    let r = socket.send(Message::Ping(vec![8, 2, 3])).await;
+    println!("ping {r:?}");
+    let r = socket
+        .send(Message::Text("hello websocket".to_owned()))
+        .await;
+    println!("t {r:?}");
+    let r = socket.send(Message::Binary(vec![138, 0])).await;
+    println!("b {r:?}");
+    //    let r = socket.send(Message::Close(None)).await;
+    //    println!("c {r:?}");
+    while let Some(msg) = socket.recv().await {
+        let msg = if let Ok(msg) = msg {
+            println!("msg is {msg:?}");
+            msg
+        } else {
+            println!("client disconnected");
+            return;
+        };
+
+        if let Message::Text(t) = msg {
+            if socket
+                .send(Message::Text(format!("received text: {t}")))
+                .await
+                .is_err()
+            {
+                println!("client disconnected on resend");
+                return;
+            };
+        }
+    }
 }

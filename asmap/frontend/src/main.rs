@@ -10,13 +10,9 @@ use yew_router::prelude::*;
 #[derive(Clone, Routable, PartialEq)]
 enum Route {
     #[at("/")]
-    Home,
+    Map,
     #[at("/hello-server")]
     HelloServer,
-    #[at("/map")]
-    Map,
-    #[at("/struct")]
-    Struct,
     #[not_found]
     #[at("/404")]
     NotFound,
@@ -24,38 +20,10 @@ enum Route {
 
 fn switch(routes: Route) -> Html {
     match routes {
-        Route::Home => html! { <h1>{ "Hello Frontend" }</h1> },
         Route::HelloServer => html! { <HelloServer /> },
         Route::Map => html! { <MapContainer /> },
-        Route::Struct => html! { <><Struct /><h1>{ "struct component router" }</h1></> },
         Route::NotFound => {
-            html! { <><Redirect<Route> to={Route::Home}/><h1>{ "test 404\nTODO redirect to /" }</h1></> }
-        }
-    }
-}
-
-struct Struct {
-    name: String,
-    counter: i32,
-}
-
-impl Component for Struct {
-    type Message = ();
-
-    type Properties = ();
-
-    fn create(ctx: &Context<Self>) -> Self {
-        Self {
-            name: String::from("first struct component"),
-            counter: 1,
-        }
-    }
-
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        html! {
-            <>
-            <h1>{"struct component view(), cnt: {self.counter} name: {self.name}  "}<br/>{ &self.name }<br/>{ &self.counter }</h1>
-            </>
+            html! { <><Redirect<Route> to={Route::Map}/><h1>{ "test 404\nTODO redirect to /" }</h1></> }
         }
     }
 }
@@ -125,5 +93,4 @@ fn main() {
     console_error_panic_hook::set_once();
     web_sys::console::log_1(&"console websys test".into());
     yew::Renderer::<App>::new().render();
-    // yew::Renderer::<Map>::new().render();
 }
