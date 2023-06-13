@@ -21,16 +21,13 @@ pub async fn as_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
 }
 
 pub async fn handle_as_socket(mut socket: WebSocket) {
-    socket.send(Message::Text("db".to_owned())).await.unwrap();
+    //socket.send(Message::Text("db".to_owned())).await.unwrap();
     let asdb = Asdb::new(TMP_CONN_STR, TMP_DB).await.unwrap();
     let ases = asdb.get_ases(0, 0).await.unwrap();
 
     let mut buf = Vec::<u8>::new();
     ciborium::into_writer(&ases, &mut buf).unwrap();
-    socket
-        .send(Message::Text("start".to_owned()))
-        .await
-        .unwrap();
+    println!("encoded {ases:?} as {buf:?}");
     socket.send(Message::Binary(buf)).await.unwrap();
     socket
         .send(Message::Text("finish".to_owned()))
