@@ -14,7 +14,7 @@ enum Collection {
     ASNS,
     ORGANIZATIONS,
     PREFIXES,
-    PRESONS,
+    PERSONS,
 }
 
 pub struct Asdb {

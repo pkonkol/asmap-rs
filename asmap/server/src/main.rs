@@ -1,11 +1,10 @@
+mod handlers;
+
+use handlers::{as_handler, hello, ws_test_handler};
+
 use axum::{
     body::{boxed, Body},
-    extract::{
-        ws::{Message, WebSocket},
-        WebSocketUpgrade,
-    },
     http::{Response, StatusCode},
-    response::IntoResponse,
     routing::get,
     Router,
 };
@@ -53,7 +52,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/hello", get(hello))
-        .route("/as", get(handler))
+        .route("/ws-test", get(ws_test_handler))
+        .route("/as", get(as_handler))
         .fallback_service(get(|req| async move {
             match ServeDir::new(&opt.static_dir).oneshot(req).await {
                 Ok(res) => {
@@ -99,45 +99,4 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .expect("Unable to start server");
-}
-
-async fn hello() -> impl IntoResponse {
-    "hello from server!"
-}
-
-async fn handler(ws: WebSocketUpgrade) -> impl IntoResponse {
-    ws.on_upgrade(handle_socket)
-}
-
-async fn handle_socket(mut socket: WebSocket) {
-    let r = socket.send(Message::Ping(vec![8, 2, 3])).await;
-    println!("ping {r:?}");
-    let r = socket
-        .send(Message::Text("hello websocket".to_owned()))
-        .await;
-    println!("t {r:?}");
-    let r = socket.send(Message::Binary(vec![138, 0])).await;
-    println!("b {r:?}");
-    //    let r = socket.send(Message::Close(None)).await;
-    //    println!("c {r:?}");
-    while let Some(msg) = socket.recv().await {
-        let msg = if let Ok(msg) = msg {
-            println!("msg is {msg:?}");
-            msg
-        } else {
-            println!("client disconnected");
-            return;
-        };
-
-        if let Message::Text(t) = msg {
-            if socket
-                .send(Message::Text(format!("received text: {t}")))
-                .await
-                .is_err()
-            {
-                println!("client disconnected on resend");
-                return;
-            };
-        }
-    }
 }

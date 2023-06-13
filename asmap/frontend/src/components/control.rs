@@ -10,7 +10,6 @@ pub enum Msg {
     DrawAllAs(Vec<As>),
     Error,
 }
-
 pub struct Control {
     cities: Vec<City>,
 }

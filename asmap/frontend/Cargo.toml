@@ -20,3 +20,4 @@ yew = { version = "0.20", features = ["csr"] }
 yew-router = "0.17.0"
 asdb-models = { path = "../../asdb-models" }
 futures = "0.3.28"
+ciborium = "0.2.1"
