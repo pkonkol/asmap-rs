@@ -732,6 +732,7 @@ name = "frontend"
 version = "0.1.0"
 dependencies = [
  "asdb-models",
+ "bincode",
  "console_error_panic_hook",
  "gloo-console",
  "gloo-net",
@@ -2258,6 +2259,7 @@ dependencies = [
  "asdb-models",
  "axum",
  "axum-extra",
+ "bincode",
  "clap",
  "log",
  "tokio",

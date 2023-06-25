@@ -71,6 +71,8 @@ impl Component for Control {
                 });
             }
             Msg::DrawAllAs(ases) => {
+                let ases_str = format!("{:?}", ases);
+                log!("ASES ARE:\n{}", ases_str);
                 log!("ASes fetched, drawing them");
             }
             Msg::Error => {
