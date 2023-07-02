@@ -29,6 +29,7 @@ impl ImplicitClone for Cities {}
 pub struct Props {
     pub cities: Cities,
     pub select_city: Callback<City>,
+    pub draw_ases: Callback<Vec<As>>,
 }
 
 impl Control {

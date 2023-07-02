@@ -6,10 +6,12 @@ use crate::components::{
     control::{Cities, Control},
     map_component::{City, MapComponent, Point},
 };
+use asdb_models::As;
 use yew::prelude::*;
 
 pub enum Msg {
     SelectCity(City),
+    DrawAses(Vec<As>),
 }
 
 pub struct MapContainer {
@@ -53,6 +55,9 @@ impl Component for MapContainer {
                     .unwrap()
                     .clone();
             }
+            Msg::DrawAses(v) => {
+                println!("")
+            }
         }
         true
     }
@@ -63,10 +68,11 @@ impl Component for MapContainer {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(Msg::SelectCity);
+        let draw_as_cb = ctx.link().callback(Msg::DrawAses);
         html! {
             <>
                 <MapComponent city={&self.city}  />
-                <Control select_city={cb} cities={&self.cities}/>
+                <Control select_city={cb} draw_ases={draw_as_cb} cities={&self.cities}/>
             </>
         }
     }
