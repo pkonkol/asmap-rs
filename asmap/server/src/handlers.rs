@@ -1,10 +1,7 @@
-use asdb::Asdb;
-use asdb_models::As;
-
 use axum::{
     extract::{
         ws::{Message, WebSocket},
-        WebSocketUpgrade, State,
+        State, WebSocketUpgrade,
     },
     response::IntoResponse,
 };
@@ -12,12 +9,14 @@ use tracing::info;
 
 use crate::state::ServerState;
 
-pub async fn as_handler(ws: WebSocketUpgrade, State(state): State<ServerState>) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| {handle_as_socket(socket, state)})
+pub async fn as_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<ServerState>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_as_socket(socket, state))
 }
 
 pub async fn handle_as_socket(mut socket: WebSocket, state: ServerState) {
-    //socket.send(Message::Text("db".to_owned())).await.unwrap();
     info!("started handling as socket");
     let ases = state.asdb.get_ases(10, 0).await.unwrap();
 

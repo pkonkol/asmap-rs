@@ -757,6 +757,7 @@ dependencies = [
 name = "frontend"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "asdb-models",
  "bincode",
  "console_error_panic_hook",

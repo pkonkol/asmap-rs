@@ -4,8 +4,6 @@ use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Element, HtmlElement, Node};
 use yew::{html::ImplicitClone, prelude::*};
 
-use super::api::*;
-
 pub enum Msg {}
 
 pub struct MapComponent {

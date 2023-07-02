@@ -21,3 +21,4 @@ yew-router = "0.17.0"
 asdb-models = { path = "../../asdb-models" }
 futures = "0.3.28"
 bincode = "1.3.3"
+anyhow = "1.0.71"

@@ -1,6 +1,9 @@
 use asdb_models::As;
 
-use super::{api::{get_all_as, debug_ws}, map_component::City};
+use super::{
+    api::{debug_ws, get_all_as},
+    map_component::City,
+};
 use gloo_console::log;
 use yew::{html::ImplicitClone, prelude::*};
 
