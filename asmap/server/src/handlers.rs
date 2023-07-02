@@ -4,31 +4,27 @@ use asdb_models::As;
 use axum::{
     extract::{
         ws::{Message, WebSocket},
-        WebSocketUpgrade,
+        WebSocketUpgrade, State,
     },
     response::IntoResponse,
 };
+use tracing::info;
 
-const TMP_DB: &str = "asdb";
-const TMP_CONN_STR: &str = "mongodb://devuser:devpass@localhost:27017/?authSource=asdb";
+use crate::state::ServerState;
 
-pub async fn hello() -> impl IntoResponse {
-    "hello from server!"
+pub async fn as_handler(ws: WebSocketUpgrade, State(state): State<ServerState>) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| {handle_as_socket(socket, state)})
 }
 
-pub async fn as_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
-    ws.on_upgrade(handle_as_socket)
-}
-
-pub async fn handle_as_socket(mut socket: WebSocket) {
+pub async fn handle_as_socket(mut socket: WebSocket, state: ServerState) {
     //socket.send(Message::Text("db".to_owned())).await.unwrap();
-    let asdb = Asdb::new(TMP_CONN_STR, TMP_DB).await.unwrap();
-    let ases = asdb.get_ases(0, 0).await.unwrap();
+    info!("started handling as socket");
+    let ases = state.asdb.get_ases(10, 0).await.unwrap();
 
-    let mut buf = Vec::<u8>::new();
-    ciborium::into_writer(&ases, &mut buf).unwrap();
-    println!("encoded {ases:?} as {buf:?}");
-    socket.send(Message::Binary(buf)).await.unwrap();
+    let serialized = bincode::serialize(&ases).unwrap();
+    info!("encoded ases");
+    socket.send(Message::Binary(serialized)).await.unwrap();
+    info!("sent encoded ases");
     socket
         .send(Message::Text("finish".to_owned()))
         .await

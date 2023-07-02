@@ -1,6 +1,6 @@
 use asdb_models::As;
 
-use super::{api::get_all_as, map_component::City};
+use super::{api::{get_all_as, debug_ws}, map_component::City};
 use gloo_console::log;
 use yew::{html::ImplicitClone, prelude::*};
 
@@ -9,6 +9,7 @@ pub enum Msg {
     LoadAllAs,
     DrawAllAs(Vec<As>),
     Error,
+    Debug,
 }
 pub struct Control {
     cities: Vec<City>,
@@ -42,6 +43,13 @@ impl Control {
             <button onclick={cb}>{"Load ASes"}</button>
         }
     }
+
+    fn debug_ws_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::Debug);
+        html! {
+            <button onclick={cb}>{"Debug WS"}</button>
+        }
+    }
 }
 
 impl Component for Control {
@@ -69,7 +77,17 @@ impl Component for Control {
                     }
                 });
             }
+            Msg::Debug => {
+                log!("debug executed");
+                ctx.link().send_future(async {
+                    let res = debug_ws().await;
+                    log!("res: {}", format!("{res:?}"));
+                    Msg::Error
+                });
+            }
             Msg::DrawAllAs(ases) => {
+                let ases_str = format!("{:?}", ases);
+                log!("ASES ARE:\n{}", ases_str);
                 log!("ASes fetched, drawing them");
             }
             Msg::Error => {
@@ -92,6 +110,9 @@ impl Component for Control {
                     </div>
                 <div>
                     {Self::load_as_button(self, ctx)}
+                </div>
+                <div>
+                    {Self::debug_ws_button(self, ctx)}
                 </div>
             </div>
         }

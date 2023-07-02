@@ -26,7 +26,7 @@ pub async fn get_all_as() -> Result<Vec<As>, ()> {
         ases = match x {
             Message::Bytes(b) => {
                 log!("got vec of bytes ", format!("{b:?}"));
-                ciborium::from_reader(b.as_slice()).unwrap()
+                bincode::deserialize(&b).unwrap()
             }
             Message::Text(t) => {
                 log! {"got text message: ", t};
@@ -42,19 +42,7 @@ pub async fn get_all_as() -> Result<Vec<As>, ()> {
 }
 
 pub async fn debug_ws() -> Result<Vec<As>, ()> {
-    let resp = Request::get(&format!("http://{API_URL}/hello"))
-        .send()
-        .await
-        .unwrap();
-    log!("http hello resp is {resp:?}");
-    // let body = resp.body().unwrap();
-    // body should be json
-    let body = resp.text().await.unwrap();
-    log!("body is {:?}", body);
-    //let json: Vec<As> = resp.json().await.unwrap();
-    //println!("json is: {json:?}");
-    //Ok(json)
-    let mut ws = WebSocket::open(&format!("ws://{API_URL}/as")).unwrap();
+    let mut ws = WebSocket::open(&format!("ws://{API_URL}/ws-test")).unwrap();
     let t = ws.extensions();
     log!("{}", t);
     let t = ws.protocol();
