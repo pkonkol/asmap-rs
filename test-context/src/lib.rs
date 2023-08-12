@@ -4,6 +4,7 @@ use thiserror::Error;
 
 /// Returns a guard handle to the database with randomly created alphanumeric string as a name
 /// The database is dropped when the handle is dropped
+/// It only works in multi threaded runtimes, tests must use #[tokio::test(flavor = "multi_thread")]
 ///
 /// # Arguments
 ///
@@ -19,7 +20,7 @@ use thiserror::Error;
 /// ```
 
 pub struct TestContext {
-    db_name: String,
+    pub db_name: String,
     root_conn_str: String,
 }
 

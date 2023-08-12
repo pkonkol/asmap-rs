@@ -9,6 +9,7 @@ use asdb::Asdb;
 use asdb_models::{As, AsrankAsn};
 use asrank::import_asns;
 use error::Result;
+use test_context::TestContext;
 
 const ASNS_PATH: &str = "inputs/asns.jsonl";
 
@@ -46,42 +47,50 @@ mod tests {
     use std::fs::read_to_string;
 
     // const ASRANK_ASNS_PATH: &str = "asrank/asns.jsonl";
-    const ASDB_CONN_STR: &str = "mongodb://devuser:devpass@localhost:27017/?authSource=asmap";
-    const ASDB_DB: &str = "asmap";
+    const ASDB_CONN_STR: &str = "mongodb://root:devrootpass@localhost:27017";
+    // const ASDB_DB: &str = "asmap";
     const ASNS_COLLECTION: &str = "asns";
     // const ASRANK_ORGS_PATH: &str = "asrank/organizations.jsonl";
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn import_asrank_asns_fills_asdb() {
-        let m = Asdbmaker::new(ASDB_CONN_STR, ASDB_DB).await.unwrap();
+        let context = TestContext::new(ASDB_CONN_STR).await.unwrap();
+
+        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name)
+            .await
+            .unwrap();
         m.clear_database().await.unwrap();
         m.import_asrank_asns().await.unwrap();
 
         let lines = count_lines(&ASNS_PATH);
-        let docs = count_asn_entries().await;
+        let docs = count_asn_entries(&context.db_name).await;
 
         assert_eq!(lines, docs);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn import_asrank_asns_twice_does_not_duplicate_entries() {
-        let m = Asdbmaker::new(ASDB_CONN_STR, ASDB_DB).await.unwrap();
+        let context = TestContext::new(ASDB_CONN_STR).await.unwrap();
+
+        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name)
+            .await
+            .unwrap();
         m.clear_database().await.unwrap();
         m.import_asrank_asns().await.unwrap();
 
         let lines = count_lines(&ASNS_PATH);
-        let docs = count_asn_entries().await;
+        let docs = count_asn_entries(&context.db_name).await;
 
         assert_eq!(lines, docs);
 
         m.import_asrank_asns().await.unwrap();
 
         let lines = count_lines(&ASNS_PATH);
-        let docs = count_asn_entries().await;
+        let docs = count_asn_entries(&context.db_name).await;
 
         assert_eq!(lines, docs);
 
-        let ases = get_asn_entries(5550).await;
+        let ases = get_asn_entries(5550, &context.db_name).await;
         assert_eq!(ases.len(), 1);
 
         // verify find for given AS returns only one
@@ -92,19 +101,19 @@ mod tests {
         read_to_string(path).unwrap().lines().map(|_| 1).sum()
     }
 
-    async fn count_asn_entries() -> u64 {
+    async fn count_asn_entries(db_name: &str) -> u64 {
         let mut client_options = ClientOptions::parse(ASDB_CONN_STR).await.unwrap();
-        client_options.default_database = Some(ASDB_DB.to_string());
+        client_options.default_database = Some(db_name.to_string());
         let client = Client::with_options(client_options).unwrap();
-        let c: Collection<As> = client.database(ASDB_DB).collection(ASNS_COLLECTION);
+        let c: Collection<As> = client.database(db_name).collection(ASNS_COLLECTION);
         c.count_documents(None, None).await.unwrap()
     }
 
-    async fn get_asn_entries(asn: u32) -> Vec<As> {
+    async fn get_asn_entries(asn: u32, db_name: &str) -> Vec<As> {
         let mut client_options = ClientOptions::parse(ASDB_CONN_STR).await.unwrap();
-        client_options.default_database = Some(ASDB_DB.to_string());
+        client_options.default_database = Some(db_name.to_string());
         let client = Client::with_options(client_options).unwrap();
-        let c: Collection<As> = client.database(ASDB_DB).collection(ASNS_COLLECTION);
+        let c: Collection<As> = client.database(db_name).collection(ASNS_COLLECTION);
         let cur = c.find(doc! {"asn": asn}, None).await.unwrap();
         cur.try_collect().await.unwrap()
     }
