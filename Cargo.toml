@@ -11,6 +11,7 @@ members = [
     "georesolve",
     "asmap/frontend",
     "asmap/server",
+    "test-context",
 ]
 
 [workspace.package]

@@ -8,12 +8,15 @@ pub use error::{Error, Result};
 use isocountry::CountryCode;
 use serde_json::Value;
 use std::{fs::File, path::Path};
+use tokio::process::Command;
 
 const API_URL: &str = "https://api.asrank.caida.org/v2/graphql";
 
-pub async fn import_asns(asns: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
+/// Imports asns from "asns.jsonl" file which can be obtained from asrank API using
+/// asrank-download.py from https://api.asrank.caida.org/dev/docs
+pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
     // TODO Result<u64> with n inserted
-    let f = File::open(asns)?;
+    let f = File::open(file)?;
     // let json: Vec<Value> = serde_json::from_reader(f)?;
     // TODO catch unwind form  this deserializer and return jsonl error
     let json: Vec<As> = serde_json::Deserializer::from_reader(f)
@@ -64,8 +67,10 @@ pub async fn import_asnlinks() {
     todo!()
 }
 
+/// download the asns from https://api.asrank.caida.org
+/// TODO https://lib.rs/crates/graphql_client use this this to reimplement asrank-download.py
 pub async fn download_asns() {
-    todo!("Reimplement graphQL requests based on caida provided asrank-download.py")
+    todo!()
 }
 
 pub async fn download_orgs() {

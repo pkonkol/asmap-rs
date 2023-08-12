@@ -41,7 +41,7 @@ impl Asdb {
         Ok(())
     }
 
-    async fn clear_database(&self) -> Result<()> {
+    pub async fn clear_database(&self) -> Result<()> {
         struct T {}
         for c in ["asns", "organisations", "prefixes", "persons"] {
             self.client

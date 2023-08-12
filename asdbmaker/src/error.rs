@@ -8,6 +8,7 @@ pub enum Error {
     DatabaseError(String),
     JsonError(String),
     IoError(String),
+    InitError,
 }
 
 impl Display for Error {
