@@ -125,6 +125,7 @@ dependencies = [
  "js-sys",
  "mongodb",
  "serde",
+ "test-context",
  "tokio",
  "wasm-bindgen",
  "web-sys",

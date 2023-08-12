@@ -120,76 +120,93 @@ impl Asdb {
 
 #[cfg(test)]
 mod tests {
+    use test_context::TestContext;
+
     use super::*;
 
-    const TESTED_DB: &str = "asdb";
-    const TESTED_CONN_STR: &str = "mongodb://devuser:devpass@localhost:27017/?authSource=asdb";
+    //const TESTED_DB: &str = "asmap";
+    const TESTED_CONN_STR: &str = "mongodb://root:devrootpass@localhost:27017";
 
     // TODO individual databases for each test
     //#[ctor::ctor]
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn asdb_initializes() {
-        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
+
         asdb.ping().await.unwrap();
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn get_asns_executes() {
-        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
+
         let asns = asdb.get_ases(0, 0).await.unwrap();
         println!("{asns:?}");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn insert_asn_executes() {
         let tested_as = simple_as;
-        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
+
         asdb.insert_as(&tested_as()).await.unwrap();
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn insert_then_get_asns() {
         let tested_as = as_with_asrank;
         let tested_asn = tested_as().asn;
 
-        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
+
         asdb.insert_as(&tested_as()).await.unwrap();
         let asns = asdb.get_ases(0, 0).await.unwrap();
         println!("{asns:?}");
         assert!(asns.iter().find(|x| x.asn == tested_asn).is_some());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn insert_then_get_asn() {
         let tested_as = as_with_asrank;
         let tested_asn = tested_as().asn;
 
-        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
         asdb.insert_as(&tested_as()).await.unwrap();
         let asn = asdb.get_as(tested_asn).await.unwrap();
         println!("{asn:?}");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn clear_database_then_get_asns() {
-        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
         asdb.clear_database().await.unwrap();
         let asns = asdb.get_ases(0, 0).await.unwrap();
         println!("{asns:?}");
         assert_eq!(asns.len(), 0);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn inserting_twice_after_creating_index_fails() {
         let tested_as = simple_as;
 
-        let asdb = Asdb::new(TESTED_CONN_STR, TESTED_DB).await.unwrap();
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
 
         asdb.clear_database().await.unwrap();
         asdb.prepare_database().await.unwrap();
         asdb.insert_as(&tested_as()).await.unwrap();
+        let x = asdb.get_ases(0, 0).await.unwrap();
+        println!("first: {x:?}");
         let second_insert = asdb.insert_as(&tested_as()).await;
+        let x = asdb.get_ases(0, 0).await.unwrap();
+        println!("second: {x:?}");
 
         assert!(second_insert.is_err());
     }
