@@ -27,10 +27,12 @@ impl Asdb {
         let mut client_options = ClientOptions::parse(conn_str).await?;
         client_options.default_database = Some(database.to_string());
         let client = Client::with_options(client_options)?;
-        Ok(Asdb {
+        let s = Asdb {
             client,
             database: database.to_owned(),
-        })
+        };
+        Self::prepare_database(&s).await?;
+        Ok(s)
     }
 
     async fn ping(&self) -> Result<()> {
@@ -120,6 +122,7 @@ impl Asdb {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
     use test_context::TestContext;
 
     use super::*;
@@ -143,8 +146,7 @@ mod tests {
         let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
         let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
 
-        let asns = asdb.get_ases(0, 0).await.unwrap();
-        println!("{asns:?}");
+        asdb.get_ases(0, 0).await.unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -166,7 +168,6 @@ mod tests {
 
         asdb.insert_as(&tested_as()).await.unwrap();
         let asns = asdb.get_ases(0, 0).await.unwrap();
-        println!("{asns:?}");
         assert!(asns.iter().find(|x| x.asn == tested_asn).is_some());
     }
 
@@ -179,7 +180,11 @@ mod tests {
         let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
         asdb.insert_as(&tested_as()).await.unwrap();
         let asn = asdb.get_as(tested_asn).await.unwrap();
-        println!("{asn:?}");
+        assert_eq!(
+            tested_as().asrank_data.unwrap().rank,
+            asn.asrank_data.unwrap().rank
+        );
+        assert_eq!(tested_as().whois_data.is_none(), asn.whois_data.is_none());
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -188,12 +193,11 @@ mod tests {
         let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
         asdb.clear_database().await.unwrap();
         let asns = asdb.get_ases(0, 0).await.unwrap();
-        println!("{asns:?}");
         assert_eq!(asns.len(), 0);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn inserting_twice_after_creating_index_fails() {
+    async fn inserting_twice_does_not_duplicate() {
         let tested_as = simple_as;
 
         let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
@@ -202,13 +206,61 @@ mod tests {
         asdb.clear_database().await.unwrap();
         asdb.prepare_database().await.unwrap();
         asdb.insert_as(&tested_as()).await.unwrap();
-        let x = asdb.get_ases(0, 0).await.unwrap();
-        println!("first: {x:?}");
+        let first_get = asdb.get_ases(0, 0).await.unwrap();
         let second_insert = asdb.insert_as(&tested_as()).await;
-        let x = asdb.get_ases(0, 0).await.unwrap();
-        println!("second: {x:?}");
+        let second_get = asdb.get_ases(0, 0).await.unwrap();
 
         assert!(second_insert.is_err());
+        assert_eq!(first_get.len(), second_get.len());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn inserting_twice_many_does_not_duplicate() {
+        let tested_ases = simple_vec_as;
+
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
+
+        asdb.clear_database().await.unwrap();
+        asdb.prepare_database().await.unwrap();
+        asdb.insert_ases(&tested_ases()).await.unwrap();
+
+        let first_get = asdb.get_ases(0, 0).await.unwrap();
+
+        let second_insert = asdb.insert_ases(&tested_ases()).await;
+        let second_get = asdb.get_ases(0, 0).await.unwrap();
+
+        assert!(second_insert.is_err());
+        assert_eq!(first_get.len(), second_get.len());
+        assert_eq!(
+            first_get.len(),
+            first_get.into_iter().unique_by(|x| x.asn).count()
+        );
+        assert_eq!(
+            second_get.len(),
+            second_get.into_iter().unique_by(|x| x.asn).count()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn prepare_database_multiple_times_does_not_break_database() {
+        let tested_as = simple_as;
+
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
+
+        asdb.clear_database().await.unwrap();
+        asdb.prepare_database().await.unwrap();
+        asdb.prepare_database().await.unwrap();
+        asdb.insert_as(&tested_as()).await.unwrap();
+        let before_prepare = asdb.get_ases(0, 0).await.unwrap();
+        asdb.prepare_database().await.unwrap();
+        let after_prepare = asdb.get_ases(0, 0).await.unwrap();
+        assert_eq!(before_prepare.len(), after_prepare.len());
+        assert_eq!(
+            after_prepare.len(),
+            after_prepare.into_iter().unique_by(|x| x.asn).count()
+        );
     }
 
     fn simple_as() -> As {
@@ -218,6 +270,29 @@ mod tests {
             ipnetdb_data: None,
             whois_data: None,
         }
+    }
+
+    fn simple_vec_as() -> Vec<As> {
+        vec![
+            As {
+                asn: 5551,
+                asrank_data: None,
+                ipnetdb_data: None,
+                whois_data: None,
+            },
+            As {
+                asn: 5552,
+                asrank_data: None,
+                ipnetdb_data: None,
+                whois_data: None,
+            },
+            As {
+                asn: 5553,
+                asrank_data: None,
+                ipnetdb_data: None,
+                whois_data: None,
+            },
+        ]
     }
 
     fn as_with_asrank() -> As {
