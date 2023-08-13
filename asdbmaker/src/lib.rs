@@ -3,7 +3,7 @@ mod error;
 mod ipnetdb;
 mod whois;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use asdb::Asdb;
 use asdb_models::{As, AsrankAsn};
@@ -11,17 +11,21 @@ use asrank::import_asns;
 use error::Result;
 use test_context::TestContext;
 
-const ASNS_PATH: &str = "inputs/asns.jsonl";
+const ASNS: &str = "asns.jsonl";
 
 // TODO manage asdb object better
 pub struct Asdbmaker {
     a: Asdb,
+    inputs: PathBuf,
 }
 
 impl Asdbmaker {
-    pub async fn new(conn_str: &str, database: &str) -> Result<Self> {
+    pub async fn new(conn_str: &str, database: &str, inputs_path: &str) -> Result<Self> {
         let a = Asdb::new(conn_str, database).await?;
-        Ok(Self { a })
+        Ok(Self {
+            a,
+            inputs: PathBuf::from(inputs_path),
+        })
     }
 
     pub async fn clear_database(&self) -> Result<()> {
@@ -30,7 +34,9 @@ impl Asdbmaker {
     }
 
     pub async fn import_asrank_asns(&self) -> Result<()> {
-        import_asns(&ASNS_PATH, &self.a).await.map_err(|e| e.into())
+        import_asns(&self.inputs.join(&ASNS), &self.a)
+            .await
+            .map_err(|e| e.into())
     }
 
     pub async fn import_ipnetdb_prefixes() -> Result<()> {
@@ -50,19 +56,20 @@ mod tests {
     const ASDB_CONN_STR: &str = "mongodb://root:devrootpass@localhost:27017";
     // const ASDB_DB: &str = "asmap";
     const ASNS_COLLECTION: &str = "asns";
+    const INPUTS_PATH: &str = "inputs/test-data";
     // const ASRANK_ORGS_PATH: &str = "asrank/organizations.jsonl";
 
     #[tokio::test(flavor = "multi_thread")]
     async fn import_asrank_asns_fills_asdb() {
         let context = TestContext::new(ASDB_CONN_STR).await.unwrap();
 
-        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name)
+        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name, INPUTS_PATH)
             .await
             .unwrap();
         m.clear_database().await.unwrap();
         m.import_asrank_asns().await.unwrap();
 
-        let lines = count_lines(&ASNS_PATH);
+        let lines = count_lines(&PathBuf::from(INPUTS_PATH).join(ASNS));
         let docs = count_asn_entries(&context.db_name).await;
 
         assert_eq!(lines, docs);
@@ -72,20 +79,20 @@ mod tests {
     async fn import_asrank_asns_twice_does_not_duplicate_entries() {
         let context = TestContext::new(ASDB_CONN_STR).await.unwrap();
 
-        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name)
+        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name, INPUTS_PATH)
             .await
             .unwrap();
         m.clear_database().await.unwrap();
         m.import_asrank_asns().await.unwrap();
 
-        let lines = count_lines(&ASNS_PATH);
+        let lines = count_lines(&PathBuf::from(INPUTS_PATH).join(ASNS));
         let docs = count_asn_entries(&context.db_name).await;
 
         assert_eq!(lines, docs);
 
         m.import_asrank_asns().await.unwrap();
 
-        let lines = count_lines(&ASNS_PATH);
+        let lines = count_lines(&PathBuf::from(INPUTS_PATH).join(ASNS));
         let docs = count_asn_entries(&context.db_name).await;
 
         assert_eq!(lines, docs);
