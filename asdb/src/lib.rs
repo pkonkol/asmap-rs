@@ -316,6 +316,7 @@ mod tests {
             },
             prefixes: 1,
             addresses: 65536,
+            name: String::from("Test Name"),
         };
         As {
             asn: 5550,

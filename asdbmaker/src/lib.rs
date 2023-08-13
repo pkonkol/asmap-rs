@@ -6,12 +6,8 @@ mod whois;
 use std::path::{Path, PathBuf};
 
 use asdb::Asdb;
-use asdb_models::{As, AsrankAsn};
 use asrank::import_asns;
 use error::Result;
-use test_context::TestContext;
-
-const ASNS: &str = "asns.jsonl";
 
 // TODO manage asdb object better
 pub struct Asdbmaker {
@@ -51,10 +47,13 @@ mod tests {
     use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
 
     use super::*;
+    use asdb_models::As;
     use std::fs::read_to_string;
+    use test_context::TestContext;
 
     const ASDB_CONN_STR: &str = "mongodb://root:devrootpass@localhost:27017";
     const ASNS_COLLECTION: &str = "asns";
+    const ASNS: &str = "asns.jsonl";
     const ASNS2: &str = "asns2.jsonl";
     const INPUTS_PATH: &str = "inputs/test-data";
 

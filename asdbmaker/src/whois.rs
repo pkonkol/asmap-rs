@@ -15,12 +15,12 @@ impl Display for Error {
 impl std::error::Error for Error {}
 // TODO manually implement Froms from Command or other used libs to use the ? operator
 impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
+    fn from(_e: std::io::Error) -> Self {
         Error::FailedCommand
     }
 }
 impl From<FromUtf8Error> for Error {
-    fn from(e: FromUtf8Error) -> Self {
+    fn from(_e: FromUtf8Error) -> Self {
         Error::FailedUTF8Parse
     }
 }
@@ -48,11 +48,11 @@ async fn get_org_details(org: &str) -> Result<String> {
     Ok(stdout)
 }
 
-async fn get_org_for_asn(asn: u32) -> String {
+async fn get_org_for_asn(_asn: u32) -> String {
     todo!()
 }
 
-async fn get_people_for_org(org: &str) -> String {
+async fn get_people_for_org(_org: &str) -> String {
     todo!()
 }
 

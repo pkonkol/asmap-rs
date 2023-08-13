@@ -13,13 +13,13 @@ pub enum Error {
     #[error("bulk write error")]
     BulkWrite(String),
     #[error("bulk write duplicates found")]
-    BulkWriteDuplicates,
+    BulkWriteDuplicates(u64),
 }
 
 impl From<asdb::Error> for Error {
     fn from(e: asdb::Error) -> Self {
         match e {
-            asdb::Error::DuplicatesFound(w) => Self::BulkWriteDuplicates,
+            asdb::Error::DuplicatesFound(w) => Self::BulkWriteDuplicates(w),
             asdb::Error::BulkWrite(v) => Self::BulkWrite(v),
             _ => Self::Database(e.to_string()),
         }

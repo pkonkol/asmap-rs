@@ -8,27 +8,26 @@ pub use error::{Error, Result};
 use serde_json::Value;
 use std::{fs::File, path::Path};
 
-const API_URL: &str = "https://api.asrank.caida.org/v2/graphql";
+//const API_URL: &str = "https:///api.asrank.caida.org/v2/graphql";
 
 /// Imports asns from "asns.jsonl" file which can be obtained from asrank API using
 /// asrank-download.py from https://api.asrank.caida.org/dev/docs
 pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
-    // TODO Result<u64> with n inserted
     let f = File::open(file)?;
-    // let json: Vec<Value> = serde_json::from_reader(f)?;
+
     // TODO catch unwind form  this deserializer and return jsonl error
+    // why the catch unwind even? don't remember
     let json: Vec<As> = serde_json::Deserializer::from_reader(f)
         .into_iter::<Value>()
         .map(|x| {
             let line = x.unwrap();
-            //println!("line: {line:#?}");
             As {
                 asn: line["asn"].as_str().unwrap().parse::<u32>().unwrap(),
                 asrank_data: Some(AsrankAsn {
                     rank: line["rank"].as_u64().unwrap(),
                     organization: line["organization"]["orgName"]
                         .as_str()
-                        .map_or(None, |x| Some(x.to_string())),
+                        .map(|x| x.to_string()),
                     country_iso: line["country"]["iso"].as_str().unwrap().to_string(),
                     country_name: line["country"]["name"].as_str().unwrap().to_string(),
                     coordinates: Coord {
@@ -52,7 +51,7 @@ pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
             }
         })
         .collect();
-    //println!("value is {json:#?}");
+
     let insert_result = asdb.insert_ases(&json).await;
     if let Err(e) = insert_result {
         match e {
@@ -65,7 +64,7 @@ pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
             }
         }
     }
-    // TODO return number inserted
+    // TODO Result<u64> with n inserted
     Ok(())
 }
 
@@ -89,16 +88,4 @@ pub async fn download_orgs() {
 
 pub async fn download_asnlinks() {
     todo!()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    // const ASNS_PATH: &str = "asrank/asns.jsonl";
-    async fn import_asns() {
-        // let path = PathBuf::from(ASNS_PATH);
-        // import_asns(&path, "").await.unwrap();
-        //check DB
-        // where to store db connection/db pool?
-    }
 }

@@ -1,10 +1,6 @@
-use std::fmt::Display;
-
-use mongodb::error::BulkWriteError;
-use thiserror::__private::AsDynError;
-// use thiserror::Error;
-
 const DUPLICATES_CODE_ERROR: i32 = 11000;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -38,5 +34,3 @@ impl From<mongodb::error::Error> for Error {
         }
     }
 }
-
-pub type Result<T> = std::result::Result<T, Error>;

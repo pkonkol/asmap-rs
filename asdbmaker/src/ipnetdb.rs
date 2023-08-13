@@ -1,8 +1,8 @@
 use ipnetwork::IpNetwork;
-use maxminddb::{geoip2, Within};
-use serde::Deserialize;
+use maxminddb::Within;
+
 use serde_json::Value;
-use std::{collections::HashMap, fmt::Display, net::IpAddr, path::Path};
+use std::{fmt::Display, net::IpAddr, path::Path};
 
 const IPNETDB_LATEST: &str = "https://ipnetdb.com/latest.json";
 
@@ -31,10 +31,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 async fn dump_mmdb(db: &impl AsRef<Path>) -> Result<Vec<(IpNetwork, Value)>> {
     let reader = maxminddb::Reader::open_readfile(db)?;
     let ip_net = IpNetwork::V4("0.0.0.0/0".parse().unwrap());
-    let mut iter: Within<serde_json::Value, _> = reader.within(ip_net).unwrap();
+    let iter: Within<serde_json::Value, _> = reader.within(ip_net).unwrap();
 
     let mut out = Vec::new();
-    while let Some(next) = iter.next() {
+    for next in iter {
         let item = next.unwrap();
         out.push((item.ip_net, item.info));
     }
@@ -75,8 +75,7 @@ pub async fn get_latest_ipnetdb() {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::Write;
+
     use std::net::Ipv4Addr;
     use std::path::PathBuf;
 
