@@ -14,6 +14,7 @@ asdb = { path = "../asdb" }
 asdb-models = { path = "../asdb-models" }
 test-context = { path = "../test-context" }
 isocountry = "0.3.2"
+thiserror = "1.0.44"
 
 [dev-dependencies]
 ctor = "0.2.0"

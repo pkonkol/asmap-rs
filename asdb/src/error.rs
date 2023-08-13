@@ -1,21 +1,41 @@
 use std::fmt::Display;
 
-#[derive(Debug)]
+use mongodb::error::BulkWriteError;
+use thiserror::__private::AsDynError;
+// use thiserror::Error;
+
+const DUPLICATES_CODE_ERROR: i32 = 11000;
+
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    ConnectionError(String),
+    #[error("connection error")]
+    Connection(String),
+    #[error("bulk write error other than duplicates")]
+    BulkWrite(String),
+    #[error("duplicates found while inserting, count: {0}")]
+    DuplicatesFound(u64),
+    #[error("as not found")]
     AsNotFound,
 }
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "asdb error {self:?}")
-    }
-}
-
-impl std::error::Error for Error {}
 
 impl From<mongodb::error::Error> for Error {
     fn from(value: mongodb::error::Error) -> Self {
-        Self::ConnectionError(value.to_string())
+        match value.kind.as_ref() { 
+            mongodb::error::ErrorKind::BulkWrite(e) => { 
+                let v = e.write_errors.as_deref().unwrap();
+                let mut count = 0;
+                for x in v {
+                    if x.code != DUPLICATES_CODE_ERROR {
+                        return Self::BulkWrite(format!("{e:?}"));
+                    }
+                    count += 1;
+                }
+                Self::DuplicatesFound(count)
+            }
+            _ => {
+                Self::Connection(value.to_string())
+            }
+        }
     }
 }
 

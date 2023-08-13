@@ -5,10 +5,8 @@ use asdb::Asdb;
 use asdb_models::{As, AsrankAsn, AsrankDegree, Coord};
 pub use error::{Error, Result};
 
-use isocountry::CountryCode;
 use serde_json::Value;
 use std::{fs::File, path::Path};
-use tokio::process::Command;
 
 const API_URL: &str = "https://api.asrank.caida.org/v2/graphql";
 
@@ -23,7 +21,7 @@ pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
         .into_iter::<Value>()
         .map(|x| {
             let line = x.unwrap();
-            println!("line: {line:#?}");
+            //println!("line: {line:#?}");
             As {
                 asn: line["asn"].as_str().unwrap().parse::<u32>().unwrap(),
                 asrank_data: Some(AsrankAsn {
@@ -47,14 +45,26 @@ pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
                     },
                     prefixes: line["announcing"]["numberPrefixes"].as_u64().unwrap(),
                     addresses: line["announcing"]["numberAddresses"].as_u64().unwrap(),
+                    name: line["asnName"].as_str().unwrap().to_string(),
                 }),
                 ipnetdb_data: None,
                 whois_data: None,
             }
         })
         .collect();
-    println!("value is {json:#?}");
-    asdb.insert_ases(&json).await?;
+    //println!("value is {json:#?}");
+    let insert_result = asdb.insert_ases(&json).await;
+    if let Err(e) = insert_result {
+        match e {
+            asdb::Error::DuplicatesFound(c) => {
+                println!("Inserted asns but skipped {c} duplicated entries");
+                return Ok(());
+            }
+            _ => {
+                Err(e)?;
+            }
+        }
+    }
     // TODO return number inserted
     Ok(())
 }

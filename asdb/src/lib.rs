@@ -6,7 +6,7 @@ pub use error::{Error, Result};
 use futures::stream::TryStreamExt;
 use mongodb::{
     bson::doc,
-    options::{ClientOptions, FindOptions, IndexOptions},
+    options::{ClientOptions, FindOptions, IndexOptions, UpdateOptions, InsertManyOptions},
     Client, IndexModel,
 };
 
@@ -55,7 +55,7 @@ impl Asdb {
         Ok(())
     }
 
-    async fn prepare_database(&self) -> Result<()> {
+    pub async fn prepare_database(&self) -> Result<()> {
         struct T {}
         let collection = self.client.database(&self.database).collection::<T>("asns");
         let index_options = IndexOptions::builder().unique(true).build();
@@ -105,7 +105,10 @@ impl Asdb {
             .client
             .database(&self.database)
             .collection::<As>("asns");
-        collection.insert_many(a, None).await?;
+        // let opts = UpdateOptions::builder().upsert(true).build();
+        // collection.update_many(doc! {}, a, opts).await?;
+        let opts = InsertManyOptions::builder().ordered(false).build();
+        collection.insert_many(a, opts).await?;
         Ok(())
     }
 
@@ -127,11 +130,7 @@ mod tests {
 
     use super::*;
 
-    //const TESTED_DB: &str = "asmap";
     const TESTED_CONN_STR: &str = "mongodb://root:devrootpass@localhost:27017";
-
-    // TODO individual databases for each test
-    //#[ctor::ctor]
 
     #[tokio::test(flavor = "multi_thread")]
     async fn asdb_initializes() {

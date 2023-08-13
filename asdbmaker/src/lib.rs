@@ -30,11 +30,12 @@ impl Asdbmaker {
 
     pub async fn clear_database(&self) -> Result<()> {
         self.a.clear_database().await?;
+        self.a.prepare_database().await?;
         Ok(())
     }
 
-    pub async fn import_asrank_asns(&self) -> Result<()> {
-        import_asns(&self.inputs.join(&ASNS), &self.a)
+    pub async fn import_asrank_asns(&self, asns_jsonl: &impl AsRef<Path>) -> Result<()> {
+        import_asns(&self.inputs.join(asns_jsonl), &self.a)
             .await
             .map_err(|e| e.into())
     }
@@ -52,12 +53,10 @@ mod tests {
     use super::*;
     use std::fs::read_to_string;
 
-    // const ASRANK_ASNS_PATH: &str = "asrank/asns.jsonl";
     const ASDB_CONN_STR: &str = "mongodb://root:devrootpass@localhost:27017";
-    // const ASDB_DB: &str = "asmap";
     const ASNS_COLLECTION: &str = "asns";
+    const ASNS2: &str = "asns2.jsonl";
     const INPUTS_PATH: &str = "inputs/test-data";
-    // const ASRANK_ORGS_PATH: &str = "asrank/organizations.jsonl";
 
     #[tokio::test(flavor = "multi_thread")]
     async fn import_asrank_asns_fills_asdb() {
@@ -67,7 +66,7 @@ mod tests {
             .await
             .unwrap();
         m.clear_database().await.unwrap();
-        m.import_asrank_asns().await.unwrap();
+        m.import_asrank_asns(&ASNS).await.unwrap();
 
         let lines = count_lines(&PathBuf::from(INPUTS_PATH).join(ASNS));
         let docs = count_asn_entries(&context.db_name).await;
@@ -83,25 +82,45 @@ mod tests {
             .await
             .unwrap();
         m.clear_database().await.unwrap();
-        m.import_asrank_asns().await.unwrap();
+        m.import_asrank_asns(&ASNS).await.unwrap();
 
         let lines = count_lines(&PathBuf::from(INPUTS_PATH).join(ASNS));
         let docs = count_asn_entries(&context.db_name).await;
-
         assert_eq!(lines, docs);
 
-        m.import_asrank_asns().await.unwrap();
+        m.import_asrank_asns(&ASNS).await.unwrap();
 
         let lines = count_lines(&PathBuf::from(INPUTS_PATH).join(ASNS));
         let docs = count_asn_entries(&context.db_name).await;
-
         assert_eq!(lines, docs);
 
-        let ases = get_asn_entries(5550, &context.db_name).await;
+        // 1299 is just hardcoded value for asn that must be in test-data/asns.jsonl
+        let ases = get_asn_entries(1299, &context.db_name).await;
         assert_eq!(ases.len(), 1);
+    }
 
-        // verify find for given AS returns only one
-        // could it end up otherwise anyway? yeah it's mongo
+    #[tokio::test(flavor = "multi_thread")]
+    async fn import_asrank_with_overlapping_supersets_appends_only_new_ones() {
+        let context = TestContext::new(ASDB_CONN_STR).await.unwrap();
+
+        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name, INPUTS_PATH)
+            .await
+            .unwrap();
+        m.clear_database().await.unwrap();
+        m.import_asrank_asns(&ASNS).await.unwrap();
+        let first_docs = count_asn_entries(&context.db_name).await;
+
+        m.import_asrank_asns(&ASNS2).await.unwrap();
+        let second_docs = count_asn_entries(&context.db_name).await;
+
+        let ases = m.a.get_ases(0, 0).await.unwrap();
+        println!("ases: {ases:#?}");
+
+        assert!(second_docs > first_docs);
+
+        // 1299 must be both in asns.jsonl and in asns2.jsonl
+        let ases = get_asn_entries(1299, &context.db_name).await;
+        assert_eq!(ases.len(), 1);
     }
 
     fn count_lines(path: &impl AsRef<Path>) -> u64 {

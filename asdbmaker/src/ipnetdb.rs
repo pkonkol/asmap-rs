@@ -81,8 +81,8 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    const ASNS_PATH: &str = "external/ipnetdb_asn_latest.mmdb";
-    const PREFIX_PATH: &str = "external/ipnetdb_prefix_latest.mmdb";
+    const ASNS_PATH: &str = "inputs/test-data/ipnetdb_asn_latest.mmdb";
+    const PREFIX_PATH: &str = "inputs/test-data/ipnetdb_prefix_latest.mmdb";
     const IP: IpAddr = IpAddr::V4(Ipv4Addr::new(153, 19, 64, 251));
 
     #[tokio::test(flavor = "multi_thread")]

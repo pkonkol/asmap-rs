@@ -127,6 +127,7 @@ dependencies = [
  "mongodb",
  "serde",
  "test-context",
+ "thiserror",
  "tokio",
  "wasm-bindgen",
  "web-sys",
@@ -156,6 +157,7 @@ dependencies = [
  "serde",
  "serde_json",
  "test-context",
+ "thiserror",
  "tokio",
 ]
 

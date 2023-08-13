@@ -72,6 +72,7 @@ pub struct AsrankAsn {
     pub degree: AsrankDegree,
     pub prefixes: u64,
     pub addresses: u64,
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

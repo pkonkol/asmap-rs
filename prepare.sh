@@ -3,6 +3,7 @@
 python -m venv venv
 source venv/bin/activate
 pip install graphqlclient
+whois --help >/dev/null 2>&1 # check whether whois is installed
 if [ ! -f "asrank-download.py" ]; then
     wget https://api.asrank.caida.org/dev/scripts/asrank-download.py
 fi

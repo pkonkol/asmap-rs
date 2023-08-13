@@ -1,45 +1,27 @@
-use std::fmt::Display;
-
 use crate::asrank;
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    ImportError(String),
-    DatabaseError(String),
-    JsonError(String),
-    IoError(String),
-    InitError,
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "asdbmaker error {self:?}")
-    }
-}
-
-impl std::error::Error for Error {}
-
-impl From<asrank::Error> for Error {
-    fn from(e: asrank::Error) -> Self {
-        Self::ImportError(e.to_string())
-    }
+    #[error("import error")]
+    Import(#[from] asrank::Error),
+    #[error("database error")]
+    Database(String),
+    #[error("duplicate writes, count: {0}")]
+    DuplicateWrites(u64),
+    #[error("json error")]
+    Json(#[from] serde_json::Error),
+    #[error("io error")]
+    Io(#[from] std::io::Error),
+    #[error("init error")]
+    Init,
 }
 
 impl From<asdb::Error> for Error {
     fn from(e: asdb::Error) -> Self {
-        Self::DatabaseError(e.to_string())
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
-        Self::JsonError(e.to_string())
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
-        Self::IoError(e.to_string())
+        match e {
+            asdb::Error::DuplicatesFound(c) => Self::DuplicateWrites(c),
+            _ => Self::Database(e.to_string()),
+        }
     }
 }
 
