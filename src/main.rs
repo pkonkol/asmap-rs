@@ -55,6 +55,7 @@ async fn main() {
                 .await
                 .unwrap();
             let jsonl_path = a.asns_filename;
+            println!("starting import");
             let result = m.import_asrank_asns(&jsonl_path).await;
             println!("import result: {result:?}");
         }
@@ -62,6 +63,7 @@ async fn main() {
             // todo use a: args
             // ok it doesn't work that easily, the executed env lacks normal rust installation it seems
             // todo fix later, for now i can start it by hand
+            // it must use the same database that the import used. Maybe create .dotenv for that?
             let mut cmd = Command::new(&SERVER_DEV_SCRIPT)
                 .current_dir("./asmap")
                 .stdout(Stdio::piped())
