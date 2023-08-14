@@ -6,7 +6,7 @@ pub use error::{Error, Result};
 use futures::stream::TryStreamExt;
 use mongodb::{
     bson::doc,
-    options::{ClientOptions, FindOptions, IndexOptions, UpdateOptions, InsertManyOptions},
+    options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
     Client, IndexModel,
 };
 

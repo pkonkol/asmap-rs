@@ -2,6 +2,7 @@
 name = "asmap-rs"
 version = "0.1.0"
 description = "Interactive map of internet autonomous systems, organisations and persons"
+edition = "2021"
 
 [workspace]
 members = [
@@ -24,3 +25,13 @@ license = "MIT"
 serde = "1.0.160"
 serde_json = "1.0.96"
 tokio = "1.28.0"
+
+# [[bin]]
+# name = "test"
+# src = "src/main.rs"
+
+
+[dependencies]
+asdbmaker = { version = "0.1.0", path = "asdbmaker" }
+clap = { version = "4.3.21", features = ["derive"] }
+tokio = {workspace = true}

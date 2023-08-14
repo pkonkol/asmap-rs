@@ -16,8 +16,8 @@ pub enum Error {
 
 impl From<mongodb::error::Error> for Error {
     fn from(value: mongodb::error::Error) -> Self {
-        match value.kind.as_ref() { 
-            mongodb::error::ErrorKind::BulkWrite(e) => { 
+        match value.kind.as_ref() {
+            mongodb::error::ErrorKind::BulkWrite(e) => {
                 let v = e.write_errors.as_deref().unwrap();
                 let mut count = 0;
                 for x in v {
@@ -28,9 +28,7 @@ impl From<mongodb::error::Error> for Error {
                 }
                 Self::DuplicatesFound(count)
             }
-            _ => {
-                Self::Connection(value.to_string())
-            }
+            _ => Self::Connection(value.to_string()),
         }
     }
 }
