@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::net::{IpAddr, Ipv4Addr};
 use std::process::{Command, Stdio};
 
 use asdbmaker::Asdbmaker;
 use clap::{Args, Parser, Subcommand};
+use config::Config;
 
 const CONN_STR: &str = "mongodb://devuser:devpass@localhost:27017/?authSource=asmap";
 const INPUTS_PATH: &str = "asdbmaker/inputs";
@@ -47,6 +49,13 @@ struct StartServerArgs {
 
 #[tokio::main]
 async fn main() {
+    let cfg = Config::builder()
+        .add_source(config::File::with_name("config.yaml"))
+        .build()
+        .unwrap();
+    println!("{cfg:#?}");
+    let cfg: HashMap<String, String> = cfg.try_deserialize().unwrap();
+    println!("{:?}", cfg);
     let args = Cli::parse();
 
     match args.command {

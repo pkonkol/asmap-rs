@@ -34,4 +34,5 @@ tokio = "1.28.0"
 [dependencies]
 asdbmaker = { version = "0.1.0", path = "asdbmaker" }
 clap = { version = "4.3.21", features = ["derive"] }
+config = { version = "0.13.3", default-features = false, features = ["yaml"] }
 tokio = {workspace = true}
