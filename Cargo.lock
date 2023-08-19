@@ -168,6 +168,7 @@ dependencies = [
  "asdbmaker",
  "clap",
  "config",
+ "serde",
  "tokio",
 ]
 

@@ -6,11 +6,10 @@ use std::process::{Command, Stdio};
 use asdbmaker::Asdbmaker;
 use clap::{Args, Parser, Subcommand};
 use config::Config;
+use serde::Deserialize;
 
-const CONN_STR: &str = "mongodb://devuser:devpass@localhost:27017/?authSource=asmap";
 const INPUTS_PATH: &str = "asdbmaker/inputs";
 const ASNS_JSONL: &str = "asns.jsonl";
-const DB_NAME: &str = "asmap";
 const SERVER_DEV_SCRIPT: &str = "./dev.sh";
 
 #[derive(Parser)]
@@ -47,20 +46,25 @@ struct StartServerArgs {
     pub port: u16,
 }
 
+#[derive(Deserialize, Debug)]
+struct MyConfig {
+    mongo_conn_str: String,
+    db_name: String,
+}
+
 #[tokio::main]
 async fn main() {
-    let cfg = Config::builder()
+    let cfg: MyConfig = Config::builder()
         .add_source(config::File::with_name("config.yaml"))
         .build()
+        .unwrap()
+        .try_deserialize()
         .unwrap();
-    println!("{cfg:#?}");
-    let cfg: HashMap<String, String> = cfg.try_deserialize().unwrap();
-    println!("{:?}", cfg);
     let args = Cli::parse();
 
     match args.command {
         Commands::LoadAsrankAsns(a) => {
-            let m = Asdbmaker::new(CONN_STR, DB_NAME, &args.iputs_path)
+            let m = Asdbmaker::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
                 .await
                 .unwrap();
             let jsonl_path = a.asns_filename;
