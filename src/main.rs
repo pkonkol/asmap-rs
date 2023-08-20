@@ -59,7 +59,7 @@ async fn main() {
             let result = m.import_asrank_asns(&jsonl_path).await;
             println!("import result: {result:?}");
         }
-        Commands::StartServer(a) => {
+        Commands::StartServer(_a) => {
             // TODO pass ip and port from `a`
             let mut cmd = Command::new(&SERVER_DEV_SCRIPT)
                 .current_dir("./asmap")

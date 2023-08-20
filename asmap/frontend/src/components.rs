@@ -1,7 +1,7 @@
 pub mod api;
 pub mod map_component;
 
-use crate::components::map_component::{City, MapComponent, Point};
+use crate::components::map_component::MapComponent;
 use yew::prelude::*;
 
 pub struct MapContainer;
@@ -14,7 +14,7 @@ impl Component for MapContainer {
         Self {}
     }
 
-    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+    fn update(&mut self, _ctx: &Context<Self>, _msg: Self::Message) -> bool {
         true
     }
 
@@ -22,7 +22,7 @@ impl Component for MapContainer {
         false
     }
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
+    fn view(&self, _ctx: &Context<Self>) -> Html {
         html! {
             <>
                 <MapComponent  />

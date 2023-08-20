@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use asdb_models::As;
 use gloo_console::log;
@@ -6,7 +6,7 @@ use gloo_utils::document;
 use leaflet::{LatLng, Map, Marker, TileLayer};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Element, HtmlElement, Node};
-use yew::{html::ImplicitClone, prelude::*};
+use yew::prelude::*;
 
 use super::api::{debug_ws, get_all_as};
 const GDYNIA_LAT: f64 = 54.52500;
@@ -28,14 +28,6 @@ pub struct MapComponent {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Point(pub f64, pub f64);
-
-#[derive(PartialEq, Clone, Debug)]
-pub struct City {
-    pub name: String,
-    pub lat: Point,
-}
-
-impl ImplicitClone for City {}
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {}
@@ -65,7 +57,7 @@ impl Component for MapComponent {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(ctx: &Context<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         let container: Element = document().create_element("div").unwrap();
         let container: HtmlElement = container.dyn_into().unwrap();
         container.set_class_name("map");
@@ -144,16 +136,7 @@ impl Component for MapComponent {
         true
     }
 
-    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
-        // let props = ctx.props();
-
-        // if self.lat == props.city.lat {
-        //     false
-        // } else {
-        //     self.lat = props.city.lat;
-        //     self.map.setView(&LatLng::new(self.lat.0, self.lat.1), 11.0);
-        //     true
-        // }
+    fn changed(&mut self, _ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
         true
     }
 
