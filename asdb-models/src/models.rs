@@ -2,7 +2,7 @@ use ipnetwork::IpNetwork;
 use isocountry::CountryCode;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Nic {
     RIPE,
     ARIN,
@@ -11,13 +11,13 @@ pub enum Nic {
     LACNIC,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Coord {
     pub lat: f64,
     pub lon: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct As {
     pub asn: u32,
     pub asrank_data: Option<AsrankAsn>,
@@ -27,7 +27,7 @@ pub struct As {
 
 /// Based on ipnetdb data? or merge ipnetdb with asrank?
 /// details from whois, currently only for RIPE
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Organization {
     pub name: String,
     pub registry: Nic,
@@ -36,7 +36,7 @@ pub struct Organization {
 }
 
 /// Represents
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Prefix {
     pub cidr: IpNetwork,
     pub registry: Nic,
@@ -47,7 +47,7 @@ pub struct Prefix {
 /// Person data is available only in whois data from registries so there is no
 /// optional data for it.
 /// currently available only for RIPE
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Person {
     pub person: String,
     pub address: String,
@@ -61,7 +61,7 @@ pub struct Person {
     pub georesolved: Option<Coord>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AsrankAsn {
     // pub name: String, TODO
     pub rank: u64,
@@ -75,7 +75,7 @@ pub struct AsrankAsn {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AsrankDegree {
     pub provider: u32,
     pub peer: u32,
@@ -85,16 +85,16 @@ pub struct AsrankDegree {
     pub sibling: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct IPNetDBAsn {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct WhoIsAsn {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct WhoIsOrg {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct IPNetDBPrefix {
     pub prefix: IpNetwork,
     pub allocation: IpNetwork,
@@ -111,7 +111,7 @@ pub struct IPNetDBPrefix {
     pub prefix_registry: Nic,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct WhoIsPrefix {
     pub netname: String,
     pub coutnry: CountryCode,

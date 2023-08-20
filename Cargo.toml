@@ -13,6 +13,7 @@ members = [
     "asmap/frontend",
     "asmap/server",
     "test-context",
+    "config",
 ]
 
 [workspace.package]
@@ -33,7 +34,6 @@ tokio = "1.28"
 
 [dependencies]
 asdbmaker = { version = "0.1", path = "asdbmaker" }
+config = { path = "config" }
 clap = { version = "4.3", features = ["derive"] }
-config = { version = "0.13", default-features = false, features = ["yaml"] }
 tokio = { workspace = true }
-serde = { workspace = true }

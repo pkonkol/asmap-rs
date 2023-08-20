@@ -1,16 +1,14 @@
-use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::net::{IpAddr, Ipv4Addr};
 use std::process::{Command, Stdio};
 
 use asdbmaker::Asdbmaker;
 use clap::{Args, Parser, Subcommand};
-use config::Config;
-use serde::Deserialize;
 
 const INPUTS_PATH: &str = "asdbmaker/inputs";
 const ASNS_JSONL: &str = "asns.jsonl";
 const SERVER_DEV_SCRIPT: &str = "./dev.sh";
+const CONFIG_PATH: &str = "config.yaml";
 
 #[derive(Parser)]
 #[command(name = "asmap")]
@@ -46,20 +44,9 @@ struct StartServerArgs {
     pub port: u16,
 }
 
-#[derive(Deserialize, Debug)]
-struct MyConfig {
-    mongo_conn_str: String,
-    db_name: String,
-}
-
 #[tokio::main]
 async fn main() {
-    let cfg: MyConfig = Config::builder()
-        .add_source(config::File::with_name("config.yaml"))
-        .build()
-        .unwrap()
-        .try_deserialize()
-        .unwrap();
+    let cfg = config::parse(CONFIG_PATH);
     let args = Cli::parse();
 
     match args.command {
@@ -73,10 +60,7 @@ async fn main() {
             println!("import result: {result:?}");
         }
         Commands::StartServer(a) => {
-            // todo use a: args
-            // ok it doesn't work that easily, the executed env lacks normal rust installation it seems
-            // todo fix later, for now i can start it by hand
-            // it must use the same database that the import used. Maybe create .dotenv for that?
+            // TODO pass ip and port from `a`
             let mut cmd = Command::new(&SERVER_DEV_SCRIPT)
                 .current_dir("./asmap")
                 .stdout(Stdio::piped())

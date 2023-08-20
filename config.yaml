@@ -2,4 +2,4 @@ mongo_conn_str: mongodb://devuser:devpass@localhost:27017/?authSource=asmap
 # inputs_dir: asdbmaker/inputs
 # asns_jsonl: asns.jsonl
 db_name: asmap
-# server_dev_script: dev.sh
+server_dev_script: dev.sh

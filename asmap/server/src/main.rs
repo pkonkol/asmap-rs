@@ -13,8 +13,9 @@ use state::ServerState;
 mod handlers;
 mod state;
 
-const ASDB_CONN_STR: &str = "mongodb://devuser:devpass@localhost:27018/?authSource=asdbmaker";
-const ASDB_DB: &str = "asdbmaker";
+// const ASDB_CONN_STR: &str = "mongodb://devuser:devpass@localhost:27018/?authSource=asdbmaker";
+// const ASDB_DB: &str = "asdbmaker";
+const CONFIG_PATH: &str = "../../config.yaml";
 
 // Setup the command line interface with clap.
 #[derive(Parser, Debug)]
@@ -39,6 +40,7 @@ struct Opt {
 
 #[tokio::main]
 async fn main() {
+    let cfg = config::parse(CONFIG_PATH);
     let opt = Opt::parse();
     // Setup logging & RUST_LOG from args
     // if std::env::var("RUST_LOG").is_err() {
@@ -47,7 +49,7 @@ async fn main() {
     // enable console logging
     tracing_subscriber::fmt::init();
 
-    let state = ServerState::new(ASDB_CONN_STR, ASDB_DB).await;
+    let state = ServerState::new(&cfg.mongo_conn_str, &cfg.db_name).await;
     let app = Router::new()
         .route("/ws-test", get(ws_test_handler))
         .route("/as", get(as_handler))
