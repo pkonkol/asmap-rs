@@ -258,9 +258,9 @@ dependencies = [
 
 [[package]]
 name = "axum-extra"
-version = "0.4.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9a320103719de37b7b4da4c8eb629d4573f6bcfd3dfe80d3208806895ccf81d"
+checksum = "72f6236b9edabc109ec6d5836ce90e359854a4e267d4241d29202f73261ad622"
 dependencies = [
  "axum",
  "bytes",
@@ -270,7 +270,7 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tower",
- "tower-http 0.3.5",
+ "tower-http",
  "tower-layer",
  "tower-service",
 ]
@@ -806,6 +806,7 @@ dependencies = [
  "gloo-utils 0.2.0",
  "leaflet",
  "log",
+ "protocol",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-logger",
@@ -2009,6 +2010,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol"
+version = "0.1.0"
+dependencies = [
+ "asdb-models",
+ "serde",
+]
+
+[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2403,9 +2412,10 @@ dependencies = [
  "clap",
  "config 0.1.0",
  "log",
+ "protocol",
  "tokio",
  "tower",
- "tower-http 0.4.0",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2772,30 +2782,6 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
-]
-
-[[package]]
-name = "tower-http"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f873044bf02dd1e8239e9c1293ea39dad76dc594ec16185d0a1bf31d8dc8d858"
-dependencies = [
- "bitflags",
- "bytes",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "http-range-header",
- "httpdate",
- "mime",
- "mime_guess",
- "percent-encoding",
- "pin-project-lite",
- "tokio",
- "tokio-util",
- "tower-layer",
- "tower-service",
 ]
 
 [[package]]

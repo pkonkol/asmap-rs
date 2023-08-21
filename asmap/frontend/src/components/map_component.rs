@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::anyhow;
 use asdb_models::As;
 use gloo_console::log;
 use gloo_utils::document;
@@ -16,7 +17,7 @@ pub enum Msg {
     LoadAs,
     Debug,
     DrawAs(Vec<As>),
-    Error,
+    Error(anyhow::Error),
 }
 
 pub struct MapComponent {
@@ -88,7 +89,7 @@ impl Component for MapComponent {
                 ctx.link().send_future(async {
                     let res = debug_ws().await;
                     log!("res: {}", format!("{res:?}"));
-                    Msg::Error
+                    Msg::Error(anyhow!("test error"))
                 });
             }
             Msg::LoadAs => {
@@ -96,7 +97,7 @@ impl Component for MapComponent {
                 ctx.link().send_future(async {
                     match get_all_as().await {
                         Ok(ases) => Msg::DrawAs(ases),
-                        Err(_) => Msg::Error,
+                        Err(e) => Msg::Error(e),
                     }
                 });
             }
@@ -129,8 +130,8 @@ impl Component for MapComponent {
                     };
                 }
             }
-            Msg::Error => {
-                log!("error fetching ases");
+            Msg::Error(e) => {
+                log!(format!("error fetching ases, received error '{e:?}'"));
             }
         }
         true

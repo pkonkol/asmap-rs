@@ -1,6 +1,6 @@
 mod error;
 
-use asdb_models::{As, AsrankAsn, AsrankDegree, Coord, Nic, Organization};
+use asdb_models::{As, AsFilters, AsrankAsn, AsrankDegree, Coord, Nic, Organization};
 pub use error::{Error, Result};
 
 use futures::stream::TryStreamExt;
@@ -77,6 +77,19 @@ impl Asdb {
             .limit(limit)
             .sort(doc! { "asn": 1 })
             .build();
+        let res = collection.find(doc! {}, opts).await?;
+        let ases: Vec<As> = res.try_collect().await?;
+        Ok(ases)
+    }
+
+    pub async fn get_ases_filtered(&self, filters: &AsFilters) -> Result<Vec<As>> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+
+        let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
+
         let res = collection.find(doc! {}, opts).await?;
         let ases: Vec<As> = res.try_collect().await?;
         Ok(ases)

@@ -121,3 +121,11 @@ pub struct WhoIsPrefix {
     pub tech_c: Vec<String>,
     pub mnt_by: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AsFilters {
+    /// 2 letter country code
+    pub country: Option<String>,
+    /// top left and bottom right corners of the geo bound
+    pub bounds: Option<(Coord, Coord)>,
+}

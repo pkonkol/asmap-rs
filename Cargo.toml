@@ -12,6 +12,7 @@ members = [
     "georesolve",
     "asmap/frontend",
     "asmap/server",
+    "asmap/protocol",
     "test-context",
     "config",
 ]
