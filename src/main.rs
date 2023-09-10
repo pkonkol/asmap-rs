@@ -26,7 +26,7 @@ enum Commands {
     /// todo default path value to inputs
     LoadAsrankAsns(LoadAsrankAsnsArgs),
     /// Starts a server with the map
-    StartServer(StartServerArgs),
+    Start(StartServerArgs),
     // Todo LoadWhois (for range?), LoadIpnetDB, Georesolve(Persons|Orgs|Somethin else?)
 }
 
@@ -59,8 +59,10 @@ async fn main() {
             let result = m.import_asrank_asns(&jsonl_path).await;
             println!("import result: {result:?}");
         }
-        Commands::StartServer(_a) => {
+        Commands::Start(_a) => {
             // TODO pass ip and port from `a`
+            // TODO fix server not talking with frontend
+            // TODO don't rely on dev.sh
             let mut cmd = Command::new(&SERVER_DEV_SCRIPT)
                 .current_dir("./asmap")
                 .stdout(Stdio::piped())

@@ -22,17 +22,20 @@ pub async fn get_all_as() -> anyhow::Result<Vec<As>> {
         let req = WSRequest::AllAs(page);
         ws.send(Message::Bytes(bincode::serialize(&req)?)).await?;
         log!("sent request for page ", page);
+
         let resp = ws
             .next()
             .await
             .ok_or(anyhow!("didn't receive the message"))??;
         log!("received response for page ", page);
+
         let resp: WSResponse = if let Message::Bytes(b) = resp {
             log!("deserializing message");
             bincode::deserialize(&b)?
         } else {
             bail!("Received message is not of Bytes type");
         };
+
         log!("appending recieved page to output");
         if let WSResponse::AllAs((page, total_pages, mut vec)) = resp {
             out.append(&mut vec);
@@ -44,7 +47,11 @@ pub async fn get_all_as() -> anyhow::Result<Vec<As>> {
             bail!("wrong response");
         }
         page += 1;
-        break; // tmp
+        // for debug purposes
+        if page > 10 {
+            break;
+        }
+        // break; // tmp
     }
 
     // let ases: Vec<As> = if let Some(Ok(x)) = ws.next().await {

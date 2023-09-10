@@ -55,13 +55,11 @@ pub async fn handle_as_socket(mut socket: WebSocket, state: ServerState) {
 
 /// returns WsResponse containing requested page of ases encoded using bincode
 async fn all_as(page: u32, state: &ServerState) -> Vec<u8> {
-    let (limit, skip): (i64, u64) = (
-        page as i64 * PAGE_SIZE,
-        (page as u64 * (PAGE_SIZE + 1) as u64),
-    );
-    let ases = state.asdb.get_ases(10, 0).await.unwrap();
-    // TODO get real value of total pages instead of 10
-    let resp = WSResponse::AllAs((page, 10, ases));
+    let skip = page as u64 * PAGE_SIZE as u64;
+    let (ases, total_count) = state.asdb.get_ases(PAGE_SIZE, skip).await.unwrap();
+    let total_pages = total_count as u32 / PAGE_SIZE as u32;
+
+    let resp = WSResponse::AllAs((page, total_pages, ases));
     let serialized = bincode::serialize(&resp).unwrap();
     info!("successfuly encoded page {page} of ases");
     serialized
