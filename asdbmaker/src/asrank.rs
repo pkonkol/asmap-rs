@@ -31,8 +31,8 @@ pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
                     country_iso: line["country"]["iso"].as_str().unwrap().to_string(),
                     country_name: line["country"]["name"].as_str().unwrap().to_string(),
                     coordinates: Coord {
-                        lat: line["longitude"].as_f64().unwrap(),
-                        lon: line["latitude"].as_f64().unwrap(),
+                        lat: line["latitude"].as_f64().unwrap(),
+                        lon: line["longitude"].as_f64().unwrap(),
                     },
                     degree: AsrankDegree {
                         provider: line["asnDegree"]["provider"].as_u64().unwrap() as u32,
