@@ -93,11 +93,32 @@ impl Asdb {
             .client
             .database(&self.database)
             .collection::<As>("asns");
+        let mut db_filter = doc! {};
+        if let Some((top_left, bottom_right)) = &filters.bounds {
+            // are the comparisons correct?
+            db_filter.insert(
+                "asrank_data.coordinates.lat",
+                doc! {"$gte": top_left.lat, "$lte": bottom_right.lat},
+            );
+            db_filter.insert(
+                "asrank_data.coordinates.lon",
+                doc! {"$gte": top_left.lon, "$lte": bottom_right.lon},
+            );
+        }
+        if let Some(x) = &filters.country_iso {
+            db_filter.insert("asrank_data.country_iso", x);
+        }
+        if let Some((min, max)) = &filters.addresses {
+            // gt than min and lt than max
+            db_filter.insert("asrank_data.addresses", doc! {"$gte": min, "$lte": max});
+        }
+        if let Some((min, max)) = &filters.rank {
+            // gt than min and lt than max
+            db_filter.insert("asrank_data.rank", doc! {"$gte": min, "$lte": max});
+        }
 
-        // TODO actually filter these
         let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
-
-        let res = collection.find(doc! {}, opts).await?;
+        let res = collection.find(db_filter, opts).await?;
         let ases: Vec<As> = res.try_collect().await?;
         Ok(ases)
     }

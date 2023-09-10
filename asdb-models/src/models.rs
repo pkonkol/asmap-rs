@@ -125,7 +125,23 @@ pub struct WhoIsPrefix {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AsFilters {
     /// 2 letter country code
-    pub country: Option<String>,
+    pub country_iso: Option<String>,
     /// top left and bottom right corners of the geo bound
     pub bounds: Option<(Coord, Coord)>,
+    /// range of addresses, (min, max)
+    pub addresses: Option<(i64, i64)>,
+    /// range of allowed ranks, (min, max)
+    pub rank: Option<(i64, i64)>,
+    // pub contry_name (is that even needed? I have to figure out which to use )
+}
+
+impl Default for AsFilters {
+    fn default() -> Self {
+        Self {
+            country_iso: None,
+            bounds: None,
+            addresses: None,
+            rank: None,
+        }
+    }
 }
