@@ -98,11 +98,11 @@ impl Asdb {
             // are the comparisons correct?
             db_filter.insert(
                 "asrank_data.coordinates.lat",
-                doc! {"$gte": top_left.lat, "$lte": bottom_right.lat},
+                doc! {"$gt": top_left.lat, "$lte": bottom_right.lat},
             );
             db_filter.insert(
                 "asrank_data.coordinates.lon",
-                doc! {"$gte": top_left.lon, "$lte": bottom_right.lon},
+                doc! {"$gt": top_left.lon, "$lte": bottom_right.lon},
             );
         }
         if let Some(x) = &filters.country_iso {
