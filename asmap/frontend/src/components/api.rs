@@ -42,8 +42,8 @@ pub async fn get_all_as_filtered() -> anyhow::Result<Vec<As>> {
 
     log!("appending recieved page to output");
     if let WSResponse::FilteredAS((_filters, mut ases)) = resp {
-        out.append(&mut ases);
         log!(format!("appending {} ases to out", ases.len()));
+        out.append(&mut ases);
         // if page >= total_pages {
         //     break;
         // }

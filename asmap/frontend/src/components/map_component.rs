@@ -124,9 +124,12 @@ impl Component for MapComponent {
                 });
             }
             Msg::DrawAs(ases) => {
-                let ases_str = format!("{:?}", ases);
-                log!(format!("ASES ARE:\n {:#?}", ases_str));
-                log!("ASes fetched, drawing them signal at map_component.rs");
+                // let ases_str = format!("{:?}", ases);
+                // log!(format!("ASES ARE:\n {:#?}", ases_str));
+                log!(
+                    "{} ASes fetched, drawing them signal at map_component.rs",
+                    ases.len()
+                );
                 for a in ases.into_iter() {
                     let asn = a.asn.clone();
                     let i = self.ases.insert(asn, a);
@@ -136,16 +139,18 @@ impl Component for MapComponent {
                         add_marker(
                             &self.map,
                             &format!(
-                                "asn:{}, country:{}, name: {}, rank: {}, org: {:?}",
+                                "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, lat:lon {}:{}",
                                 aa.asn,
                                 aa.asrank_data.as_ref().unwrap().country_name,
                                 aa.asrank_data.as_ref().unwrap().name,
                                 aa.asrank_data.as_ref().unwrap().rank,
                                 aa.asrank_data.as_ref().unwrap().organization,
+                                aa.asrank_data.as_ref().unwrap().coordinates.lat,
+                                aa.asrank_data.as_ref().unwrap().coordinates.lon,
                             ),
                             &Point(
-                                aa.asrank_data.as_ref().unwrap().coordinates.lon,
                                 aa.asrank_data.as_ref().unwrap().coordinates.lat,
+                                aa.asrank_data.as_ref().unwrap().coordinates.lon,
                             ),
                         );
                         log!("inserted asn ", asn);
