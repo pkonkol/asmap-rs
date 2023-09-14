@@ -9,12 +9,13 @@ use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Element, HtmlElement, Node};
 use yew::prelude::*;
 
-use super::api::{debug_ws, get_all_as};
+use super::api::{debug_ws, get_all_as, get_all_as_filtered};
 const GDYNIA_LAT: f64 = 54.52500;
 const GDYNIA_LON: f64 = 18.54992;
 
 pub enum Msg {
     LoadAs,
+    LoadAsFiltered,
     Debug,
     DrawAs(Vec<As>),
     Error(anyhow::Error),
@@ -46,12 +47,24 @@ impl MapComponent {
         }
     }
 
+    fn load_as_filtered_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
+        html! {
+            <button onclick={cb}>{"Load ASes by filters"}</button>
+        }
+    }
+
     fn debug_ws_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::Debug);
         html! {
             <button onclick={cb}>{"Debug WS"}</button>
         }
     }
+    // TODO filtering interface, country dropdown allowing up to 1 choice
+    // bounds should come from the visible screen area so not here. And should be default for load ases up to some zoom level
+    // addresses range slider (min&max)
+    // rank range slider (min&max)
+    // load by filter button
 }
 
 impl Component for MapComponent {
@@ -96,6 +109,15 @@ impl Component for MapComponent {
                 log!("load ASes initiatied");
                 ctx.link().send_future(async {
                     match get_all_as().await {
+                        Ok(ases) => Msg::DrawAs(ases),
+                        Err(e) => Msg::Error(e),
+                    }
+                });
+            }
+            Msg::LoadAsFiltered => {
+                log!("load ASes initiatied");
+                ctx.link().send_future(async {
+                    match get_all_as_filtered().await {
                         Ok(ases) => Msg::DrawAs(ases),
                         Err(e) => Msg::Error(e),
                     }
@@ -150,6 +172,9 @@ impl Component for MapComponent {
             <div class="control component-container">
                 <div>
                     {Self::load_as_button(self, ctx)}
+                </div>
+                <div>
+                    {Self::load_as_filtered_button(self, ctx)}
                 </div>
                 <div>
                     {Self::debug_ws_button(self, ctx)}

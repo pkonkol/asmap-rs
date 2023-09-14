@@ -13,6 +13,55 @@ use std::vec;
 //const API_URL: &str = "127.0.0.1:8081";
 const API_URL: &str = "[::1]:8081";
 
+pub async fn get_all_as_filtered() -> anyhow::Result<Vec<As>> {
+    let mut ws = WebSocket::open(&format!("ws://{API_URL}/as"))?;
+
+    let mut out: Vec<As> = vec![];
+    // loop {
+    let filters = AsFilters {
+        country: Some("PL".to_string()),
+        bounds: None,
+    };
+
+    let req = WSRequest::FilteredAS(filters);
+    ws.send(Message::Bytes(bincode::serialize(&req)?)).await?;
+    log!("sent request for filtered ASes");
+
+    let resp = ws
+        .next()
+        .await
+        .ok_or(anyhow!("didn't receive the message"))??;
+    log!("received response for filtered ases");
+
+    let resp: WSResponse = if let Message::Bytes(b) = resp {
+        log!("deserializing message");
+        bincode::deserialize(&b)?
+    } else {
+        bail!("Received message is not of Bytes type");
+    };
+
+    log!("appending recieved page to output");
+    if let WSResponse::FilteredAS((_filters, mut ases)) = resp {
+        out.append(&mut ases);
+        log!(format!("appending {} ases to out", ases.len()));
+        // if page >= total_pages {
+        //     break;
+        // }
+    } else {
+        bail!("wrong response");
+    }
+    //     page += 1;
+    //     // for debug purposes
+    //     if page > 10 {
+    //         break;
+    //     }
+    //     // break; // tmp
+    // }
+
+    ws.close(None, None)?;
+    Ok(out)
+}
+
 pub async fn get_all_as() -> anyhow::Result<Vec<As>> {
     let mut ws = WebSocket::open(&format!("ws://{API_URL}/as"))?;
 
@@ -54,21 +103,7 @@ pub async fn get_all_as() -> anyhow::Result<Vec<As>> {
         // break; // tmp
     }
 
-    // let ases: Vec<As> = if let Some(Ok(x)) = ws.next().await {
-    //     match x {
-    //         // TODO wrap the bytes in an enum which will define requests and responses, match on them
-    //         // server and client side
-    //         Message::Bytes(b) => bincode::deserialize(&b)?,
-    //         Message::Text(t) => {
-    //             log! {"got text message: ", t};
-    //             vec![]
-    //         }
-    //     }
-    // } else {
-    //     vec![]
-    // };
     ws.close(None, None)?;
-    // Ok(ases)
     Ok(out)
 }
 
