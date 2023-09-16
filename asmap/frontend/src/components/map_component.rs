@@ -10,8 +10,8 @@ use web_sys::{Element, HtmlElement, Node};
 use yew::prelude::*;
 
 use super::api::{debug_ws, get_all_as, get_all_as_filtered};
-const GDYNIA_LAT: f64 = 54.52500;
-const GDYNIA_LON: f64 = 18.54992;
+const POLAND_LAT: f64 = 52.11431;
+const POLAND_LON: f64 = 19.423672;
 
 pub enum Msg {
     LoadAs,
@@ -50,7 +50,41 @@ impl MapComponent {
     fn load_as_filtered_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
         html! {
-            <button onclick={cb}>{"Load ASes by filters"}</button>
+            <button onclick={cb}>{"Load filtered ASes"}</button>
+        }
+    }
+
+    fn filter_menu(&self, ctx: &Context<Self>) -> Html {
+        html! {
+            <div>
+                <div >
+                    <div style="display:inline-block;"><p>{"min addr"}</p>
+                        <input title="test" type="number" id="minAddresses" value="0" min="0" max="9999999"/>
+                    </div>
+                    <div style="display:inline-block;"><p>{"max addr"}</p>
+                        <input type="number" id="maxAddresses" value="100000" min="0" max="9999999"/>
+                    </div>
+                    <div style="display:inline-block;"><p>{"country code"}</p>
+                        <input type="text" id="countryCode" value="PL"/>
+                    </div>
+                    <div style="display:inline-block;"><p>{"min rank"}</p>
+                        <input type="number" id="minRank" value="0" min="0" max="999999"/>
+                    </div>
+                    <div style="display:inline-block;"><p>{"max rank"}</p>
+                        <input type="number" id="maxRank" value="1000000" min="0" max="999999"/>
+                    </div>
+                    <div style="display:inline-block;"><p>{"has org"}</p>
+                        <input type="checkbox" id="hasOrg" />
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    fn download_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::Debug);
+        html! {
+            <button onclick={cb}>{"Download"}</button>
         }
     }
 
@@ -78,8 +112,8 @@ impl Component for MapComponent {
         let leaflet_map = Map::new_with_element(&container, &JsValue::NULL);
         add_marker(
             &leaflet_map,
-            "demo marker w gdyni",
-            &Point(GDYNIA_LAT, GDYNIA_LON),
+            "geometric center of poland, test",
+            &Point(POLAND_LAT, POLAND_LON),
         );
         Self {
             map: leaflet_map,
@@ -90,7 +124,7 @@ impl Component for MapComponent {
 
     fn rendered(&mut self, _ctx: &Context<Self>, first_render: bool) {
         if first_render {
-            self.map.setView(&LatLng::new(GDYNIA_LAT, GDYNIA_LON), 11.0);
+            self.map.setView(&LatLng::new(POLAND_LAT, POLAND_LON), 8.0);
             add_tile_layer(&self.map);
         }
     }
@@ -180,6 +214,10 @@ impl Component for MapComponent {
                 </div>
                 <div>
                     {Self::load_as_filtered_button(self, ctx)}
+                    {Self::filter_menu(self, ctx)}
+                </div>
+                <div>
+                    {Self::download_button(self, ctx)}
                 </div>
                 <div>
                     {Self::debug_ws_button(self, ctx)}

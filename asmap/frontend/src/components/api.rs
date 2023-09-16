@@ -21,6 +21,7 @@ pub async fn get_all_as_filtered() -> anyhow::Result<Vec<As>> {
     let filters = AsFilters {
         country: Some("PL".to_string()),
         bounds: None,
+        addresses: None,
     };
 
     let req = WSRequest::FilteredAS(filters);

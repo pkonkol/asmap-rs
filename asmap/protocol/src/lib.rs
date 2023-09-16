@@ -27,8 +27,10 @@ pub struct AsFilters {
     pub country: Option<String>,
     /// top left and bottom right corners of the geo bound
     pub bounds: Option<(Coord, Coord)>,
-    // pub addresses
+    /// range of addresses, (min, max)
+    pub addresses: Option<(i64, i64)>,
     // pub rank
+    // pub has_org
 }
 
 impl From<AsFilters> for asdb_models::AsFilters {
@@ -36,6 +38,7 @@ impl From<AsFilters> for asdb_models::AsFilters {
         asdb_models::AsFilters {
             country_iso: value.country,
             bounds: value.bounds,
+            addresses: value.addresses,
             ..Default::default()
         }
     }
