@@ -10,7 +10,6 @@ use gloo_console::log;
 use gloo_net::websocket::{futures::WebSocket, Message};
 use std::vec;
 
-//const API_URL: &str = "127.0.0.1:8081";
 const API_URL: &str = "[::1]:8081";
 
 pub async fn get_all_as_filtered() -> anyhow::Result<Vec<As>> {
