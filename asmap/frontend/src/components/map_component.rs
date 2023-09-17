@@ -3,15 +3,17 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use asdb_models::As;
 use gloo_console::log;
-use gloo_utils::document;
-use leaflet::{LatLng, Map, Marker, TileLayer};
-use wasm_bindgen::{prelude::*, JsCast};
+use gloo_utils::{document, format::JsValueSerdeExt};
+use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
+use serde::Serialize;
+use wasm_bindgen::{prelude::*, JsCast, JsObject};
 use web_sys::{Element, HtmlElement, Node};
 use yew::prelude::*;
 
 use super::api::{debug_ws, get_all_as, get_all_as_filtered};
 const POLAND_LAT: f64 = 52.11431;
 const POLAND_LON: f64 = 19.423672;
+const ICON_URL: &str = "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png";
 
 pub enum Msg {
     LoadAs,
@@ -114,6 +116,7 @@ impl Component for MapComponent {
             &leaflet_map,
             "geometric center of poland, test",
             &Point(POLAND_LAT, POLAND_LON),
+            (25, 41),
         );
         Self {
             map: leaflet_map,
@@ -169,25 +172,28 @@ impl Component for MapComponent {
                     let i = self.ases.insert(asn, a);
                     if i.is_none() {
                         let aa = self.ases.get(&asn).unwrap();
-
+                        let aa_size = scale_as_marker(&aa);
+                        let asrank_data = aa.asrank_data.as_ref().unwrap();
                         add_marker(
                             &self.map,
                             &format!(
-                                "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, lat:lon {}:{}",
+                                "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}",
                                 aa.asn,
-                                aa.asrank_data.as_ref().unwrap().country_name,
-                                aa.asrank_data.as_ref().unwrap().name,
-                                aa.asrank_data.as_ref().unwrap().rank,
-                                aa.asrank_data.as_ref().unwrap().organization,
-                                aa.asrank_data.as_ref().unwrap().coordinates.lat,
-                                aa.asrank_data.as_ref().unwrap().coordinates.lon,
+                                asrank_data.country_name,
+                                asrank_data.name,
+                                asrank_data.rank,
+                                asrank_data.organization,
+                                // asrank_data.coordinates.lat,
+                                // asrank_data.coordinates.lon,
+                                asrank_data.prefixes,
+                                asrank_data.addresses,
                             ),
                             &Point(
-                                aa.asrank_data.as_ref().unwrap().coordinates.lat,
-                                aa.asrank_data.as_ref().unwrap().coordinates.lon,
+                                asrank_data.coordinates.lat,
+                                asrank_data.coordinates.lon,
                             ),
+                            aa_size,
                         );
-                        log!("inserted asn ", asn);
                     };
                 }
             }
@@ -236,13 +242,52 @@ fn add_tile_layer(map: &Map) {
     .addTo(map);
 }
 
-fn add_marker(map: &Map, description: &str, coord: &Point) {
+/// will create marker with given description in a popup at given coordinate.
+/// marker size will be `size` in pixels as (width, height)
+fn add_marker(map: &Map, description: &str, coord: &Point, size: (u64, u64)) {
+    const ICON_SIZE: (u32, u32) = (25, 41);
     let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
     let latlng = LatLng::new(coord.0, coord.1);
     let m = Marker::new_with_options(&latlng, &opts);
 
     let p = JsValue::from_str(description);
     m.bindPopup(&p, &JsValue::from_str("popup"));
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct IconOpts {
+        pub icon_url: String,
+        pub icon_size: Vec<u64>,
+        pub class_name: String,
+    }
+    let i = Icon::new(
+        &serde_wasm_bindgen::to_value(&IconOpts {
+            icon_url: ICON_URL.to_string(),
+            icon_size: vec![size.0, size.1],
+            class_name: "test-classname".to_string(),
+        })
+        .unwrap(),
+    );
+    // log!("{}", format!("icon: {i:?}"));
+    m.setIcon(&i);
     // m.setPopupContent(&p);
     m.addTo(map);
+}
+
+/// returns (width, height) in pixels based on
+/// by rank or by addresses amount? both would suit
+/// both may be used, 1 as color other as marker size
+fn scale_as_marker(a: &As) -> (u64, u64) {
+    const RANK_RANGE: (u64, u64) = (0, 115000); // 0 not needed likely
+    const ADDRESS_RANGE: (u64, u64) = (0, 20017664);
+    const AVG_PIXELS: (u64, u64) = (15, 24); //original is 25,41
+    const MIN_PIXELS: (u64, u64) = (5, 8);
+    let rank = a.asrank_data.as_ref().unwrap().rank;
+    let scale = (rank as f64 / RANK_RANGE.1 as f64).clamp(0., 1.);
+    // let addresses = a.asrank_data.as_ref().unwrap().addresses;
+    // let scale = (addresses as f64 / ADDRESS_RANGE.1 as f64).clamp(0., 1.);
+    let width = MIN_PIXELS.0 + AVG_PIXELS.0 - (AVG_PIXELS.0 as f64 * scale) as u64;
+    let height = MIN_PIXELS.1 + AVG_PIXELS.1 - (AVG_PIXELS.1 as f64 * scale) as u64;
+
+    (width, height)
 }
