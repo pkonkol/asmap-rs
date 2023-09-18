@@ -5,7 +5,7 @@ pub use error::{Error, Result};
 
 use futures::stream::TryStreamExt;
 use mongodb::{
-    bson::doc,
+    bson::{doc, Document},
     options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
     Client, IndexModel,
 };
@@ -88,11 +88,7 @@ impl Asdb {
         Ok((ases, count))
     }
 
-    pub async fn get_ases_filtered(&self, filters: &AsFilters) -> Result<Vec<As>> {
-        let collection = self
-            .client
-            .database(&self.database)
-            .collection::<As>("asns");
+    fn create_db_filter(filters: &AsFilters) -> Document {
         let mut db_filter = doc! {};
         if let Some((top_left, bottom_right)) = &filters.bounds {
             // are the comparisons correct?
@@ -116,6 +112,31 @@ impl Asdb {
             // gt than min and lt than max
             db_filter.insert("asrank_data.rank", doc! {"$gte": min, "$lte": max});
         }
+        if let Some(true) = &filters.has_org {
+            // gt than min and lt than max
+            db_filter.insert("asrank_data.organization", doc! {"$ne": null});
+        }
+        db_filter
+    }
+
+    pub async fn count_ases_filtered(&self, filters: &AsFilters) -> Result<u64> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let db_filter = Self::create_db_filter(filters);
+
+        // let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
+        let res = collection.count_documents(db_filter, None).await?;
+        Ok(res)
+    }
+
+    pub async fn get_ases_filtered(&self, filters: &AsFilters) -> Result<Vec<As>> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let db_filter = Self::create_db_filter(filters);
 
         let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
         let res = collection.find(db_filter, opts).await?;

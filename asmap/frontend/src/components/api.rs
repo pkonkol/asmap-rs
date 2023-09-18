@@ -12,16 +12,17 @@ use std::vec;
 
 const API_URL: &str = "[::1]:8081";
 
-pub async fn get_all_as_filtered() -> anyhow::Result<Vec<As>> {
+pub async fn get_all_as_filtered(filters: AsFilters) -> anyhow::Result<Vec<As>> {
     let mut ws = WebSocket::open(&format!("ws://{API_URL}/as"))?;
 
     let mut out: Vec<As> = vec![];
-    // loop {
-    let filters = AsFilters {
-        country: Some("PL".to_string()),
-        bounds: None,
-        addresses: None,
-    };
+    // let filters = AsFilters {
+    //     country: Some("PL".to_string()),
+    //     bounds: None,
+    //     addresses: None,
+    //     rank: None,
+    //     has_org: None,
+    // };
 
     let req = WSRequest::FilteredAS(filters);
     ws.send(Message::Bytes(bincode::serialize(&req)?)).await?;

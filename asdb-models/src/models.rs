@@ -133,7 +133,7 @@ pub struct AsFilters {
     /// range of allowed ranks, (min, max)
     pub rank: Option<(i64, i64)>,
     // pub contry_name (is that even needed? I have to figure out which to use )
-    pub has_org: bool,
+    pub has_org: Option<bool>,
 }
 
 impl Default for AsFilters {
@@ -143,7 +143,7 @@ impl Default for AsFilters {
             bounds: None,
             addresses: None,
             rank: None,
-            has_org: false,
+            has_org: None,
         }
     }
 }

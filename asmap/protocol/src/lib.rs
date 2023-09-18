@@ -29,8 +29,10 @@ pub struct AsFilters {
     pub bounds: Option<(Coord, Coord)>,
     /// range of addresses, (min, max)
     pub addresses: Option<(i64, i64)>,
-    // pub rank
-    // pub has_org
+    /// range of rank, (min, max)
+    pub rank: Option<(i64, i64)>,
+    /// some ases have no organisation in asrank data
+    pub has_org: Option<bool>,
 }
 
 impl From<AsFilters> for asdb_models::AsFilters {
@@ -39,7 +41,21 @@ impl From<AsFilters> for asdb_models::AsFilters {
             country_iso: value.country,
             bounds: value.bounds,
             addresses: value.addresses,
+            rank: value.rank,
+            has_org: value.has_org,
             ..Default::default()
+        }
+    }
+}
+
+impl Default for AsFilters {
+    fn default() -> Self {
+        Self {
+            country: None,
+            bounds: None,
+            addresses: None,
+            rank: None,
+            has_org: None,
         }
     }
 }

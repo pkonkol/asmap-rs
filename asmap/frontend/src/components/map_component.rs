@@ -5,9 +5,10 @@ use asdb_models::As;
 use gloo_console::log;
 use gloo_utils::{document, format::JsValueSerdeExt};
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
+use protocol::AsFilters;
 use serde::Serialize;
 use wasm_bindgen::{prelude::*, JsCast, JsObject};
-use web_sys::{Element, HtmlElement, Node};
+use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
 use super::api::{debug_ws, get_all_as, get_all_as_filtered};
@@ -19,15 +20,28 @@ pub enum Msg {
     LoadAs,
     LoadAsFiltered,
     Debug,
+    UpdateFilters(FilterForm),
     DrawAs(Vec<As>),
     Error(anyhow::Error),
+}
+
+#[derive(Debug)]
+pub enum FilterForm {
+    HasOrg,
+    MinAddresses(u64),
+    MaxAddresses(u64),
+    CountryCode(String),
+    MinRank(u64),
+    MaxRank(u64),
+    IsBounded,
 }
 
 pub struct MapComponent {
     map: Map,
     container: HtmlElement,
     ases: HashMap<u32, As>,
-    // TODO here loaded bounds,
+    filters: AsFilters, // useful? or form model would be better?
+                        // TODO here loaded bounds,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -57,26 +71,82 @@ impl MapComponent {
     }
 
     fn filter_menu(&self, ctx: &Context<Self>) -> Html {
+        // I can do this by passing a callback to each input and dynamically updating component state
+        // but this seems a bit unnecessary, i just need the filters when sending load request
+
+        // let min_addr_changed = ctx
+        //     .link()
+        //     .callback(move |e| Msg::UpdateFilters(FilterForm::MinAddresses));
+        // let load_filtered = ctx.link().callback(move |_| Msg::LoadAsFiltered);
         html! {
             <div>
+                // may be unnecessary as the load filtered will just use the global state anyway
+                // this form just updates that shit
+                // <div>
+                //     <div style="display:inline-block;"><p>{"max addr"}</p>
+                //         <button onclick={load_filtered}>{"Load filtered"}</button>
+                //     </div>
+                // </div>
                 <div >
                     <div style="display:inline-block;"><p>{"min addr"}</p>
-                        <input title="test" type="number" id="minAddresses" value="0" min="0" max="9999999"/>
+                        <input title="test" type="number" id="minAddresses" value={self.filters.addresses.unwrap().0.to_string()} min="0" max="99999999"
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                Msg::UpdateFilters(FilterForm::MinAddresses(
+                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                            })}
+                        />
                     </div>
                     <div style="display:inline-block;"><p>{"max addr"}</p>
-                        <input type="number" id="maxAddresses" value="100000" min="0" max="9999999"/>
+                        <input type="number" id="maxAddresses" value={self.filters.addresses.unwrap().1.to_string()} min="0" max="99999999"
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                Msg::UpdateFilters(FilterForm::MaxAddresses(
+                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                            })}
+                        />
                     </div>
                     <div style="display:inline-block;"><p>{"country code"}</p>
-                        <input type="text" id="countryCode" value="PL"/>
+                        <input type="text" id="countryCode" value={self.filters.country.clone()}
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                Msg::UpdateFilters(FilterForm::CountryCode(
+                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                            })}
+                        />
                     </div>
                     <div style="display:inline-block;"><p>{"min rank"}</p>
-                        <input type="number" id="minRank" value="0" min="0" max="999999"/>
+                        <input type="number" id="minRank" value={self.filters.rank.unwrap().0.to_string()} min="0" max="999999"
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                Msg::UpdateFilters(FilterForm::MinRank(
+                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                            })}
+                        />
                     </div>
                     <div style="display:inline-block;"><p>{"max rank"}</p>
-                        <input type="number" id="maxRank" value="1000000" min="0" max="999999"/>
+                        <input type="number" id="maxRank" value={self.filters.rank.unwrap().1.to_string()} min="0" max="999999"
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                Msg::UpdateFilters(FilterForm::MaxRank(
+                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                            })}
+                        />
                     </div>
                     <div style="display:inline-block;"><p>{"has org"}</p>
-                        <input type="checkbox" id="hasOrg" />
+                        <input type="checkbox" id="hasOrg" checked={self.filters.has_org.unwrap()}
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                // log!(format!("{:?}", e));
+                                // let x: String = e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap();
+                                // log!(x);
+                                // Msg::UpdateFilters(FilterForm::HasOrg(
+                                //     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                                Msg::UpdateFilters(FilterForm::HasOrg)
+                            })}
+
+                        />
+                    </div>
+                    <div style="display:inline-block;"><p>{"isBounded"}</p>
+                        <input type="checkbox" id="isBounded" checked=false
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                Msg::UpdateFilters(FilterForm::IsBounded)
+                            })}
+                        />
                     </div>
                 </div>
             </div>
@@ -122,6 +192,13 @@ impl Component for MapComponent {
             map: leaflet_map,
             container,
             ases: HashMap::new(),
+            filters: AsFilters {
+                country: Some("PL".to_string()),
+                bounds: None,
+                addresses: Some((0, 21000000)),
+                rank: Some((0, 115000)),
+                has_org: Some(true),
+            },
         }
     }
 
@@ -153,12 +230,39 @@ impl Component for MapComponent {
             }
             Msg::LoadAsFiltered => {
                 log!("load ASes initiatied");
+                let filters = self.filters.clone();
                 ctx.link().send_future(async {
-                    match get_all_as_filtered().await {
+                    match get_all_as_filtered(filters).await {
                         Ok(ases) => Msg::DrawAs(ases),
                         Err(e) => Msg::Error(e),
                     }
                 });
+            }
+            Msg::UpdateFilters(filter) => {
+                log!(format!("got filter update request for {filter:?}"));
+                match filter {
+                    FilterForm::MinAddresses(n) => {
+                        self.filters.addresses = Some((n as i64, self.filters.addresses.unwrap().1))
+                    }
+                    FilterForm::MaxAddresses(n) => {
+                        self.filters.addresses = Some((self.filters.addresses.unwrap().0, n as i64))
+                    }
+                    FilterForm::MinRank(n) => {
+                        self.filters.rank = Some((n as i64, self.filters.rank.unwrap().1))
+                    }
+                    FilterForm::MaxRank(n) => {
+                        self.filters.rank = Some((self.filters.rank.unwrap().0, n as i64))
+                    }
+                    FilterForm::CountryCode(code) => self.filters.country = Some(code),
+                    FilterForm::IsBounded => {
+                        self.filters.bounds = None;
+                        log!("Bounded checkbox not yet implemented")
+                        // TODO use bounds from the visible screean as in load all as
+                    }
+                    FilterForm::HasOrg => {
+                        self.filters.has_org = Some(!self.filters.has_org.unwrap())
+                    }
+                }
             }
             Msg::DrawAs(ases) => {
                 // let ases_str = format!("{:?}", ases);
@@ -245,7 +349,6 @@ fn add_tile_layer(map: &Map) {
 /// will create marker with given description in a popup at given coordinate.
 /// marker size will be `size` in pixels as (width, height)
 fn add_marker(map: &Map, description: &str, coord: &Point, size: (u64, u64)) {
-    const ICON_SIZE: (u32, u32) = (25, 41);
     let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
     let latlng = LatLng::new(coord.0, coord.1);
     let m = Marker::new_with_options(&latlng, &opts);
