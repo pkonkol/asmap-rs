@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Write};
 
 use anyhow::anyhow;
 use asdb_models::As;
@@ -7,7 +7,7 @@ use gloo_utils::{document, format::JsValueSerdeExt};
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
 use protocol::AsFilters;
 use serde::Serialize;
-use wasm_bindgen::{prelude::*, JsCast, JsObject};
+use wasm_bindgen::{convert::IntoWasmAbi, prelude::*, JsCast, JsObject};
 use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
@@ -22,6 +22,8 @@ pub enum Msg {
     Debug,
     UpdateFilters(FilterForm),
     DrawAs(Vec<As>),
+    ClearMarkers,
+    Download,
     Error(anyhow::Error),
 }
 
@@ -154,9 +156,21 @@ impl MapComponent {
     }
 
     fn download_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::Debug);
+        let cb = ctx.link().callback(move |_| Msg::Download);
         html! {
+            <div>
             <button onclick={cb}>{"Download"}</button>
+            // <a href="https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png" download>
+            //     <img src="https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png" alt="W3Schools" width="104" height="142"/>
+            // </a>
+            </div>
+        }
+    }
+
+    fn clear_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::ClearMarkers);
+        html! {
+            <button onclick={cb}>{"Clear"}</button>
         }
     }
 
@@ -301,6 +315,33 @@ impl Component for MapComponent {
                     };
                 }
             }
+            Msg::ClearMarkers => {
+                // TODO
+            }
+            Msg::Download => {
+                use gloo_file::{Blob, ObjectUrl};
+
+                // let blob = Blob::new("hello world");
+                let blob = Blob::new_with_options("content", Some("text/plain"));
+                log!(format!("blob mime: {:?}", blob.raw_mime_type().as_str()));
+                let object_url = ObjectUrl::from(blob);
+                log!(format!(
+                    "well i have some blob and boject url \"{}\"",
+                    object_url.chars().as_str()
+                ));
+
+                let document = web_sys::window().unwrap().document().unwrap();
+                let body = document.body().expect("document should have a body");
+
+                let a = document.create_element("a").unwrap();
+                a.set_attribute("href", &object_url).unwrap();
+                a.set_attribute("download", "filtered-ases.csv").unwrap();
+                a.set_text_content(Some("test blob"));
+                let nodea = body.append_child(&a).unwrap();
+                let htmla: HtmlElement = nodea.clone().dyn_into().unwrap();
+                htmla.click();
+                body.remove_child(&nodea).unwrap();
+            }
             Msg::Error(e) => {
                 log!(format!("error fetching ases, received error '{e:?}'"));
             }
@@ -328,6 +369,9 @@ impl Component for MapComponent {
                 </div>
                 <div>
                     {Self::download_button(self, ctx)}
+                </div>
+                <div>
+                    {Self::clear_button(self, ctx)}
                 </div>
                 <div>
                     {Self::debug_ws_button(self, ctx)}
