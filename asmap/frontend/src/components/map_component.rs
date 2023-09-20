@@ -3,13 +3,17 @@ use std::{collections::HashMap, io::Write};
 use anyhow::anyhow;
 use asdb_models::As;
 use gloo_console::log;
+use gloo_file::{Blob, ObjectUrl};
 use gloo_utils::{document, format::JsValueSerdeExt};
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
 use protocol::AsFilters;
 use serde::Serialize;
 use wasm_bindgen::{convert::IntoWasmAbi, prelude::*, JsCast, JsObject};
+use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
+
+use crate::models::CsvAs;
 
 use super::api::{debug_ws, get_all_as, get_all_as_filtered};
 const POLAND_LAT: f64 = 52.11431;
@@ -319,28 +323,42 @@ impl Component for MapComponent {
                 // TODO
             }
             Msg::Download => {
-                use gloo_file::{Blob, ObjectUrl};
-
-                // let blob = Blob::new("hello world");
-                let blob = Blob::new_with_options("content", Some("text/plain"));
-                log!(format!("blob mime: {:?}", blob.raw_mime_type().as_str()));
-                let object_url = ObjectUrl::from(blob);
-                log!(format!(
-                    "well i have some blob and boject url \"{}\"",
-                    object_url.chars().as_str()
-                ));
-
                 let document = web_sys::window().unwrap().document().unwrap();
                 let body = document.body().expect("document should have a body");
 
-                let a = document.create_element("a").unwrap();
-                a.set_attribute("href", &object_url).unwrap();
-                a.set_attribute("download", "filtered-ases.csv").unwrap();
-                a.set_text_content(Some("test blob"));
-                let nodea = body.append_child(&a).unwrap();
-                let htmla: HtmlElement = nodea.clone().dyn_into().unwrap();
-                htmla.click();
-                body.remove_child(&nodea).unwrap();
+                let mut wtr = csv::Writer::from_writer(Vec::new());
+                for a in self.ases.iter().map(|(_, as_t)| as_t) {
+                    wtr.serialize(CsvAs::from(a)).unwrap();
+                }
+                wtr.flush().unwrap();
+
+                let blob = Blob::new_with_options(
+                    wtr.into_inner().unwrap().as_slice(),
+                    Some("text/plain"),
+                );
+                let object_url = ObjectUrl::from(blob);
+
+                let tmp_download_link = document.create_element("a").unwrap();
+                tmp_download_link
+                    .set_attribute("href", &object_url)
+                    .unwrap();
+                tmp_download_link
+                    .set_attribute(
+                        "download",
+                        &format!(
+                            "filtered-as-{}-{}.csv",
+                            self.ases.len(),
+                            SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs()
+                        ),
+                    )
+                    .unwrap();
+
+                let tmp_node = body.append_child(&tmp_download_link).unwrap();
+                tmp_node.clone().dyn_into::<HtmlElement>().unwrap().click();
+                body.remove_child(&tmp_node).unwrap();
             }
             Msg::Error(e) => {
                 log!(format!("error fetching ases, received error '{e:?}'"));
