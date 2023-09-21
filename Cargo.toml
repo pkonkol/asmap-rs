@@ -15,6 +15,7 @@ members = [
     "asmap/protocol",
     "test-context",
     "config",
+    "leaflet-markercluster",
 ]
 
 [workspace.package]

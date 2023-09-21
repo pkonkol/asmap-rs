@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 asdb-models = { path = "../../asdb-models" }
 protocol = { path = "../protocol" }
+leaflet-markercluster = { path = "../../leaflet-markercluster" }
 console_error_panic_hook = "0.1"
 gloo-console = "0.3"
 gloo-net = { version = "0.4", features = ["json", "websocket"] }
