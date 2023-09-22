@@ -88,9 +88,9 @@ pub async fn get_all_as() -> anyhow::Result<Vec<As>> {
         }
         page += 1;
         // for debug purposes
-        if page > 10 {
-            break;
-        }
+        // if page > 10 {
+        //     break;
+        // }
         // break; // tmp
     }
 

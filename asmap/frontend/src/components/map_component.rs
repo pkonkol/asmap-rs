@@ -1,4 +1,8 @@
-use std::{collections::HashMap, io::Write};
+use std::{
+    collections::{HashMap, HashSet},
+    io::Write,
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use asdb_models::As;
@@ -48,6 +52,7 @@ pub struct MapComponent {
     container: HtmlElement,
     marker_cluster: MarkerClusterGroup,
     ases: HashMap<u32, As>,
+    active_filtered_ases: HashSet<u32>,
     filters: AsFilters, // useful? or form model would be better?
                         // TODO here loaded bounds,
 }
@@ -79,22 +84,8 @@ impl MapComponent {
     }
 
     fn filter_menu(&self, ctx: &Context<Self>) -> Html {
-        // I can do this by passing a callback to each input and dynamically updating component state
-        // but this seems a bit unnecessary, i just need the filters when sending load request
-
-        // let min_addr_changed = ctx
-        //     .link()
-        //     .callback(move |e| Msg::UpdateFilters(FilterForm::MinAddresses));
-        // let load_filtered = ctx.link().callback(move |_| Msg::LoadAsFiltered);
         html! {
             <div>
-                // may be unnecessary as the load filtered will just use the global state anyway
-                // this form just updates that shit
-                // <div>
-                //     <div style="display:inline-block;"><p>{"max addr"}</p>
-                //         <button onclick={load_filtered}>{"Load filtered"}</button>
-                //     </div>
-                // </div>
                 <div >
                     <div style="display:inline-block;"><p>{"min addr"}</p>
                         <input title="test" type="number" id="minAddresses" value={self.filters.addresses.unwrap().0.to_string()} min="0" max="99999999"
@@ -204,18 +195,18 @@ impl Component for MapComponent {
         // let leaflet_map_options
         let leaflet_map = Map::new_with_element(&container, &JsValue::NULL);
         leaflet_map.setMaxZoom(18.0);
-        add_marker(
-            &leaflet_map,
-            "geometric center of poland, test",
-            &Point(POLAND_LAT, POLAND_LON),
-            (25, 41),
-        );
+        // add_marker(
+        //     &leaflet_map,
+        //     "geometric center of poland, test",
+        //     &Point(POLAND_LAT, POLAND_LON),
+        //     (25, 41),
+        // );
         let marker_cluster = markerClusterGroup();
         marker_cluster.addTo(&leaflet_map);
         add_marker_to_cluster(
             &marker_cluster,
             "markercluster test",
-            &Point(POLAND_LAT + 0.0001, POLAND_LON + 0.0001),
+            &Point(POLAND_LAT + 0.000, POLAND_LON + 0.000),
             (25, 41),
         );
         add_marker_to_cluster(
@@ -241,6 +232,7 @@ impl Component for MapComponent {
             container,
             marker_cluster,
             ases: HashMap::new(),
+            active_filtered_ases: HashSet::new(),
             filters: AsFilters {
                 country: Some("PL".to_string()),
                 bounds: None,
@@ -320,9 +312,11 @@ impl Component for MapComponent {
                     "{} ASes fetched, drawing them signal at map_component.rs",
                     ases.len()
                 );
+                self.active_filtered_ases.clear();
                 for a in ases.into_iter() {
                     let asn = a.asn.clone();
                     let i = self.ases.insert(asn, a);
+                    self.active_filtered_ases.insert(asn);
                     if i.is_none() {
                         let aa = self.ases.get(&asn).unwrap();
                         let aa_size = scale_as_marker(&aa);
@@ -336,8 +330,6 @@ impl Component for MapComponent {
                                 asrank_data.name,
                                 asrank_data.rank,
                                 asrank_data.organization,
-                                // asrank_data.coordinates.lat,
-                                // asrank_data.coordinates.lon,
                                 asrank_data.prefixes,
                                 asrank_data.addresses,
                             ),
@@ -351,14 +343,21 @@ impl Component for MapComponent {
                 }
             }
             Msg::ClearMarkers => {
-                // TODO
+                self.active_filtered_ases.clear();
+                self.ases.clear();
+                // TODO clear self.marker_cluster
             }
             Msg::Download => {
                 let document = web_sys::window().unwrap().document().unwrap();
                 let body = document.body().expect("document should have a body");
 
                 let mut wtr = csv::Writer::from_writer(Vec::new());
-                for a in self.ases.iter().map(|(_, as_t)| as_t) {
+                for a in self
+                    .ases
+                    .iter()
+                    .filter(|(asn, _)| self.active_filtered_ases.contains(asn))
+                    .map(|(_, as_t)| as_t)
+                {
                     wtr.serialize(CsvAs::from(a)).unwrap();
                 }
                 wtr.flush().unwrap();
@@ -378,7 +377,7 @@ impl Component for MapComponent {
                         "download",
                         &format!(
                             "filtered-as-{}-{}.csv",
-                            self.ases.len(),
+                            self.active_filtered_ases.len(),
                             SystemTime::now()
                                 .duration_since(SystemTime::UNIX_EPOCH)
                                 .unwrap()
