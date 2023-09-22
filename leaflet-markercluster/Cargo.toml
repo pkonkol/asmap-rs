@@ -11,5 +11,6 @@ license.workspace = true
 [dependencies]
 js-sys = "0.3.64"
 leaflet = "0.2.2"
-wasm-bindgen = "0.2.87"
+serde = { workspace = true, features = ["serde_derive"] }
+wasm-bindgen = { version = "0.2.87", features = ["serde-serialize"] }
 web-sys = "0.3.64"

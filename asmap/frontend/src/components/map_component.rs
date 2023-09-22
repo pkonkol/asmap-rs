@@ -19,7 +19,7 @@ use yew::prelude::*;
 
 use super::api::{debug_ws, get_all_as, get_all_as_filtered};
 use crate::models::CsvAs;
-use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
+use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup, options::MarkerClusterGroupOptions};
 
 const POLAND_LAT: f64 = 52.11431;
 const POLAND_LON: f64 = 19.423672;
@@ -192,16 +192,21 @@ impl Component for MapComponent {
         let container: Element = document().create_element("div").unwrap();
         let container: HtmlElement = container.dyn_into().unwrap();
         container.set_class_name("map");
-        // let leaflet_map_options
+
         let leaflet_map = Map::new_with_element(&container, &JsValue::NULL);
         leaflet_map.setMaxZoom(18.0);
-        // add_marker(
-        //     &leaflet_map,
-        //     "geometric center of poland, test",
-        //     &Point(POLAND_LAT, POLAND_LON),
-        //     (25, 41),
-        // );
-        let marker_cluster = markerClusterGroup();
+
+        let marker_cluster_options = serde_wasm_bindgen::to_value(&MarkerClusterGroupOptions {
+            disable_clustering_at_zoom: 29, //9 is ok
+            spiderfy_on_every_zoom: true,
+            spiderfy_on_max_zoom: true,
+            // this is a hack for spiderify not working on disabling clustering but it also looks kinda bad
+            max_cluster_radius: 25,
+            chunked_loading: true,
+            ..Default::default()
+        }).unwrap();
+        let marker_cluster = markerClusterGroup(&marker_cluster_options);
+        // let marker_cluster = markerClusterGroup(JsValue::NULL);
         marker_cluster.addTo(&leaflet_map);
         add_marker_to_cluster(
             &marker_cluster,
@@ -294,7 +299,13 @@ impl Component for MapComponent {
                     FilterForm::MaxRank(n) => {
                         self.filters.rank = Some((self.filters.rank.unwrap().0, n as i64))
                     }
-                    FilterForm::CountryCode(code) => self.filters.country = Some(code),
+                    FilterForm::CountryCode(code) => {
+                        if code.is_empty() {
+                            self.filters.country = None
+                        } else {
+                            self.filters.country = Some(code)
+                        }
+                    },
                     FilterForm::IsBounded => {
                         self.filters.bounds = None;
                         log!("Bounded checkbox not yet implemented")
@@ -313,6 +324,7 @@ impl Component for MapComponent {
                     ases.len()
                 );
                 self.active_filtered_ases.clear();
+                let mut markers = Vec::new();
                 for a in ases.into_iter() {
                     let asn = a.asn.clone();
                     let i = self.ases.insert(asn, a);
@@ -321,7 +333,7 @@ impl Component for MapComponent {
                         let aa = self.ases.get(&asn).unwrap();
                         let aa_size = scale_as_marker(&aa);
                         let asrank_data = aa.asrank_data.as_ref().unwrap();
-                        add_marker_to_cluster(
+                        let m = create_marker(
                             &self.marker_cluster,
                             &format!(
                                 "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}",
@@ -339,13 +351,15 @@ impl Component for MapComponent {
                             ),
                             aa_size,
                         );
+                        markers.push(m);
                     };
                 }
+                self.marker_cluster.addLayers(markers);
             }
             Msg::ClearMarkers => {
                 self.active_filtered_ases.clear();
                 self.ases.clear();
-                // TODO clear self.marker_cluster
+                self.marker_cluster.clearLayers();
             }
             Msg::Download => {
                 let document = web_sys::window().unwrap().document().unwrap();
@@ -473,6 +487,31 @@ fn add_marker_to_cluster(
     cluster.addLayer(&m);
 }
 
+fn create_marker(
+    cluster: &MarkerClusterGroup,
+    description: &str,
+    coord: &Point,
+    size: (u64, u64),
+) -> Marker {
+    let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
+    let latlng = LatLng::new(coord.0, coord.1);
+    let m = Marker::new_with_options(&latlng, &opts);
+
+    let p = JsValue::from_str(description);
+    m.bindPopup(&p, &JsValue::from_str("popup"));
+
+    let i = Icon::new(
+        &serde_wasm_bindgen::to_value(&IconOpts {
+            icon_url: ICON_URL.to_string(),
+            icon_size: vec![size.0, size.1],
+            class_name: "test-classname".to_string(),
+        })
+        .unwrap(),
+    );
+    // log!("{}", format!("icon: {i:?}"));
+    m.setIcon(&i);
+    m
+}
 /// will create marker with given description in a popup at given coordinate.
 /// marker size will be `size` in pixels as (width, height)
 fn add_marker(map: &Map, description: &str, coord: &Point, size: (u64, u64)) {

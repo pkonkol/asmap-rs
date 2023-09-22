@@ -1585,6 +1585,7 @@ version = "0.1.1"
 dependencies = [
  "js-sys",
  "leaflet",
+ "serde",
  "wasm-bindgen",
  "web-sys",
 ]
