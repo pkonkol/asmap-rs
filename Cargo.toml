@@ -14,7 +14,6 @@ members = [
     "asmap/server",
     "asmap/protocol",
     "test-context",
-    "config",
     "leaflet-markercluster",
 ]
 

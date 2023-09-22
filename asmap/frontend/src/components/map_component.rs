@@ -5,7 +5,7 @@ use asdb_models::As;
 use gloo_console::log;
 use gloo_file::{Blob, ObjectUrl};
 use gloo_utils::{document, format::JsValueSerdeExt};
-use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
+use leaflet::{Icon, LatLng, LatLngBounds, Map, Marker, TileLayer};
 use protocol::AsFilters;
 use serde::Serialize;
 use wasm_bindgen::{convert::IntoWasmAbi, prelude::*, JsCast, JsObject};
@@ -13,9 +13,10 @@ use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
-use crate::models::CsvAs;
-
 use super::api::{debug_ws, get_all_as, get_all_as_filtered};
+use crate::models::CsvAs;
+use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
+
 const POLAND_LAT: f64 = 52.11431;
 const POLAND_LON: f64 = 19.423672;
 const ICON_URL: &str = "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png";
@@ -45,6 +46,7 @@ pub enum FilterForm {
 pub struct MapComponent {
     map: Map,
     container: HtmlElement,
+    marker_cluster: MarkerClusterGroup,
     ases: HashMap<u32, As>,
     filters: AsFilters, // useful? or form model would be better?
                         // TODO here loaded bounds,
@@ -199,16 +201,45 @@ impl Component for MapComponent {
         let container: Element = document().create_element("div").unwrap();
         let container: HtmlElement = container.dyn_into().unwrap();
         container.set_class_name("map");
+        // let leaflet_map_options
         let leaflet_map = Map::new_with_element(&container, &JsValue::NULL);
+        leaflet_map.setMaxZoom(18.0);
         add_marker(
             &leaflet_map,
             "geometric center of poland, test",
             &Point(POLAND_LAT, POLAND_LON),
             (25, 41),
         );
+        let marker_cluster = markerClusterGroup();
+        marker_cluster.addTo(&leaflet_map);
+        add_marker_to_cluster(
+            &marker_cluster,
+            "markercluster test",
+            &Point(POLAND_LAT + 0.0001, POLAND_LON + 0.0001),
+            (25, 41),
+        );
+        add_marker_to_cluster(
+            &marker_cluster,
+            "markercluster test2",
+            &Point(POLAND_LAT + 0.0002, POLAND_LON + 0.0002),
+            (25, 41),
+        );
+        add_marker_to_cluster(
+            &marker_cluster,
+            "markercluster test3",
+            &Point(POLAND_LAT + 0.0003, POLAND_LON + 0.0003),
+            (25, 41),
+        );
+        add_marker_to_cluster(
+            &marker_cluster,
+            "markercluster test4",
+            &Point(POLAND_LAT + 0.0100, POLAND_LON + 0.0100),
+            (25, 41),
+        );
         Self {
             map: leaflet_map,
             container,
+            marker_cluster,
             ases: HashMap::new(),
             filters: AsFilters {
                 country: Some("PL".to_string()),
@@ -296,8 +327,8 @@ impl Component for MapComponent {
                         let aa = self.ases.get(&asn).unwrap();
                         let aa_size = scale_as_marker(&aa);
                         let asrank_data = aa.asrank_data.as_ref().unwrap();
-                        add_marker(
-                            &self.map,
+                        add_marker_to_cluster(
+                            &self.marker_cluster,
                             &format!(
                                 "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}",
                                 aa.asn,
@@ -408,6 +439,41 @@ fn add_tile_layer(map: &Map) {
     .addTo(map);
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct IconOpts {
+    pub icon_url: String,
+    pub icon_size: Vec<u64>,
+    pub class_name: String,
+}
+
+fn add_marker_to_cluster(
+    cluster: &MarkerClusterGroup,
+    description: &str,
+    coord: &Point,
+    size: (u64, u64),
+) {
+    let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
+    let latlng = LatLng::new(coord.0, coord.1);
+    let m = Marker::new_with_options(&latlng, &opts);
+
+    let p = JsValue::from_str(description);
+    m.bindPopup(&p, &JsValue::from_str("popup"));
+
+    let i = Icon::new(
+        &serde_wasm_bindgen::to_value(&IconOpts {
+            icon_url: ICON_URL.to_string(),
+            icon_size: vec![size.0, size.1],
+            class_name: "test-classname".to_string(),
+        })
+        .unwrap(),
+    );
+    // log!("{}", format!("icon: {i:?}"));
+    m.setIcon(&i);
+
+    cluster.addLayer(&m);
+}
+
 /// will create marker with given description in a popup at given coordinate.
 /// marker size will be `size` in pixels as (width, height)
 fn add_marker(map: &Map, description: &str, coord: &Point, size: (u64, u64)) {
@@ -418,13 +484,6 @@ fn add_marker(map: &Map, description: &str, coord: &Point, size: (u64, u64)) {
     let p = JsValue::from_str(description);
     m.bindPopup(&p, &JsValue::from_str("popup"));
 
-    #[derive(Serialize)]
-    #[serde(rename_all = "camelCase")]
-    struct IconOpts {
-        pub icon_url: String,
-        pub icon_size: Vec<u64>,
-        pub class_name: String,
-    }
     let i = Icon::new(
         &serde_wasm_bindgen::to_value(&IconOpts {
             icon_url: ICON_URL.to_string(),
