@@ -1,5 +1,5 @@
-use leaflet::{FeatureGroup, LayerGroup, Marker};
-use wasm_bindgen::{prelude::*, JsObject};
+use leaflet::{FeatureGroup, Marker};
+use wasm_bindgen::{prelude::*};
 
 pub mod options;
 

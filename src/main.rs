@@ -63,7 +63,7 @@ async fn main() {
             // TODO pass ip and port from `a`
             // TODO fix server not talking with frontend
             // TODO don't rely on dev.sh
-            let mut cmd = Command::new(&SERVER_DEV_SCRIPT)
+            let mut cmd = Command::new(SERVER_DEV_SCRIPT)
                 .current_dir("./asmap")
                 .stdout(Stdio::piped())
                 .spawn()

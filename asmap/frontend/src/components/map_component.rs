@@ -1,19 +1,18 @@
 use std::{
     collections::{HashMap, HashSet},
     io::Write,
-    sync::Arc,
 };
 
-use anyhow::anyhow;
+
 use asdb_models::As;
 use gloo_console::log;
 use gloo_file::{Blob, ObjectUrl};
-use gloo_utils::{document, format::JsValueSerdeExt};
-use leaflet::{Icon, LatLng, LatLngBounds, Map, Marker, TileLayer};
-use log::info;
+use gloo_utils::{document};
+use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
+
 use protocol::AsFilters;
 use serde::Serialize;
-use wasm_bindgen::{convert::IntoWasmAbi, prelude::*, JsCast, JsObject};
+use wasm_bindgen::{prelude::*, JsCast};
 use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
@@ -21,7 +20,7 @@ use yew::prelude::*;
 use super::api::{get_all_as, get_all_as_filtered};
 use crate::models::CsvAs;
 use leaflet_markercluster::{
-    markerClusterGroup, options::MarkerClusterGroupOptions, MarkerClusterGroup,
+    markerClusterGroup, MarkerClusterGroup,
 };
 
 const POLAND_LAT: f64 = 52.11431;
@@ -130,7 +129,7 @@ impl MapComponent {
                     </div>
                     <div style="display:inline-block;"><p>{"has org"}</p>
                         <input type="checkbox" id="hasOrg" checked={self.filters.has_org.unwrap()}
-                            oninput={ctx.link().callback(|e: InputEvent| {
+                            oninput={ctx.link().callback(|_e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::HasOrg)
                             })}
 
@@ -138,7 +137,7 @@ impl MapComponent {
                     </div>
                     <div style="display:inline-block;"><p>{"isBounded"}</p>
                         <input type="checkbox" id="isBounded" checked=false
-                            oninput={ctx.link().callback(|e: InputEvent| {
+                            oninput={ctx.link().callback(|_e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::IsBounded)
                             })}
                         />
@@ -280,12 +279,12 @@ impl Component for MapComponent {
                 self.active_filtered_ases.clear();
                 let mut markers = Vec::new();
                 for a in ases.into_iter() {
-                    let asn = a.asn.clone();
+                    let asn = a.asn;
                     let i = self.ases.insert(asn, a);
                     self.active_filtered_ases.insert(asn);
                     if i.is_none() {
                         let aa = self.ases.get(&asn).unwrap();
-                        let aa_size = scale_as_marker(&aa);
+                        let aa_size = scale_as_marker(aa);
                         let asrank_data = aa.asrank_data.as_ref().unwrap();
                         let m = create_marker(
                             &format!(

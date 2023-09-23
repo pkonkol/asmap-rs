@@ -44,7 +44,7 @@ pub async fn handle_as_socket(mut socket: WebSocket, state: ServerState) {
                     }
                 };
             }
-            Message::Close(x) => {
+            Message::Close(_x) => {
                 break;
             }
             _ => {}

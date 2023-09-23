@@ -13,8 +13,7 @@ impl<'a> From<&'a asdb_models::As> for CsvAs<'a> {
         const DEFAULT: &str = "";
         let rank = value
             .asrank_data
-            .as_ref()
-            .and_then(|x| Some(&x.rank))
+            .as_ref().map(|x| &x.rank)
             .unwrap();
         let name = &value.asrank_data.as_ref().unwrap().name;
         let organization = value
@@ -26,9 +25,9 @@ impl<'a> From<&'a asdb_models::As> for CsvAs<'a> {
             .map_or(DEFAULT, |s| s.as_ref());
         Self {
             asn: &value.asn,
-            rank: rank,
-            name: name,
-            organization: organization,
+            rank,
+            name,
+            organization,
         }
     }
 }

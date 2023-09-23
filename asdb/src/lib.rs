@@ -1,12 +1,12 @@
 mod error;
 
-use asdb_models::{As, AsFilters, AsrankAsn, AsrankDegree, Coord, Nic, Organization};
+use asdb_models::{As, AsFilters, AsrankAsn, Coord, AsrankDegree};
 pub use error::{Error, Result};
 
 use futures::stream::TryStreamExt;
 use mongodb::{
     bson::{doc, Document},
-    options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
+    options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions},
     Client, IndexModel,
 };
 
@@ -174,8 +174,8 @@ impl Asdb {
         Ok(())
     }
 
-    pub async fn update_as(&self, a: &As) -> Result<()> {
-        let collection = self
+    pub async fn update_as(&self, _a: &As) -> Result<()> {
+        let _collection = self
             .client
             .database(&self.database)
             .collection::<As>("asns");

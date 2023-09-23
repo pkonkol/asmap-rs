@@ -123,6 +123,7 @@ pub struct WhoIsPrefix {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Default)]
 pub struct AsFilters {
     /// 2 letter country code
     pub country_iso: Option<String>,
@@ -136,14 +137,4 @@ pub struct AsFilters {
     pub has_org: Option<bool>,
 }
 
-impl Default for AsFilters {
-    fn default() -> Self {
-        Self {
-            country_iso: None,
-            bounds: None,
-            addresses: None,
-            rank: None,
-            has_org: None,
-        }
-    }
-}
+
