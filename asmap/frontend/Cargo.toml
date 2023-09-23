@@ -29,3 +29,4 @@ serde = { workspace = true, features = ["serde_derive"] }
 gloo-file = "0.3.0"
 csv = "1.2.2"
 wasm-timer = "0.2.5"
+js-sys = "0.3.64"

@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+// TODO fill all of them and make such structs for all the types in the library
+/// Simple version of the options. Does not work with closures.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarkerClusterGroupOptions {
@@ -7,9 +9,6 @@ pub struct MarkerClusterGroupOptions {
     pub spiderfy_on_every_zoom: bool,
     pub spiderfy_on_max_zoom: bool,
     pub spiderfy_distance_multiplier: f64,
-    // this way may be impossible to pass through serde into JS
-    //pub max_cluster_radius: Box<dyn Fn(f64) -> f64>,
-    // pub max_cluster_radius: Closure<dyn Fn(f64) -> f64>,
     pub max_cluster_radius: u64,
     pub chunked_loading: bool,
 }

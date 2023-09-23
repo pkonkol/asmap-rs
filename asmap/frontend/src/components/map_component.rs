@@ -10,6 +10,7 @@ use gloo_console::log;
 use gloo_file::{Blob, ObjectUrl};
 use gloo_utils::{document, format::JsValueSerdeExt};
 use leaflet::{Icon, LatLng, LatLngBounds, Map, Marker, TileLayer};
+use log::info;
 use protocol::AsFilters;
 use serde::Serialize;
 use wasm_bindgen::{convert::IntoWasmAbi, prelude::*, JsCast, JsObject};
@@ -19,7 +20,9 @@ use yew::prelude::*;
 
 use super::api::{debug_ws, get_all_as, get_all_as_filtered};
 use crate::models::CsvAs;
-use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup, options::MarkerClusterGroupOptions};
+use leaflet_markercluster::{
+    markerClusterGroup, options::MarkerClusterGroupOptions, MarkerClusterGroup,
+};
 
 const POLAND_LAT: f64 = 52.11431;
 const POLAND_LON: f64 = 19.423672;
@@ -196,42 +199,27 @@ impl Component for MapComponent {
         let leaflet_map = Map::new_with_element(&container, &JsValue::NULL);
         leaflet_map.setMaxZoom(18.0);
 
-        let marker_cluster_options = serde_wasm_bindgen::to_value(&MarkerClusterGroupOptions {
-            disable_clustering_at_zoom: 29, //9 is ok
-            spiderfy_on_every_zoom: true,
-            spiderfy_on_max_zoom: true,
-            // this is a hack for spiderify not working on disabling clustering but it also looks kinda bad
-            max_cluster_radius: 25,
-            chunked_loading: true,
-            ..Default::default()
-        }).unwrap();
-        let marker_cluster = markerClusterGroup(&marker_cluster_options);
-        // let marker_cluster = markerClusterGroup(JsValue::NULL);
+        let marker_cluster_opts = js_sys::Object::new();
+        let cluster_radius_func =
+            Closure::wrap(Box::new(|zoom: f64| if zoom < 9. { 80f64 } else { 1f64 })
+                as Box<dyn Fn(f64) -> f64>)
+            .into_js_value();
+        js_sys::Reflect::set(
+            &marker_cluster_opts,
+            &JsValue::from_str("maxClusterRadius"),
+            &cluster_radius_func,
+        )
+        .unwrap();
+        js_sys::Reflect::set(
+            &marker_cluster_opts,
+            &JsValue::from_str("chunkedLoading"),
+            &serde_wasm_bindgen::to_value(&true).unwrap(),
+        )
+        .unwrap();
+
+        let marker_cluster = markerClusterGroup(&marker_cluster_opts.into());
+
         marker_cluster.addTo(&leaflet_map);
-        add_marker_to_cluster(
-            &marker_cluster,
-            "markercluster test",
-            &Point(POLAND_LAT + 0.000, POLAND_LON + 0.000),
-            (25, 41),
-        );
-        add_marker_to_cluster(
-            &marker_cluster,
-            "markercluster test2",
-            &Point(POLAND_LAT + 0.0002, POLAND_LON + 0.0002),
-            (25, 41),
-        );
-        add_marker_to_cluster(
-            &marker_cluster,
-            "markercluster test3",
-            &Point(POLAND_LAT + 0.0003, POLAND_LON + 0.0003),
-            (25, 41),
-        );
-        add_marker_to_cluster(
-            &marker_cluster,
-            "markercluster test4",
-            &Point(POLAND_LAT + 0.0100, POLAND_LON + 0.0100),
-            (25, 41),
-        );
         Self {
             map: leaflet_map,
             container,
@@ -305,7 +293,7 @@ impl Component for MapComponent {
                         } else {
                             self.filters.country = Some(code)
                         }
-                    },
+                    }
                     FilterForm::IsBounded => {
                         self.filters.bounds = None;
                         log!("Bounded checkbox not yet implemented")

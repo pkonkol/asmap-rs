@@ -1,5 +1,5 @@
 use leaflet::{FeatureGroup, LayerGroup, Marker};
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::{prelude::*, JsObject};
 
 pub mod options;
 
@@ -13,6 +13,10 @@ extern "C" {
     /// markerClusterGroup()
     #[wasm_bindgen(js_namespace = L)]
     pub fn markerClusterGroup(options: &JsValue) -> MarkerClusterGroup;
+
+    // So JsObject is a trait and it can be only a dict. How to cast JsObj into JsVal?
+    // #[wasm_bindgen(js_namespace = L, js_name = markerClusterGroup)]
+    // pub fn markerClusterGroup_obj(options: &JsObject) -> MarkerClusterGroup;
 
     // // May not be necesary as FeatureGroup is just a type from leaflet but extended
     // This seems to be custom method from https://github.com/Leaflet/Leaflet.markercluster/blob/master/src/MarkerClusterGroup.js#L85
