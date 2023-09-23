@@ -16,13 +16,6 @@ pub async fn get_all_as_filtered(filters: AsFilters) -> anyhow::Result<Vec<As>> 
     let mut ws = WebSocket::open(&format!("ws://{API_URL}/as"))?;
 
     let mut out: Vec<As> = vec![];
-    // let filters = AsFilters {
-    //     country: Some("PL".to_string()),
-    //     bounds: None,
-    //     addresses: None,
-    //     rank: None,
-    //     has_org: None,
-    // };
 
     let req = WSRequest::FilteredAS(filters);
     ws.send(Message::Bytes(bincode::serialize(&req)?)).await?;
@@ -87,26 +80,8 @@ pub async fn get_all_as() -> anyhow::Result<Vec<As>> {
             bail!("wrong response");
         }
         page += 1;
-        // for debug purposes
-        // if page > 10 {
-        //     break;
-        // }
-        // break; // tmp
     }
 
     ws.close(None, None)?;
     Ok(out)
-}
-
-pub async fn debug_ws() -> anyhow::Result<()> {
-    let mut ws = WebSocket::open(&format!("ws://{API_URL}/ws-test"))?;
-
-    let t = ws.send(Message::Text("hello ws from yew".to_owned())).await;
-    log!("sent: {}", t.is_ok());
-    if let Some(x) = ws.next().await {
-        let xfmt = format!("{x:?}");
-        log!("read msg {} from ws", xfmt);
-    }
-    ws.close(None, None).unwrap();
-    Ok(())
 }

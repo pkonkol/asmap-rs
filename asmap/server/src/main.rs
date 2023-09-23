@@ -7,7 +7,7 @@ use std::{
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
-use handlers::{as_handler, ws_test_handler};
+use handlers::as_handler;
 use state::ServerState;
 
 mod handlers;
@@ -51,7 +51,6 @@ async fn main() {
 
     let state = ServerState::new(&cfg.mongo_conn_str, &cfg.db_name).await;
     let app = Router::new()
-        .route("/ws-test", get(ws_test_handler))
         .route("/as", get(as_handler))
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .layer(CorsLayer::permissive())

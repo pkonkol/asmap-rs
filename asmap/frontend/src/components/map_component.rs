@@ -18,7 +18,7 @@ use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
-use super::api::{debug_ws, get_all_as, get_all_as_filtered};
+use super::api::{get_all_as, get_all_as_filtered};
 use crate::models::CsvAs;
 use leaflet_markercluster::{
     markerClusterGroup, options::MarkerClusterGroupOptions, MarkerClusterGroup,
@@ -26,12 +26,11 @@ use leaflet_markercluster::{
 
 const POLAND_LAT: f64 = 52.11431;
 const POLAND_LON: f64 = 19.423672;
-const ICON_URL: &str = "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png";
+const MARKER_ICON_URL: &str = "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png";
 
 pub enum Msg {
     LoadAs,
     LoadAsFiltered,
-    Debug,
     UpdateFilters(FilterForm),
     DrawAs(Vec<As>),
     ClearMarkers,
@@ -56,8 +55,7 @@ pub struct MapComponent {
     marker_cluster: MarkerClusterGroup,
     ases: HashMap<u32, As>,
     active_filtered_ases: HashSet<u32>,
-    filters: AsFilters, // useful? or form model would be better?
-                        // TODO here loaded bounds,
+    filters: AsFilters,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -133,11 +131,6 @@ impl MapComponent {
                     <div style="display:inline-block;"><p>{"has org"}</p>
                         <input type="checkbox" id="hasOrg" checked={self.filters.has_org.unwrap()}
                             oninput={ctx.link().callback(|e: InputEvent| {
-                                // log!(format!("{:?}", e));
-                                // let x: String = e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap();
-                                // log!(x);
-                                // Msg::UpdateFilters(FilterForm::HasOrg(
-                                //     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                                 Msg::UpdateFilters(FilterForm::HasOrg)
                             })}
 
@@ -158,12 +151,7 @@ impl MapComponent {
     fn download_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::Download);
         html! {
-            <div>
             <button onclick={cb}>{"Download"}</button>
-            // <a href="https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png" download>
-            //     <img src="https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png" alt="W3Schools" width="104" height="142"/>
-            // </a>
-            </div>
         }
     }
 
@@ -173,18 +161,6 @@ impl MapComponent {
             <button onclick={cb}>{"Clear"}</button>
         }
     }
-
-    fn debug_ws_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::Debug);
-        html! {
-            <button onclick={cb}>{"Debug WS"}</button>
-        }
-    }
-    // TODO filtering interface, country dropdown allowing up to 1 choice
-    // bounds should come from the visible screen area so not here. And should be default for load ases up to some zoom level
-    // addresses range slider (min&max)
-    // rank range slider (min&max)
-    // load by filter button
 }
 
 impl Component for MapComponent {
@@ -238,21 +214,13 @@ impl Component for MapComponent {
 
     fn rendered(&mut self, _ctx: &Context<Self>, first_render: bool) {
         if first_render {
-            self.map.setView(&LatLng::new(POLAND_LAT, POLAND_LON), 8.0);
+            self.map.setView(&LatLng::new(POLAND_LAT, POLAND_LON), 5.0);
             add_tile_layer(&self.map);
         }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::Debug => {
-                log!("debug executed");
-                ctx.link().send_future(async {
-                    let res = debug_ws().await;
-                    log!("res: {}", format!("{res:?}"));
-                    Msg::Error(anyhow!("test error"))
-                });
-            }
             Msg::LoadAs => {
                 log!("load ASes initiatied");
                 ctx.link().send_future(async {
@@ -305,8 +273,6 @@ impl Component for MapComponent {
                 }
             }
             Msg::DrawAs(ases) => {
-                // let ases_str = format!("{:?}", ases);
-                // log!(format!("ASES ARE:\n {:#?}", ases_str));
                 log!(
                     "{} ASes fetched, drawing them signal at map_component.rs",
                     ases.len()
@@ -322,7 +288,6 @@ impl Component for MapComponent {
                         let aa_size = scale_as_marker(&aa);
                         let asrank_data = aa.asrank_data.as_ref().unwrap();
                         let m = create_marker(
-                            &self.marker_cluster,
                             &format!(
                                 "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}",
                                 aa.asn,
@@ -423,9 +388,6 @@ impl Component for MapComponent {
                 <div>
                     {Self::clear_button(self, ctx)}
                 </div>
-                <div>
-                    {Self::debug_ws_button(self, ctx)}
-                </div>
             </div>
             </>
         }
@@ -448,12 +410,7 @@ struct IconOpts {
     pub class_name: String,
 }
 
-fn add_marker_to_cluster(
-    cluster: &MarkerClusterGroup,
-    description: &str,
-    coord: &Point,
-    size: (u64, u64),
-) {
+fn create_marker(description: &str, coord: &Point, size: (u64, u64)) -> Marker {
     let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
     let latlng = LatLng::new(coord.0, coord.1);
     let m = Marker::new_with_options(&latlng, &opts);
@@ -463,65 +420,14 @@ fn add_marker_to_cluster(
 
     let i = Icon::new(
         &serde_wasm_bindgen::to_value(&IconOpts {
-            icon_url: ICON_URL.to_string(),
+            icon_url: MARKER_ICON_URL.to_string(),
             icon_size: vec![size.0, size.1],
             class_name: "test-classname".to_string(),
         })
         .unwrap(),
     );
-    // log!("{}", format!("icon: {i:?}"));
-    m.setIcon(&i);
-
-    cluster.addLayer(&m);
-}
-
-fn create_marker(
-    cluster: &MarkerClusterGroup,
-    description: &str,
-    coord: &Point,
-    size: (u64, u64),
-) -> Marker {
-    let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
-    let latlng = LatLng::new(coord.0, coord.1);
-    let m = Marker::new_with_options(&latlng, &opts);
-
-    let p = JsValue::from_str(description);
-    m.bindPopup(&p, &JsValue::from_str("popup"));
-
-    let i = Icon::new(
-        &serde_wasm_bindgen::to_value(&IconOpts {
-            icon_url: ICON_URL.to_string(),
-            icon_size: vec![size.0, size.1],
-            class_name: "test-classname".to_string(),
-        })
-        .unwrap(),
-    );
-    // log!("{}", format!("icon: {i:?}"));
     m.setIcon(&i);
     m
-}
-/// will create marker with given description in a popup at given coordinate.
-/// marker size will be `size` in pixels as (width, height)
-fn add_marker(map: &Map, description: &str, coord: &Point, size: (u64, u64)) {
-    let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
-    let latlng = LatLng::new(coord.0, coord.1);
-    let m = Marker::new_with_options(&latlng, &opts);
-
-    let p = JsValue::from_str(description);
-    m.bindPopup(&p, &JsValue::from_str("popup"));
-
-    let i = Icon::new(
-        &serde_wasm_bindgen::to_value(&IconOpts {
-            icon_url: ICON_URL.to_string(),
-            icon_size: vec![size.0, size.1],
-            class_name: "test-classname".to_string(),
-        })
-        .unwrap(),
-    );
-    // log!("{}", format!("icon: {i:?}"));
-    m.setIcon(&i);
-    // m.setPopupContent(&p);
-    m.addTo(map);
 }
 
 /// returns (width, height) in pixels based on
@@ -529,7 +435,7 @@ fn add_marker(map: &Map, description: &str, coord: &Point, size: (u64, u64)) {
 /// both may be used, 1 as color other as marker size
 fn scale_as_marker(a: &As) -> (u64, u64) {
     const RANK_RANGE: (u64, u64) = (0, 115000); // 0 not needed likely
-    const ADDRESS_RANGE: (u64, u64) = (0, 20017664);
+                                                // const ADDRESS_RANGE: (u64, u64) = (0, 20017664);
     const AVG_PIXELS: (u64, u64) = (15, 24); //original is 25,41
     const MIN_PIXELS: (u64, u64) = (5, 8);
     let rank = a.asrank_data.as_ref().unwrap().rank;

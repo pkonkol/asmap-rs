@@ -5,7 +5,6 @@ pub mod options;
 
 #[wasm_bindgen]
 extern "C" {
-    // Is it necessary?
     #[derive(Clone, Debug)]
     #[wasm_bindgen(extends = FeatureGroup)]
     pub type MarkerClusterGroup;
@@ -14,14 +13,6 @@ extern "C" {
     #[wasm_bindgen(js_namespace = L)]
     pub fn markerClusterGroup(options: &JsValue) -> MarkerClusterGroup;
 
-    // So JsObject is a trait and it can be only a dict. How to cast JsObj into JsVal?
-    // #[wasm_bindgen(js_namespace = L, js_name = markerClusterGroup)]
-    // pub fn markerClusterGroup_obj(options: &JsObject) -> MarkerClusterGroup;
-
-    // // May not be necesary as FeatureGroup is just a type from leaflet but extended
-    // This seems to be custom method from https://github.com/Leaflet/Leaflet.markercluster/blob/master/src/MarkerClusterGroup.js#L85
-    // so it must be imported
-    // /// markerClusterGroup().addLayer(L.marker(...))
     // #[wasm_bindgen(method)]
     // pub fn addLayer(this: &MarkerClusterGroup, layer: &LayerGroup);
 
@@ -37,10 +28,6 @@ extern "C" {
 
     #[wasm_bindgen(method)]
     pub fn clearLayers(this: &MarkerClusterGroup);
-
-    // /// markerClusterGroup()
-    // #[wasm_bindgen]
-    // pub fn markerClusterGroupF() -> FeatureGroup;
 
     // TODO later
     // markers.refreshClusters();
