@@ -1,6 +1,6 @@
 mod error;
 
-use asdb_models::{As, AsFilters, AsrankAsn, Coord, AsrankDegree};
+use asdb_models::{As, AsFilters, AsrankAsn, AsrankDegree, Coord};
 pub use error::{Error, Result};
 
 use futures::stream::TryStreamExt;

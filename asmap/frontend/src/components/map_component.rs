@@ -3,11 +3,10 @@ use std::{
     io::Write,
 };
 
-
 use asdb_models::As;
 use gloo_console::log;
 use gloo_file::{Blob, ObjectUrl};
-use gloo_utils::{document};
+use gloo_utils::document;
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
 
 use protocol::AsFilters;
@@ -19,9 +18,7 @@ use yew::prelude::*;
 
 use super::api::{get_all_as, get_all_as_filtered};
 use crate::models::CsvAs;
-use leaflet_markercluster::{
-    markerClusterGroup, MarkerClusterGroup,
-};
+use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
 
 const POLAND_LAT: f64 = 52.11431;
 const POLAND_LON: f64 = 19.423672;
@@ -288,7 +285,7 @@ impl Component for MapComponent {
                         let asrank_data = aa.asrank_data.as_ref().unwrap();
                         let m = create_marker(
                             &format!(
-                                "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}",
+                                "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}, {}",
                                 aa.asn,
                                 asrank_data.country_name,
                                 asrank_data.name,
@@ -296,6 +293,7 @@ impl Component for MapComponent {
                                 asrank_data.organization,
                                 asrank_data.prefixes,
                                 asrank_data.addresses,
+                                format!("<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>"),
                             ),
                             &Point(
                                 asrank_data.coordinates.lat,

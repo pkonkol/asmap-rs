@@ -122,8 +122,7 @@ pub struct WhoIsPrefix {
     pub mnt_by: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct AsFilters {
     /// 2 letter country code
     pub country_iso: Option<String>,
@@ -136,5 +135,3 @@ pub struct AsFilters {
     // pub contry_name (is that even needed? I have to figure out which to use )
     pub has_org: Option<bool>,
 }
-
-
