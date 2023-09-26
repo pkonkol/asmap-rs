@@ -92,47 +92,47 @@ impl MapComponent {
         html! {
             <div>
                 <div >
-                    <div style="display:inline-block;"><p>{"min addr"}</p>
-                        <input title="test" type="number" id="minAddresses" value={self.filters.addresses.unwrap().0.to_string()} min="0" max="99999999"
+                    <div style="display:inline-block;">{"min addr"}<br/>
+                        <input title="test" type="number" id="minAddresses" value={self.filters.addresses.unwrap().0.to_string()} min="0" max="99999999" style="width: 5em;"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MinAddresses(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
                     </div>
-                    <div style="display:inline-block;"><p>{"max addr"}</p>
-                        <input type="number" id="maxAddresses" value={self.filters.addresses.unwrap().1.to_string()} min="0" max="99999999"
+                    <div style="display:inline-block;">{"max addr"}<br/>
+                        <input type="number" id="maxAddresses" value={self.filters.addresses.unwrap().1.to_string()} min="0" max="99999999" style="width: 5em;"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MaxAddresses(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
                     </div>
-                    <div style="display:inline-block;"><p>{"country code"}</p>
-                        <input type="text" id="countryCode" value={self.filters.country.clone()}
+                    <div style="display:inline-block;">{"country code"}<br/>
+                        <input type="text" id="countryCode" value={self.filters.country.clone()} size="2"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::CountryCode(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
                     </div>
-                    <div style="display:inline-block;"><p>{"min rank"}</p>
-                        <input type="number" id="minRank" value={self.filters.rank.unwrap().0.to_string()} min="0" max="999999"
+                    <div style="display:inline-block;">{"min rank"}<br/>
+                        <input type="number" id="minRank" value={self.filters.rank.unwrap().0.to_string()} min="0" max="999999" style="width: 4em;"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MinRank(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
                     </div>
-                    <div style="display:inline-block;"><p>{"max rank"}</p>
-                        <input type="number" id="maxRank" value={self.filters.rank.unwrap().1.to_string()} min="0" max="999999"
+                    <div style="display:inline-block;">{"max rank"}<br/>
+                        <input type="number" id="maxRank" value={self.filters.rank.unwrap().1.to_string()} min="0" max="999999" style="width: 4em;"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MaxRank(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
                     </div>
-                    <div style="display:inline-block;"><p>{"has org"}</p>
+                    <div style="display:inline-block;">{"hasOrg\u{00a0}"}<br/>
                         <input type="checkbox" id="hasOrg" checked={self.filters.has_org.unwrap()}
                             oninput={ctx.link().callback(|_e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::HasOrg)
@@ -140,7 +140,7 @@ impl MapComponent {
 
                         />
                     </div>
-                    <div style="display:inline-block;"><p>{"isBounded"}</p>
+                    <div style="display:inline-block;">{"isBounded"}<br/>
                         <input type="checkbox" id="isBounded" checked=false
                             oninput={ctx.link().callback(|_e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::IsBounded)
@@ -412,15 +412,15 @@ impl Component for MapComponent {
                 {self.render_map()}
             </div>
             <div class="control component-container">
-                <div>
+                <div style="display: flex; flex-flow: column wrap;">
                     {Self::load_all_as_button(self, ctx)}
                     {Self::load_as_bounded_button(self, ctx)}
                     {Self::download_button(self, ctx)}
                     {Self::clear_button(self, ctx)}
                 </div>
                 <div>
-                    {Self::load_as_filtered_button(self, ctx)}
                     {Self::filter_menu(self, ctx)}
+                    {Self::load_as_filtered_button(self, ctx)}
                 </div>
             </div>
             </>

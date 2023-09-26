@@ -11,7 +11,7 @@ body {
   // flex-direction: column;
   display: block;
   // height: 100vh;
-  margin: 0.1em auto;
+  // margin: 0.1em auto;
 
   .map {
     position: absolute;
@@ -35,15 +35,15 @@ body {
 
   .map-container {
     position: relative;
-    border: 1px solid red;
-    margin-bottom: 1em;
+    // border: 1px solid red;
+    margin-bottom: 0.1em;
     // height: 100%;
     // width: 100%;
   }
 
   .control {
     text-align: center;
-    border: 1px solid green;
+    // border: 1px solid green;
     // height: 2%;
     // width: 100%;
     display: inline-flex;
