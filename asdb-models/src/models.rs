@@ -18,6 +18,12 @@ pub struct Coord {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Bound {
+    pub north_east: Coord,
+    pub south_west: Coord,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct As {
     pub asn: u32,
     pub asrank_data: Option<AsrankAsn>,
@@ -127,7 +133,7 @@ pub struct AsFilters {
     /// 2 letter country code
     pub country_iso: Option<String>,
     /// top left and bottom right corners of the geo bound
-    pub bounds: Option<(Coord, Coord)>,
+    pub bounds: Option<Bound>,
     /// range of addresses, (min, max)
     pub addresses: Option<(i64, i64)>,
     /// range of allowed ranks, (min, max)

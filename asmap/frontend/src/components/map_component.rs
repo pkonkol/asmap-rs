@@ -3,21 +3,21 @@ use std::{
     io::Write,
 };
 
-use asdb_models::As;
+use asdb_models::{As, Bound, Coord};
 use gloo_console::log;
 use gloo_file::{Blob, ObjectUrl};
 use gloo_utils::document;
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
 
 use protocol::AsFilters;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
 use super::api::{get_all_as, get_all_as_filtered};
-use crate::models::CsvAs;
+use crate::models::{self, CsvAs};
 use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
 
 const POLAND_LAT: f64 = 52.11431;
@@ -25,7 +25,8 @@ const POLAND_LON: f64 = 19.423672;
 const MARKER_ICON_URL: &str = "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png";
 
 pub enum Msg {
-    LoadAs,
+    LoadAllAs,
+    LoadAsBounded,
     LoadAsFiltered,
     UpdateFilters(FilterForm),
     DrawAs(Vec<As>),
@@ -66,10 +67,17 @@ impl MapComponent {
         Html::VRef(node.clone())
     }
 
-    fn load_as_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::LoadAs);
+    fn load_all_as_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::LoadAllAs);
         html! {
             <button onclick={cb}>{"Load ASes"}</button>
+        }
+    }
+
+    fn load_as_bounded_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::LoadAsBounded);
+        html! {
+            <button onclick={cb}>{"Load ASes in visible range"}</button>
         }
     }
 
@@ -217,10 +225,42 @@ impl Component for MapComponent {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::LoadAs => {
+            Msg::LoadAllAs => {
                 log!("load ASes initiatied");
+                let bounds = self.map.getBounds();
+
+                log!(format!("bounds: {:?}", bounds));
+                let x: models::LatLngBounds =
+                    serde_wasm_bindgen::from_value(bounds.into()).unwrap();
+                log!(format!("bounds parsed to rust: {:?}", x));
                 ctx.link().send_future(async {
                     match get_all_as().await {
+                        Ok(ases) => Msg::DrawAs(ases),
+                        Err(e) => Msg::Error(e),
+                    }
+                });
+            }
+            Msg::LoadAsBounded => {
+                let bounds = self.map.getBounds();
+                let bounds: models::LatLngBounds =
+                    serde_wasm_bindgen::from_value(bounds.into()).unwrap();
+                log!(format!("load AS bounded initiatied, bounds: {bounds:?}"));
+
+                let filters = AsFilters {
+                    bounds: Some(Bound {
+                        north_east: Coord {
+                            lat: bounds._northEast.lat,
+                            lon: bounds._northEast.lng,
+                        },
+                        south_west: Coord {
+                            lat: bounds._southWest.lat,
+                            lon: bounds._southWest.lng,
+                        },
+                    }),
+                    ..Default::default()
+                };
+                ctx.link().send_future(async {
+                    match get_all_as_filtered(filters).await {
                         Ok(ases) => Msg::DrawAs(ases),
                         Err(e) => Msg::Error(e),
                     }
@@ -374,17 +414,14 @@ impl Component for MapComponent {
             </div>
             <div class="control component-container">
                 <div>
-                    {Self::load_as_button(self, ctx)}
+                    {Self::load_all_as_button(self, ctx)}
+                    {Self::load_as_bounded_button(self, ctx)}
+                    {Self::download_button(self, ctx)}
+                    {Self::clear_button(self, ctx)}
                 </div>
                 <div>
                     {Self::load_as_filtered_button(self, ctx)}
                     {Self::filter_menu(self, ctx)}
-                </div>
-                <div>
-                    {Self::download_button(self, ctx)}
-                </div>
-                <div>
-                    {Self::clear_button(self, ctx)}
                 </div>
             </div>
             </>

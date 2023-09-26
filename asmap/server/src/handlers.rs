@@ -10,7 +10,7 @@ use tracing::info;
 use crate::state::ServerState;
 use protocol::{AsFilters, WSRequest, WSResponse};
 
-const PAGE_SIZE: i64 = 1000;
+const PAGE_SIZE: i64 = 10000;
 
 pub async fn as_handler(
     ws: WebSocketUpgrade,

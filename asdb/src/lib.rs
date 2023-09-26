@@ -67,6 +67,7 @@ impl Asdb {
         Ok(())
     }
 
+    // TODO consider merging get_ases and get_as_filtered, just do filters: Option<AsFilters>
     /// returns result with found ases and total count of ases in the DB
     pub async fn get_ases(&self, limit: i64, skip: u64) -> Result<(Vec<As>, u64)> {
         let collection = self
@@ -90,15 +91,15 @@ impl Asdb {
 
     fn create_db_filter(filters: &AsFilters) -> Document {
         let mut db_filter = doc! {};
-        if let Some((top_left, bottom_right)) = &filters.bounds {
+        if let Some(bounds) = &filters.bounds {
             // are the comparisons correct?
             db_filter.insert(
                 "asrank_data.coordinates.lat",
-                doc! {"$gt": top_left.lat, "$lte": bottom_right.lat},
+                doc! {"$lte": bounds.north_east.lat, "$gt": bounds.south_west.lat},
             );
             db_filter.insert(
                 "asrank_data.coordinates.lon",
-                doc! {"$gt": top_left.lon, "$lte": bottom_right.lon},
+                doc! {"$lte": bounds.north_east.lon, "$gt": bounds.south_west.lon},
             );
         }
         if let Some(x) = &filters.country_iso {

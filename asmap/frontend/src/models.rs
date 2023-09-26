@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
 pub struct CsvAs<'a> {
@@ -27,4 +27,15 @@ impl<'a> From<&'a asdb_models::As> for CsvAs<'a> {
             organization,
         }
     }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct LatLng {
+    pub lat: f64,
+    pub lng: f64,
+}
+#[derive(Deserialize, Debug)]
+pub struct LatLngBounds {
+    pub _southWest: LatLng,
+    pub _northEast: LatLng,
 }

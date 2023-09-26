@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use asdb_models::{As, Coord};
+use asdb_models::{As, Bound, Coord};
 
 type Page = u32;
 type TotalPages = u32;
@@ -25,8 +25,9 @@ pub enum WSResponse {
 pub struct AsFilters {
     /// 2 letter country code
     pub country: Option<String>,
+    // Bound comes from asdb_models so it's kinda mixed in into the protocol but should do for now
     /// top left and bottom right corners of the geo bound
-    pub bounds: Option<(Coord, Coord)>,
+    pub bounds: Option<Bound>,
     /// range of addresses, (min, max)
     pub addresses: Option<(i64, i64)>,
     /// range of rank, (min, max)
