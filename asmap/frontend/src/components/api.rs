@@ -2,7 +2,7 @@
 //!
 
 use asdb_models::As;
-use protocol::{AsFilters, WSRequest, WSResponse};
+use protocol::{AsFilters, AsForFrontend, WSRequest, WSResponse};
 
 use anyhow::{anyhow, bail};
 use futures::{SinkExt, StreamExt};
@@ -12,10 +12,10 @@ use std::vec;
 
 const API_URL: &str = "[::1]:8081";
 
-pub async fn get_all_as_filtered(filters: AsFilters) -> anyhow::Result<Vec<As>> {
+pub async fn get_all_as_filtered(filters: AsFilters) -> anyhow::Result<Vec<AsForFrontend>> {
     let mut ws = WebSocket::open(&format!("ws://{API_URL}/as"))?;
 
-    let mut out: Vec<As> = vec![];
+    let mut out: Vec<AsForFrontend> = vec![];
 
     let req = WSRequest::FilteredAS(filters);
     ws.send(Message::Bytes(bincode::serialize(&req)?)).await?;
@@ -46,10 +46,10 @@ pub async fn get_all_as_filtered(filters: AsFilters) -> anyhow::Result<Vec<As>> 
     Ok(out)
 }
 
-pub async fn get_all_as() -> anyhow::Result<Vec<As>> {
+pub async fn get_all_as() -> anyhow::Result<Vec<AsForFrontend>> {
     let mut ws = WebSocket::open(&format!("ws://{API_URL}/as"))?;
 
-    let mut out: Vec<As> = vec![];
+    let mut out: Vec<AsForFrontend> = vec![];
     let mut page = 0;
     loop {
         let req = WSRequest::AllAs(page);

@@ -8,7 +8,7 @@ use axum::{
 use tracing::info;
 
 use crate::state::ServerState;
-use protocol::{AsFilters, WSRequest, WSResponse};
+use protocol::{AsFilters, AsForFrontend, WSRequest, WSResponse};
 
 const PAGE_SIZE: i64 = 10000;
 
@@ -57,6 +57,10 @@ pub async fn handle_as_socket(mut socket: WebSocket, state: ServerState) {
 async fn all_as(page: u32, state: &ServerState) -> Vec<u8> {
     let skip = page as u64 * PAGE_SIZE as u64;
     let (ases, total_count) = state.asdb.get_ases(PAGE_SIZE, skip).await.unwrap();
+    let ases = ases
+        .into_iter()
+        .map(|a| AsForFrontend::from(a))
+        .collect::<Vec<_>>();
     let total_pages = total_count as u32 / PAGE_SIZE as u32;
 
     let resp = WSResponse::AllAs((page, total_pages, ases));
@@ -71,7 +75,10 @@ async fn filtered_as(filters: AsFilters, state: &ServerState) -> Vec<u8> {
         .asdb
         .get_ases_filtered(&asdb_models::AsFilters::from(filters.clone()))
         .await
-        .unwrap();
+        .unwrap()
+        .into_iter()
+        .map(|a| AsForFrontend::from(a))
+        .collect::<Vec<_>>();
     let resp = WSResponse::FilteredAS((filters.clone(), ases));
     let serialized = bincode::serialize(&resp).unwrap();
     info!("successfuly encoded ases filtered by {filters:?} ");

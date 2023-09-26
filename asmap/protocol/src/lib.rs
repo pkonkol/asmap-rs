@@ -16,9 +16,42 @@ pub enum WSRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WSResponse {
     /// returns requested vec of ases along with total number of pages and requested page number
-    AllAs((Page, TotalPages, Vec<As>)),
+    AllAs((Page, TotalPages, Vec<AsForFrontend>)),
     /// returnes vec of ases matching the filters along the original filters requested
-    FilteredAS((AsFilters, Vec<As>)),
+    FilteredAS((AsFilters, Vec<AsForFrontend>)),
+}
+/*
+asn:42151, country:Russia, name: VESTER-AS, rank: 48141, org: Some("Planeta, Ltd"), prefixes: 1, addresses: 512, bgp.he, bgpview
+*/
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AsForFrontend {
+    pub asn: u32,
+    pub rank: u32,
+    pub name: String,
+    pub country_name: String,
+    pub organization: Option<String>,
+    pub prefixes: u16,
+    pub addresses: u32,
+    pub coordinates: Coord,
+}
+
+impl From<As> for AsForFrontend {
+    fn from(value: As) -> Self {
+        let asrank_data = value.asrank_data.unwrap();
+        Self {
+            asn: value.asn,
+            rank: asrank_data.rank as u32,
+            name: asrank_data.name,
+            country_name: asrank_data.country_name,
+            organization: asrank_data.organization,
+            prefixes: asrank_data.prefixes as u16,
+            addresses: asrank_data.addresses as u32,
+            coordinates: Coord {
+                lat: asrank_data.coordinates.lat,
+                lon: asrank_data.coordinates.lon,
+            },
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

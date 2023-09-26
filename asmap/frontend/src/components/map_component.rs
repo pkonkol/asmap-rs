@@ -9,7 +9,7 @@ use gloo_file::{Blob, ObjectUrl};
 use gloo_utils::document;
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
 
-use protocol::AsFilters;
+use protocol::{AsFilters, AsForFrontend};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_timer::SystemTime;
@@ -29,7 +29,7 @@ pub enum Msg {
     LoadAsBounded,
     LoadAsFiltered,
     UpdateFilters(FilterForm),
-    DrawAs(Vec<As>),
+    DrawAs(Vec<AsForFrontend>),
     ClearMarkers,
     Download,
     Error(anyhow::Error),
@@ -50,7 +50,7 @@ pub struct MapComponent {
     map: Map,
     container: HtmlElement,
     marker_cluster: MarkerClusterGroup,
-    ases: HashMap<u32, As>,
+    ases: HashMap<u32, AsForFrontend>,
     active_filtered_ases: HashSet<u32>,
     filters: AsFilters,
 }
@@ -322,23 +322,23 @@ impl Component for MapComponent {
                     if i.is_none() {
                         let aa = self.ases.get(&asn).unwrap();
                         let aa_size = scale_as_marker(aa);
-                        let asrank_data = aa.asrank_data.as_ref().unwrap();
+                        // let asrank_data = aa.asrank_data.as_ref().unwrap();
                         let m = create_marker(
                             &format!(
                                 "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}, {}, {}",
                                 aa.asn,
-                                asrank_data.country_name,
-                                asrank_data.name,
-                                asrank_data.rank,
-                                asrank_data.organization,
-                                asrank_data.prefixes,
-                                asrank_data.addresses,
+                                aa.country_name,
+                                aa.name,
+                                aa.rank,
+                                aa.organization,
+                                aa.prefixes,
+                                aa.addresses,
                                 format!("<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>"),
                                 format!("<a href=\"https://bgpview.io/asn/{asn}\" target=\"_blank\">bgpview</a>"),
                             ),
                             &Point(
-                                asrank_data.coordinates.lat,
-                                asrank_data.coordinates.lon,
+                                aa.coordinates.lat,
+                                aa.coordinates.lon,
                             ),
                             aa_size,
                         );
@@ -468,12 +468,12 @@ fn create_marker(description: &str, coord: &Point, size: (u64, u64)) -> Marker {
 /// returns (width, height) in pixels based on
 /// by rank or by addresses amount? both would suit
 /// both may be used, 1 as color other as marker size
-fn scale_as_marker(a: &As) -> (u64, u64) {
+fn scale_as_marker(a: &AsForFrontend) -> (u64, u64) {
     const RANK_RANGE: (u64, u64) = (0, 115000); // 0 not needed likely
                                                 // const ADDRESS_RANGE: (u64, u64) = (0, 20017664);
     const AVG_PIXELS: (u64, u64) = (15, 24); //original is 25,41
     const MIN_PIXELS: (u64, u64) = (5, 8);
-    let rank = a.asrank_data.as_ref().unwrap().rank;
+    let rank = a.rank;
     let scale = (rank as f64 / RANK_RANGE.1 as f64).clamp(0., 1.);
     // let addresses = a.asrank_data.as_ref().unwrap().addresses;
     // let scale = (addresses as f64 / ADDRESS_RANGE.1 as f64).clamp(0., 1.);
