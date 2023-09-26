@@ -88,6 +88,27 @@ impl MapComponent {
         }
     }
 
+    fn show_cached_filtered_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
+        html! {
+            <button onclick={cb}>{"show filtered cached ASes"}</button>
+        }
+    }
+
+    fn show_cached_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
+        html! {
+            <button onclick={cb}>{"show all cached ASes"}</button>
+        }
+    }
+
+    fn download_cached_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
+        html! {
+            <button onclick={cb}>{"download all cached ASes"}</button>
+        }
+    }
+
     fn filter_menu(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div>
@@ -155,7 +176,7 @@ impl MapComponent {
     fn download_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::Download);
         html! {
-            <button onclick={cb}>{"Download"}</button>
+            <button onclick={cb}>{"Download filtered"}</button>
         }
     }
 
@@ -421,6 +442,11 @@ impl Component for MapComponent {
                 <div>
                     {Self::filter_menu(self, ctx)}
                     {Self::load_as_filtered_button(self, ctx)}
+                </div>
+                <div style="display: flex; flex-flow: column wrap;">
+                    {Self::show_cached_button(self, ctx)}
+                    {Self::show_cached_filtered_button(self, ctx)}
+                    {Self::download_cached_button(self, ctx)}
                 </div>
             </div>
             </>
