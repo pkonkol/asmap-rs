@@ -285,7 +285,7 @@ impl Component for MapComponent {
                         let asrank_data = aa.asrank_data.as_ref().unwrap();
                         let m = create_marker(
                             &format!(
-                                "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}, {}",
+                                "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}, {}, {}",
                                 aa.asn,
                                 asrank_data.country_name,
                                 asrank_data.name,
@@ -294,6 +294,7 @@ impl Component for MapComponent {
                                 asrank_data.prefixes,
                                 asrank_data.addresses,
                                 format!("<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>"),
+                                format!("<a href=\"https://bgpview.io/asn/{asn}\" target=\"_blank\">bgpview</a>"),
                             ),
                             &Point(
                                 asrank_data.coordinates.lat,
