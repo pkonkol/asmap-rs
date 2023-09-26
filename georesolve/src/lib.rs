@@ -8,7 +8,7 @@ pub fn georesolve(address: &str) -> Vec<Point<f64>> {
 
 pub fn georesolve2(address: &str) -> Vec<Point<f64>> {
     let api_key = std::env::var("OPENCAGE_KEY").unwrap();
-    let mut oc = Opencage::new(api_key);
+    let oc = Opencage::new(api_key);
     let res: Vec<Point<f64>> = oc.forward(address).unwrap();
     res
 }

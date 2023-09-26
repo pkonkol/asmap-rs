@@ -295,7 +295,7 @@ impl Component for MapComponent {
                         if code.is_empty() {
                             self.filters.country = None
                         } else {
-                            self.filters.country = Some(code)
+                            self.filters.country = Some(code.to_uppercase())
                         }
                     }
                     FilterForm::IsBounded => {
@@ -320,27 +320,26 @@ impl Component for MapComponent {
                     let i = self.ases.insert(asn, a);
                     self.active_filtered_ases.insert(asn);
                     if i.is_none() {
-                        let aa = self.ases.get(&asn).unwrap();
-                        let aa_size = scale_as_marker(aa);
-                        // let asrank_data = aa.asrank_data.as_ref().unwrap();
+                        let as_ = self.ases.get(&asn).unwrap();
+                        let marker_size = scale_as_marker(as_);
                         let m = create_marker(
                             &format!(
                                 "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}, {}, {}",
-                                aa.asn,
-                                aa.country_name,
-                                aa.name,
-                                aa.rank,
-                                aa.organization,
-                                aa.prefixes,
-                                aa.addresses,
+                                as_.asn,
+                                as_.country_name,
+                                as_.name,
+                                as_.rank,
+                                as_.organization,
+                                as_.prefixes,
+                                as_.addresses,
                                 format!("<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>"),
                                 format!("<a href=\"https://bgpview.io/asn/{asn}\" target=\"_blank\">bgpview</a>"),
                             ),
                             &Point(
-                                aa.coordinates.lat,
-                                aa.coordinates.lon,
+                                as_.coordinates.lat,
+                                as_.coordinates.lon,
                             ),
-                            aa_size,
+                            marker_size,
                         );
                         markers.push(m);
                     };
