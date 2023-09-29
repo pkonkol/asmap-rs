@@ -29,9 +29,12 @@ pub enum Msg {
     LoadAsBounded,
     LoadAsFiltered,
     UpdateFilters(FilterForm),
-    DrawAs(Vec<AsForFrontend>),
     ClearMarkers,
-    Download,
+    DrawAs(Vec<AsForFrontend>),
+    ShowAllCached,
+    ShowFilteredCached,
+    DownloadFiltered,
+    DownloadAllCached,
     Error(anyhow::Error),
 }
 
@@ -51,8 +54,10 @@ pub struct MapComponent {
     container: HtmlElement,
     marker_cluster: MarkerClusterGroup,
     ases: HashMap<u32, AsForFrontend>,
+    /// these are actually just last drawn ases and serve as a proxy for the last filter use
     active_filtered_ases: HashSet<u32>,
     filters: AsFilters,
+    last_executed_filters: AsFilters,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -61,12 +66,8 @@ pub struct Point(pub f64, pub f64);
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {}
 
+// interface components
 impl MapComponent {
-    fn render_map(&self) -> Html {
-        let node: &Node = &self.container.clone().into();
-        Html::VRef(node.clone())
-    }
-
     fn load_all_as_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::LoadAllAs);
         html! {
@@ -89,21 +90,21 @@ impl MapComponent {
     }
 
     fn show_cached_filtered_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
+        let cb = ctx.link().callback(move |_| Msg::ShowFilteredCached);
         html! {
             <button onclick={cb}>{"show filtered cached ASes"}</button>
         }
     }
 
     fn show_cached_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
+        let cb = ctx.link().callback(move |_| Msg::ShowAllCached);
         html! {
             <button onclick={cb}>{"show all cached ASes"}</button>
         }
     }
 
     fn download_cached_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
+        let cb = ctx.link().callback(move |_| Msg::DownloadAllCached);
         html! {
             <button onclick={cb}>{"download all cached ASes"}</button>
         }
@@ -162,7 +163,7 @@ impl MapComponent {
                         />
                     </div>
                     <div style="display:inline-block;">{"isBounded"}<br/>
-                        <input type="checkbox" id="isBounded" checked=false
+                        <input type="checkbox" id="isBounded" checked={!self.filters.bounds.is_none()}
                             oninput={ctx.link().callback(|_e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::IsBounded)
                             })}
@@ -174,7 +175,7 @@ impl MapComponent {
     }
 
     fn download_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::Download);
+        let cb = ctx.link().callback(move |_| Msg::DownloadFiltered);
         html! {
             <button onclick={cb}>{"Download filtered"}</button>
         }
@@ -185,6 +186,52 @@ impl MapComponent {
         html! {
             <button onclick={cb}>{"Clear"}</button>
         }
+    }
+}
+
+// utils
+impl MapComponent {
+    fn render_map(&self) -> Html {
+        let node: &Node = &self.container.clone().into();
+        Html::VRef(node.clone())
+    }
+
+    fn create_downloadable_csv<'a>(&self, ases: impl Iterator<Item = &'a AsForFrontend>) {
+        let document = web_sys::window().unwrap().document().unwrap();
+        let body = document.body().expect("document should have a body");
+
+        let mut wtr = csv::Writer::from_writer(Vec::new());
+        let mut ases_len = 0u64;
+        for a in ases {
+            ases_len += 1;
+            wtr.serialize(CsvAs::from(a)).unwrap();
+        }
+        wtr.flush().unwrap();
+
+        let blob = Blob::new_with_options(wtr.into_inner().unwrap().as_slice(), Some("text/plain"));
+        let object_url = ObjectUrl::from(blob);
+
+        let tmp_download_link = document.create_element("a").unwrap();
+        tmp_download_link
+            .set_attribute("href", &object_url)
+            .unwrap();
+        tmp_download_link
+            .set_attribute(
+                "download",
+                &format!(
+                    "filtered-as-{}-{}.csv",
+                    ases_len,
+                    SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                ),
+            )
+            .unwrap();
+
+        let tmp_node = body.append_child(&tmp_download_link).unwrap();
+        tmp_node.clone().dyn_into::<HtmlElement>().unwrap().click();
+        body.remove_child(&tmp_node).unwrap();
     }
 }
 
@@ -221,19 +268,21 @@ impl Component for MapComponent {
         let marker_cluster = markerClusterGroup(&marker_cluster_opts.into());
 
         marker_cluster.addTo(&leaflet_map);
+        let initial_filters = AsFilters {
+            country: Some("PL".to_string()),
+            bounds: None,
+            addresses: Some((0, 21000000)),
+            rank: Some((0, 115000)),
+            has_org: Some(true),
+        };
         Self {
             map: leaflet_map,
             container,
             marker_cluster,
             ases: HashMap::new(),
             active_filtered_ases: HashSet::new(),
-            filters: AsFilters {
-                country: Some("PL".to_string()),
-                bounds: None,
-                addresses: Some((0, 21000000)),
-                rank: Some((0, 115000)),
-                has_org: Some(true),
-            },
+            filters: initial_filters.clone(),
+            last_executed_filters: initial_filters,
         }
     }
 
@@ -262,9 +311,8 @@ impl Component for MapComponent {
                 });
             }
             Msg::LoadAsBounded => {
-                let bounds = self.map.getBounds();
                 let bounds: models::LatLngBounds =
-                    serde_wasm_bindgen::from_value(bounds.into()).unwrap();
+                    serde_wasm_bindgen::from_value(self.map.getBounds().into()).unwrap();
                 log!(format!("load AS bounded initiatied, bounds: {bounds:?}"));
 
                 let filters = AsFilters {
@@ -289,6 +337,21 @@ impl Component for MapComponent {
             }
             Msg::LoadAsFiltered => {
                 log!("load ASes initiatied");
+                // Bounds must be dynamically updated at the time of button press if checkbox is on
+                if self.filters.bounds.is_some() {
+                    let bounds: models::LatLngBounds =
+                        serde_wasm_bindgen::from_value(self.map.getBounds().into()).unwrap();
+                    self.filters.bounds = Some(Bound {
+                        north_east: Coord {
+                            lat: bounds._northEast.lat,
+                            lon: bounds._northEast.lng,
+                        },
+                        south_west: Coord {
+                            lat: bounds._southWest.lat,
+                            lon: bounds._southWest.lng,
+                        },
+                    })
+                };
                 let filters = self.filters.clone();
                 ctx.link().send_future(async {
                     match get_all_as_filtered(filters).await {
@@ -320,9 +383,15 @@ impl Component for MapComponent {
                         }
                     }
                     FilterForm::IsBounded => {
-                        self.filters.bounds = None;
-                        log!("Bounded checkbox not yet implemented")
-                        // TODO use bounds from the visible screean as in load all as
+                        // The value just needs to be some, it will be udated on load filtered button press
+                        self.filters.bounds = if self.filters.bounds.is_none() {
+                            Some(Bound {
+                                north_east: Coord { lat: 0., lon: 0. },
+                                south_west: Coord { lat: 0., lon: 0. },
+                            })
+                        } else {
+                            None
+                        };
                     }
                     FilterForm::HasOrg => {
                         self.filters.has_org = Some(!self.filters.has_org.unwrap())
@@ -330,10 +399,10 @@ impl Component for MapComponent {
                 }
             }
             Msg::DrawAs(ases) => {
-                log!(
-                    "{} ASes fetched, drawing them signal at map_component.rs",
+                log!(format!(
+                    "{} ASes received to be drawn, drawing them signal at map_component.rs",
                     ases.len()
-                );
+                ));
                 self.active_filtered_ases.clear();
                 let mut markers = Vec::new();
                 for a in ases.into_iter() {
@@ -365,55 +434,47 @@ impl Component for MapComponent {
                         markers.push(m);
                     };
                 }
+                // TODO fix readding the same markers after clearLayers(). For some reason only new ones get drawn
                 self.marker_cluster.addLayers(markers);
             }
             Msg::ClearMarkers => {
+                //self.ases.clear();
                 self.active_filtered_ases.clear();
-                self.ases.clear();
                 self.marker_cluster.clearLayers();
             }
-            Msg::Download => {
-                let document = web_sys::window().unwrap().document().unwrap();
-                let body = document.body().expect("document should have a body");
-
-                let mut wtr = csv::Writer::from_writer(Vec::new());
-                for a in self
+            Msg::DownloadFiltered => {
+                let ases = self
                     .ases
                     .iter()
                     .filter(|(asn, _)| self.active_filtered_ases.contains(asn))
-                    .map(|(_, as_t)| as_t)
-                {
-                    wtr.serialize(CsvAs::from(a)).unwrap();
-                }
-                wtr.flush().unwrap();
+                    .map(|(_, as_t)| as_t);
+                self.create_downloadable_csv(ases);
+            }
+            Msg::DownloadAllCached => {
+                let ases = self.ases.iter().map(|(_, as_t)| as_t);
+                self.create_downloadable_csv(ases);
+            }
+            Msg::ShowAllCached => {
+                self.active_filtered_ases.clear();
+                self.marker_cluster.clearLayers();
+                let ases = self.ases.iter().map(|(_, v)| v.clone()).collect();
+                ctx.link().send_future(async { Msg::DrawAs(ases) });
+            }
+            Msg::ShowFilteredCached => {
+                // There is no way to implement that with AsForFrontend as it is now
+                // I will have to store used filters in a Vec cache, then store filter refs in the ases HashMap.
+                // However in case of implementing full sessionStorage caching this will necessitate
+                // sending a list of skipped ases which were sens in full before so that I can have a information whether given
+                // as matches with the current filter.
 
-                let blob = Blob::new_with_options(
-                    wtr.into_inner().unwrap().as_slice(),
-                    Some("text/plain"),
-                );
-                let object_url = ObjectUrl::from(blob);
-
-                let tmp_download_link = document.create_element("a").unwrap();
-                tmp_download_link
-                    .set_attribute("href", &object_url)
-                    .unwrap();
-                tmp_download_link
-                    .set_attribute(
-                        "download",
-                        &format!(
-                            "filtered-as-{}-{}.csv",
-                            self.active_filtered_ases.len(),
-                            SystemTime::now()
-                                .duration_since(SystemTime::UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs()
-                        ),
-                    )
-                    .unwrap();
-
-                let tmp_node = body.append_child(&tmp_download_link).unwrap();
-                tmp_node.clone().dyn_into::<HtmlElement>().unwrap().click();
-                body.remove_child(&tmp_node).unwrap();
+                // matching bouds will be ok as we have exact coordinates
+                // ok whatever, we have addresses, rank, coords, org and country name but not code right now so we can filter it
+                // directly on the frontend. I may send jsut coutry code to fronted and then resolve it using a lib for that
+                // so previous used filter will be enough, no need of caching more of them
+                self.active_filtered_ases.clear();
+                self.marker_cluster.clearLayers();
+                let ases = self.ases.iter().map(|(_, v)| v.clone()).collect();
+                ctx.link().send_future(async { Msg::DrawAs(ases) });
             }
             Msg::Error(e) => {
                 log!(format!("error fetching ases, received error '{e:?}'"));
