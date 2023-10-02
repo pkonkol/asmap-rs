@@ -53,9 +53,9 @@ pub struct MapComponent {
     map: Map,
     container: HtmlElement,
     marker_cluster: MarkerClusterGroup,
-    ases: HashMap<u32, AsForFrontend>,
+    as_cache: HashMap<u32, AsForFrontend>,
     /// these are actually just last drawn ases and serve as a proxy for the last filter use
-    active_filtered_ases: HashSet<u32>,
+    drawn_filtered_ases: HashSet<u32>,
     filters: AsFilters,
     last_executed_filters: AsFilters,
 }
@@ -279,8 +279,8 @@ impl Component for MapComponent {
             map: leaflet_map,
             container,
             marker_cluster,
-            ases: HashMap::new(),
-            active_filtered_ases: HashSet::new(),
+            as_cache: HashMap::new(),
+            drawn_filtered_ases: HashSet::new(),
             filters: initial_filters.clone(),
             last_executed_filters: initial_filters,
         }
@@ -403,14 +403,12 @@ impl Component for MapComponent {
                     "{} ASes received to be drawn, drawing them signal at map_component.rs",
                     ases.len()
                 ));
-                self.active_filtered_ases.clear();
                 let mut markers = Vec::new();
                 for a in ases.into_iter() {
                     let asn = a.asn;
-                    let i = self.ases.insert(asn, a);
-                    self.active_filtered_ases.insert(asn);
-                    if i.is_none() {
-                        let as_ = self.ases.get(&asn).unwrap();
+                    self.as_cache.insert(asn, a);
+                    if self.drawn_filtered_ases.insert(asn) {
+                        let as_ = self.as_cache.get(&asn).unwrap();
                         let marker_size = scale_as_marker(as_);
                         let m = create_marker(
                             &format!(
@@ -439,25 +437,25 @@ impl Component for MapComponent {
             }
             Msg::ClearMarkers => {
                 //self.ases.clear();
-                self.active_filtered_ases.clear();
+                self.drawn_filtered_ases.clear();
                 self.marker_cluster.clearLayers();
             }
             Msg::DownloadFiltered => {
                 let ases = self
-                    .ases
+                    .as_cache
                     .iter()
-                    .filter(|(asn, _)| self.active_filtered_ases.contains(asn))
+                    .filter(|(asn, _)| self.drawn_filtered_ases.contains(asn))
                     .map(|(_, as_t)| as_t);
                 self.create_downloadable_csv(ases);
             }
             Msg::DownloadAllCached => {
-                let ases = self.ases.iter().map(|(_, as_t)| as_t);
+                let ases = self.as_cache.iter().map(|(_, as_t)| as_t);
                 self.create_downloadable_csv(ases);
             }
             Msg::ShowAllCached => {
-                self.active_filtered_ases.clear();
+                self.drawn_filtered_ases.clear();
                 self.marker_cluster.clearLayers();
-                let ases = self.ases.iter().map(|(_, v)| v.clone()).collect();
+                let ases = self.as_cache.iter().map(|(_, v)| v.clone()).collect();
                 ctx.link().send_future(async { Msg::DrawAs(ases) });
             }
             Msg::ShowFilteredCached => {
@@ -471,9 +469,29 @@ impl Component for MapComponent {
                 // ok whatever, we have addresses, rank, coords, org and country name but not code right now so we can filter it
                 // directly on the frontend. I may send jsut coutry code to fronted and then resolve it using a lib for that
                 // so previous used filter will be enough, no need of caching more of them
-                self.active_filtered_ases.clear();
+                self.drawn_filtered_ases.clear();
                 self.marker_cluster.clearLayers();
-                let ases = self.ases.iter().map(|(_, v)| v.clone()).collect();
+
+                let bounds: models::LatLngBounds =
+                    serde_wasm_bindgen::from_value(self.map.getBounds().into()).unwrap();
+                let ases = self.as_cache.iter()
+                .filter(|(_asn, a)|
+                    a.addresses >= self.filters.addresses.as_ref().unwrap().0 as u32
+                    && a.addresses <= self.filters.addresses.as_ref().unwrap().1 as u32
+                    && a.rank >= self.filters.rank.as_ref().unwrap().0 as u32
+                    && a.rank <= self.filters.rank.as_ref().unwrap().1 as u32
+                    // TODO pass country code instead of name so the comparison works
+                    //&& &a.country_name == self.filters.country.as_ref().unwrap()
+                    && a.organization.is_some() == self.filters.has_org.is_some()
+                    // TODO take the bounds, pull the most up to date ones, compare if needed
+                    && ((self.filters.bounds.is_some()
+                        && (a.coordinates.lat <= bounds._northEast.lat && a.coordinates.lat >= bounds._southWest.lat)
+                        && (a.coordinates.lon <= bounds._northEast.lng && a.coordinates.lon >= bounds._southWest.lng)
+                        )
+                    || self.filters.bounds.is_none()
+                    )
+                )
+                .map(|(_, v)| v.clone()).collect();
                 ctx.link().send_future(async { Msg::DrawAs(ases) });
             }
             Msg::Error(e) => {

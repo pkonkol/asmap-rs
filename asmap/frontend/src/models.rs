@@ -34,3 +34,6 @@ pub struct LatLngBounds {
     pub _southWest: LatLng,
     pub _northEast: LatLng,
 }
+
+// TODO is it needed? It would allow to use a bit less unwraps when forking with the frontend inputs
+// pub struct FrontendFilters { }
