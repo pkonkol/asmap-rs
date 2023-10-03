@@ -405,6 +405,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "celes"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39b9a21273925d7cc9e8a9a5f068122341336813c607014f5ef64f82b6acba58"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -820,6 +829,7 @@ dependencies = [
  "anyhow",
  "asdb-models",
  "bincode",
+ "celes",
  "console_error_panic_hook",
  "csv",
  "futures",

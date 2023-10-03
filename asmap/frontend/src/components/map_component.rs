@@ -187,6 +187,16 @@ impl MapComponent {
             <button onclick={cb}>{"Clear"}</button>
         }
     }
+
+    fn counter(&self, _ctx: &Context<Self>) -> Html {
+        html! {
+            <>
+            <b>{"drawn:"}</b>{self.drawn_filtered_ases.len()}<br/>
+            <b>{"cached:"}</b>{ self.as_cache.len() }<br/>
+            <b>{"session:"}</b>{"TODO"}
+            </>
+        }
+    }
 }
 
 // utils
@@ -273,7 +283,7 @@ impl Component for MapComponent {
             bounds: None,
             addresses: Some((0, 21000000)),
             rank: Some((0, 115000)),
-            has_org: Some(true),
+            has_org: Some(false),
         };
         Self {
             map: leaflet_map,
@@ -410,18 +420,23 @@ impl Component for MapComponent {
                     if self.drawn_filtered_ases.insert(asn) {
                         let as_ = self.as_cache.get(&asn).unwrap();
                         let marker_size = scale_as_marker(as_);
+                        let country = celes::Country::from_alpha2(&as_.country_code);
                         let m = create_marker(
                             &format!(
-                                "asn:{}, country:{}, name: {}, rank: {}, org: {:?}, prefixes: {}, addresses: {}, {}, {}",
+                                "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}
+                                <b>links</b>:{},{}<br>
+                                <b>name</b>:{}<br>
+                                <b>org</b>:{}<br>
+                                <b>country</b>:{}",
                                 as_.asn,
-                                as_.country_name,
-                                as_.name,
                                 as_.rank,
-                                as_.organization,
                                 as_.prefixes,
                                 as_.addresses,
                                 format!("<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>"),
                                 format!("<a href=\"https://bgpview.io/asn/{asn}\" target=\"_blank\">bgpview</a>"),
+                                as_.name,
+                                as_.organization.as_ref().map(|x| x.as_str()).unwrap_or("none"),
+                                country.map(|c| c.long_name).unwrap_or(""),
                             ),
                             &Point(
                                 as_.coordinates.lat,
@@ -481,7 +496,7 @@ impl Component for MapComponent {
                     && a.rank >= self.filters.rank.as_ref().unwrap().0 as u32
                     && a.rank <= self.filters.rank.as_ref().unwrap().1 as u32
                     // TODO pass country code instead of name so the comparison works
-                    //&& &a.country_name == self.filters.country.as_ref().unwrap()
+                    && &a.country_code == self.filters.country.as_ref().unwrap()
                     && a.organization.is_some() == self.filters.has_org.is_some()
                     // TODO take the bounds, pull the most up to date ones, compare if needed
                     && ((self.filters.bounds.is_some()
@@ -526,6 +541,9 @@ impl Component for MapComponent {
                     {Self::show_cached_button(self, ctx)}
                     {Self::show_cached_filtered_button(self, ctx)}
                     {Self::download_cached_button(self, ctx)}
+                </div>
+                <div>
+                    {Self::counter(self, ctx)}
                 </div>
             </div>
             </>
