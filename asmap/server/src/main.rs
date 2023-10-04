@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 use tower::ServiceBuilder;
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
 use handlers::as_handler;
 use state::ServerState;
@@ -15,7 +15,7 @@ mod state;
 
 // const ASDB_CONN_STR: &str = "mongodb://devuser:devpass@localhost:27018/?authSource=asdbmaker";
 // const ASDB_DB: &str = "asdbmaker";
-const CONFIG_PATH: &str = "../../config.yaml";
+const CONFIG_PATH: &str = "config.yaml";
 
 // Setup the command line interface with clap.
 #[derive(Parser, Debug)]
@@ -33,6 +33,10 @@ struct Opt {
     #[clap(short = 'p', long = "port", default_value = "8080")]
     port: u16,
 
+    /// config path
+    #[clap(short = 'c', long = "config", default_value = "config.yaml")]
+    config: String,
+
     /// set the directory where static files are to be found
     #[clap(long = "static-dir", default_value = "../dist")]
     static_dir: String,
@@ -40,8 +44,8 @@ struct Opt {
 
 #[tokio::main]
 async fn main() {
-    let cfg = config::parse(CONFIG_PATH);
     let opt = Opt::parse();
+    let cfg = config::parse(&opt.config);
     // Setup logging & RUST_LOG from args
     // if std::env::var("RUST_LOG").is_err() {
     //     std::env::set_var("RUST_LOG", format!("{},hyper=info,mio=info", opt.log_level))
@@ -52,6 +56,7 @@ async fn main() {
     let state = ServerState::new(&cfg.mongo_conn_str, &cfg.db_name).await;
     let app = Router::new()
         .route("/as", get(as_handler))
+        .fallback_service(ServeDir::new(opt.static_dir))
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .layer(CorsLayer::permissive())
         .with_state(state);

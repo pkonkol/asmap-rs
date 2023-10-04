@@ -9,7 +9,7 @@ use gloo_console::log;
 use gloo_net::websocket::{futures::WebSocket, Message};
 use std::vec;
 
-const API_URL: &str = "[::1]:8081";
+const API_URL: &str = "[::1]:8080";
 
 pub async fn get_all_as_filtered(filters: AsFilters) -> anyhow::Result<Vec<AsForFrontend>> {
     let mut ws = WebSocket::open(&format!("ws://{API_URL}/as"))?;
