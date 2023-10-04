@@ -144,6 +144,7 @@ dependencies = [
  "test-context",
  "thiserror",
  "tokio",
+ "tracing",
  "wasm-bindgen",
  "web-sys",
 ]

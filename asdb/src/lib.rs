@@ -9,6 +9,7 @@ use mongodb::{
     options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions},
     Client, IndexModel,
 };
+use tracing::info;
 
 enum Collection {
     ASNS,
@@ -82,7 +83,7 @@ impl Asdb {
         let res = collection.find(doc! {}, opts).await?;
         let count = collection.count_documents(doc! {}, None).await?;
         let ases: Vec<As> = res.try_collect().await?;
-        println!(
+        info!(
             "found {} mathcing ases for skip {skip} and limit {limit}",
             ases.len()
         );

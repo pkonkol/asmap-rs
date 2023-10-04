@@ -13,10 +13,6 @@ use state::ServerState;
 mod handlers;
 mod state;
 
-// const ASDB_CONN_STR: &str = "mongodb://devuser:devpass@localhost:27018/?authSource=asdbmaker";
-// const ASDB_DB: &str = "asdbmaker";
-const CONFIG_PATH: &str = "config.yaml";
-
 // Setup the command line interface with clap.
 #[derive(Parser, Debug)]
 #[clap(name = "server", about = "A server for our wasm project!")]
@@ -46,11 +42,6 @@ struct Opt {
 async fn main() {
     let opt = Opt::parse();
     let cfg = config::parse(&opt.config);
-    // Setup logging & RUST_LOG from args
-    // if std::env::var("RUST_LOG").is_err() {
-    //     std::env::set_var("RUST_LOG", format!("{},hyper=info,mio=info", opt.log_level))
-    // }
-    // enable console logging
     tracing_subscriber::fmt::init();
 
     let state = ServerState::new(&cfg.mongo_conn_str, &cfg.db_name).await;

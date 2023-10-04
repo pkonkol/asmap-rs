@@ -31,24 +31,26 @@ pub struct As {
     pub whois_data: Option<WhoIsAsn>,
 }
 
-/// Based on ipnetdb data? or merge ipnetdb with asrank?
-/// details from whois, currently only for RIPE
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Organization {
-    pub name: String,
-    pub registry: Nic,
-    pub whois: Option<WhoIsOrg>,
-    pub georesolved: Option<Coord>,
-}
+// Based on ipnetdb data? or merge ipnetdb with asrank?
+// details from whois, currently only for RIPE
+// TODO this too was supposed to not be attached to 1 data source. Needed?
+//#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+//pub struct Organization {
+//    pub name: String,
+//    pub registry: Nic,
+//    pub whois: Option<WhoIsOrg>,
+//    pub georesolved: Option<Coord>,
+//}
 
-/// Represents
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Prefix {
-    pub cidr: IpNetwork,
-    pub registry: Nic,
-    pub whois: Option<WhoIsPrefix>,
-    pub ipnetdb_data: Option<IPNetDBPrefix>,
-}
+// TODO is it still needed? The idea was to make generalized prefix struct not attached to single
+// data source
+//#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+//pub struct Prefix {
+//    pub cidr: IpNetwork,
+//    pub registry: Nic,
+//    pub whois: Option<WhoIsPrefix>,
+//    pub ipnetdb_data: Option<IPNetDBPrefix>,
+//}
 
 /// Person data is available only in whois data from registries so there is no
 /// optional data for it.
@@ -69,7 +71,6 @@ pub struct Person {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AsrankAsn {
-    // pub name: String, TODO
     pub rank: u64,
     pub organization: Option<String>,
     pub country_iso: String,

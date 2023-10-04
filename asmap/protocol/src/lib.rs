@@ -4,6 +4,7 @@ use asdb_models::{As, Bound, Coord};
 
 type Page = u32;
 type TotalPages = u32;
+type Asn = u32;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WSRequest {
@@ -11,7 +12,8 @@ pub enum WSRequest {
     AllAs(Page),
     /// requests all ases that match given filter
     FilteredAS(AsFilters),
-    // TODO session management messages
+    /// details for single As
+    AsDetails(Asn),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -20,7 +22,8 @@ pub enum WSResponse {
     AllAs((Page, TotalPages, Vec<AsForFrontend>)),
     /// returnes vec of ases matching the filters along the original filters requested
     FilteredAS((AsFilters, Vec<AsForFrontend>)),
-    // TODO session management messages
+    /// details for single As
+    AsDetails(As),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

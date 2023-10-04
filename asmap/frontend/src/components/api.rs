@@ -1,6 +1,7 @@
 //! module responsible for retrieving as locations from API
 //!
 
+use asdb_models::As;
 use protocol::{AsFilters, AsForFrontend, WSRequest, WSResponse};
 
 use anyhow::{anyhow, bail};
@@ -83,4 +84,34 @@ pub async fn get_all_as() -> anyhow::Result<Vec<AsForFrontend>> {
 
     ws.close(None, None)?;
     Ok(out)
+}
+
+pub async fn get_as_details(asn: u32) -> anyhow::Result<As> {
+    let mut ws = WebSocket::open(&format!("ws://{API_URL}/as"))?;
+
+    let req = WSRequest::AsDetails(asn);
+    ws.send(Message::Bytes(bincode::serialize(&req)?)).await?;
+    log!("sent request for details ");
+
+    let resp = ws
+        .next()
+        .await
+        .ok_or(anyhow!("didn't receive the message"))??;
+
+    let resp: WSResponse = if let Message::Bytes(b) = resp {
+        log!("deserializing message");
+        bincode::deserialize(&b)?
+    } else {
+        bail!("Received message is not of Bytes type");
+    };
+
+    log!("appending recieved page to output");
+    let as_ = if let WSResponse::AsDetails(as_) = resp {
+        as_
+    } else {
+        bail!("wrong response");
+    };
+
+    ws.close(None, None)?;
+    Ok(as_)
 }

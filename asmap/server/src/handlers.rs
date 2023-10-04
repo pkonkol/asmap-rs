@@ -25,7 +25,6 @@ pub async fn handle_as_socket(mut socket: WebSocket, state: ServerState) {
     loop {
         info!("handle as socket loop start");
         let msg = if let Some(Ok(msg)) = socket.recv().await {
-            info!("recieved message {msg:?}");
             msg
         } else {
             continue;
@@ -40,6 +39,10 @@ pub async fn handle_as_socket(mut socket: WebSocket, state: ServerState) {
                     }
                     WSRequest::FilteredAS(filters) => {
                         let resp = filtered_as(filters, &state).await;
+                        socket.send(Message::Binary(resp)).await.unwrap();
+                    }
+                    WSRequest::AsDetails(asn) => {
+                        let resp = as_details(asn, &state).await;
                         socket.send(Message::Binary(resp)).await.unwrap();
                     }
                 };
@@ -82,5 +85,18 @@ async fn filtered_as(filters: AsFilters, state: &ServerState) -> Vec<u8> {
     let resp = WSResponse::FilteredAS((filters.clone(), ases));
     let serialized = bincode::serialize(&resp).unwrap();
     info!("successfuly encoded ases filtered by {filters:?} ");
+    serialized
+}
+
+/// returns WsResponse containing details for single AS encoded using bincode
+async fn as_details(asn: u32, state: &ServerState) -> Vec<u8> {
+    let as_ = state
+        .asdb
+        .get_as(asn)
+        .await
+        .unwrap();
+    let resp = WSResponse::AsDetails(as_);
+    let serialized = bincode::serialize(&resp).unwrap();
+    info!("successfuly encoded AS{asn} details");
     serialized
 }

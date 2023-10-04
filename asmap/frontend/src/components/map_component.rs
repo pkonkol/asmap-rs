@@ -4,6 +4,7 @@ use std::{
 };
 
 use asdb_models::{As, Bound, Coord};
+use bincode::de;
 use gloo_console::log;
 use gloo_file::{Blob, ObjectUrl};
 use gloo_utils::document;
@@ -16,7 +17,7 @@ use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
-use super::api::{get_all_as, get_all_as_filtered};
+use super::api::{get_all_as, get_all_as_filtered, get_as_details};
 use crate::models::{self, CsvAs};
 use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
 
@@ -28,9 +29,11 @@ pub enum Msg {
     LoadAllAs,
     LoadAsBounded,
     LoadAsFiltered,
+    GetDetails(u32),
     UpdateFilters(FilterForm),
     ClearMarkers,
     DrawAs(Vec<AsForFrontend>),
+    UpdateDetails(As),
     ShowAllCached,
     ShowFilteredCached,
     DownloadFiltered,
@@ -193,7 +196,7 @@ impl MapComponent {
             <>
             <b>{"drawn:"}</b>{self.drawn_filtered_ases.len()}<br/>
             <b>{"cached:"}</b>{ self.as_cache.len() }<br/>
-            <b>{"session:"}</b>{"TODO"}
+            <b>{"detailed:"}</b>{ "TODO" }<br/>
             </>
         }
     }
@@ -370,6 +373,14 @@ impl Component for MapComponent {
                     }
                 });
             }
+            Msg::GetDetails(asn) => {
+                ctx.link().send_future(async move {
+                    match get_as_details(asn).await {
+                        Ok(as_) => Msg::UpdateDetails(as_),
+                        Err(e) => Msg::Error(e),
+                    }
+                });
+            }
             Msg::UpdateFilters(filter) => {
                 log!(format!("got filter update request for {filter:?}"));
                 match filter {
@@ -421,13 +432,24 @@ impl Component for MapComponent {
                         let as_ = self.as_cache.get(&asn).unwrap();
                         let marker_size = scale_as_marker(as_);
                         let country = celes::Country::from_alpha2(&as_.country_code);
+
+                        let details_cb = ctx.link().callback(move |_| Msg::GetDetails(asn));
+                        // TODO how to add this to the popup
+                        let details_button = html! {
+                            <a onclick={details_cb}>{"get details"}</a>
+                        };
+                        //let j = JsValue::from(details_button);
+                        //format!("{details_cb:?}");
+
+
                         let m = create_marker(
                             &format!(
                                 "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}
                                 <b>links</b>:{},{}<br>
                                 <b>name</b>:{}<br>
                                 <b>org</b>:{}<br>
-                                <b>country</b>:{}",
+                                <b>country</b>:{}
+                                <b>get details</b>:{}",
                                 as_.asn,
                                 as_.rank,
                                 as_.prefixes,
@@ -437,6 +459,7 @@ impl Component for MapComponent {
                                 as_.name,
                                 as_.organization.as_ref().map(|x| x.as_str()).unwrap_or("none"),
                                 country.map(|c| c.long_name).unwrap_or(""),
+                                "",
                             ),
                             &Point(
                                 as_.coordinates.lat,
@@ -450,8 +473,11 @@ impl Component for MapComponent {
                 // TODO fix readding the same markers after clearLayers(). For some reason only new ones get drawn
                 self.marker_cluster.addLayers(markers);
             }
+            Msg::UpdateDetails(as_) => {
+                log!(format!("got details for {as_:?}"));
+                // TODO add the details to the marker popup or something
+            }
             Msg::ClearMarkers => {
-                //self.ases.clear();
                 self.drawn_filtered_ases.clear();
                 self.marker_cluster.clearLayers();
             }
