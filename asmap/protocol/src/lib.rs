@@ -11,6 +11,7 @@ pub enum WSRequest {
     AllAs(Page),
     /// requests all ases that match given filter
     FilteredAS(AsFilters),
+    // TODO session management messages
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -19,10 +20,9 @@ pub enum WSResponse {
     AllAs((Page, TotalPages, Vec<AsForFrontend>)),
     /// returnes vec of ases matching the filters along the original filters requested
     FilteredAS((AsFilters, Vec<AsForFrontend>)),
+    // TODO session management messages
 }
-/*
-asn:42151, country:Russia, name: VESTER-AS, rank: 48141, org: Some("Planeta, Ltd"), prefixes: 1, addresses: 512, bgp.he, bgpview
-*/
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AsForFrontend {
     pub asn: u32,

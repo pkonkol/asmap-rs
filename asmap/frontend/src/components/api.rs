@@ -1,7 +1,6 @@
 //! module responsible for retrieving as locations from API
 //!
 
-use asdb_models::As;
 use protocol::{AsFilters, AsForFrontend, WSRequest, WSResponse};
 
 use anyhow::{anyhow, bail};
