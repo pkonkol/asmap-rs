@@ -31,15 +31,16 @@ pub enum Msg {
     LoadAllAs,
     LoadAsBounded,
     LoadAsFiltered,
-    GetDetails(u32),
+    GetDetails(u32, u64),
     UpdateFilters(FilterForm),
     ClearMarkers,
     DrawAs(Vec<AsForFrontend>),
-    UpdateDetails(As),
+    UpdateDetails(As, u64),
     ShowAllCached,
     ShowFilteredCached,
     DownloadFiltered,
     DownloadAllCached,
+    DownloadDetailed,
     Error(anyhow::Error),
 }
 
@@ -59,6 +60,7 @@ pub struct MapComponent {
     container: HtmlElement,
     marker_cluster: MarkerClusterGroup,
     as_cache: HashMap<u32, AsForFrontend>,
+    as_details_cache: HashMap<u32, As>,
     /// these are actually just last drawn ases and serve as a proxy for the last filter use
     drawn_filtered_ases: HashSet<u32>,
     filters: AsFilters,
@@ -186,6 +188,13 @@ impl MapComponent {
         }
     }
 
+    fn download_detailed_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::DownloadDetailed);
+        html! {
+            <button onclick={cb}>{"Download detailed"}</button>
+        }
+    }
+
     fn clear_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::ClearMarkers);
         html! {
@@ -198,7 +207,7 @@ impl MapComponent {
             <>
             <b>{"drawn:"}</b>{self.drawn_filtered_ases.len()}<br/>
             <b>{"cached:"}</b>{ self.as_cache.len() }<br/>
-            <b>{"detailed:"}</b>{ "TODO" }<br/>
+            <b>{"detailed:"}</b>{ self.as_details_cache.len() }<br/>
             </>
         }
     }
@@ -295,6 +304,7 @@ impl Component for MapComponent {
             container,
             marker_cluster,
             as_cache: HashMap::new(),
+            as_details_cache: HashMap::new(),
             drawn_filtered_ases: HashSet::new(),
             filters: initial_filters.clone(),
             last_executed_filters: initial_filters,
@@ -375,14 +385,15 @@ impl Component for MapComponent {
                     }
                 });
             }
-            Msg::GetDetails(asn) => {
-                // check if details already downloaded. Skip if not
-                ctx.link().send_future(async move {
-                    match get_as_details(asn).await {
-                        Ok(as_) => Msg::UpdateDetails(as_),
-                        Err(e) => Msg::Error(e),
-                    }
-                });
+            Msg::GetDetails(asn, marker_id) => {
+                if !self.as_details_cache.contains_key(&asn) {
+                    ctx.link().send_future(async move {
+                        match get_as_details(asn).await {
+                            Ok(as_) => Msg::UpdateDetails(as_, marker_id),
+                            Err(e) => Msg::Error(e),
+                        }
+                    });
+                }
             }
             Msg::UpdateFilters(filter) => {
                 log!(format!("got filter update request for {filter:?}"));
@@ -462,32 +473,47 @@ impl Component for MapComponent {
                             ),
                             marker_size,
                         );
-                        let details_cb = ctx.link().callback(move |_| Msg::GetDetails(asn));
+                        let details_cb = ctx
+                            .link()
+                            .callback(move |marker_id: u64| Msg::GetDetails(asn, marker_id));
                         let closure = Closure::wrap(Box::new(move |e: JsValue| {
-                            log!(format!("{e:?}"));
                             let x: Object = e.unchecked_into();
-                            log!(&x);
-                            //x.keys();
-                            // JsValueSerdeExt works ok but this object is messed
-                            //let h =  x.into_serde::<serde_json::Value>();
-                            //log!(format!("{h:?}"));
-                            details_cb.emit("");
+                            //log!(&x);
+                            #[derive(Deserialize, Debug)]
+                            struct Target {
+                                _leaflet_id: u64,
+                            }
+                            #[derive(Deserialize, Debug)]
+                            struct LeafletId {
+                                target: Target,
+                            }
+                            let m = serde_wasm_bindgen::from_value::<LeafletId>(x.into()).unwrap();
+                            let id = m.target._leaflet_id;
+                            log!(format!("marker id: {id}"));
+                            details_cb.emit(id);
                         })
                             as Box<dyn Fn(JsValue) -> ()>);
                         let js = closure.into_js_value();
                         m.on("popupopen", &js);
-                        // I could also store a hashmap with marker references to use it for updating
                         markers.push(m);
-                        // self.marker_cluster.
                     };
                 }
                 self.marker_cluster.addLayers(markers);
             }
-            Msg::UpdateDetails(as_) => {
+            Msg::UpdateDetails(as_, marker_id) => {
                 log!(format!("got details for {as_:?}"));
-                // TODO add the details to the marker popup or something
-                // accessing the marker layer to find exact one may be problematic, maybe send the
-                // reference when pressed somehow
+                let newm = self.marker_cluster.getLayer(marker_id);
+                log!(format!("newm: {newm:?}"));
+                let pop = newm.getPopup();
+                let old_content = pop.getContent();
+                let old_str = old_content.as_string().unwrap();
+                // TODO fill in the rest of the details with IPnetDB data
+                let new_str = format!(
+                    "{old_str}<br><b>details</b>:{:?}",
+                    as_.asrank_data.as_ref().unwrap().degree
+                );
+                newm.setPopupContent(&JsValue::from_str(&new_str));
+                self.as_details_cache.insert(as_.asn, as_);
             }
             Msg::ClearMarkers => {
                 self.drawn_filtered_ases.clear();
@@ -504,6 +530,12 @@ impl Component for MapComponent {
             Msg::DownloadAllCached => {
                 let ases = self.as_cache.iter().map(|(_, as_t)| as_t);
                 self.create_downloadable_csv(ases);
+            }
+            Msg::DownloadDetailed => {
+                let ases = self.as_details_cache.iter().map(|(_, as_t)| as_t);
+                // TODO pass enum containing either AsForFrontend or full As to the method
+                // This will be used to generate either CsvAs(Short?) or CsvAsDetailed
+                //self.create_downloadable_csv(ases);
             }
             Msg::ShowAllCached => {
                 self.drawn_filtered_ases.clear();
@@ -579,6 +611,7 @@ impl Component for MapComponent {
                     {Self::show_cached_button(self, ctx)}
                     {Self::show_cached_filtered_button(self, ctx)}
                     {Self::download_cached_button(self, ctx)}
+                    {Self::download_detailed_button(self, ctx)}
                 </div>
                 <div>
                     {Self::counter(self, ctx)}

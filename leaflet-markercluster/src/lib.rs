@@ -23,9 +23,14 @@ extern "C" {
     #[wasm_bindgen(method)]
     pub fn addLayers(this: &MarkerClusterGroup, layers: Vec<Marker>);
 
-    /// specialized for marker now
+    /// TODO specialized for marker now
+    /// maybe just return JSValue and parse these manually in code later? Or make wrappers like getLayers_marker
     #[wasm_bindgen(method)]
     pub fn getLayers(this: &MarkerClusterGroup) -> Vec<Marker>;
+
+    /// TODO specialized for marker now
+    #[wasm_bindgen(method)]
+    pub fn getLayer(this: &MarkerClusterGroup, id: u64) -> Marker;
 
     /// specialized for marker now
     #[wasm_bindgen(method)]
