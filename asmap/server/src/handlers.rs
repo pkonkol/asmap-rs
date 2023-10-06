@@ -90,11 +90,7 @@ async fn filtered_as(filters: AsFilters, state: &ServerState) -> Vec<u8> {
 
 /// returns WsResponse containing details for single AS encoded using bincode
 async fn as_details(asn: u32, state: &ServerState) -> Vec<u8> {
-    let as_ = state
-        .asdb
-        .get_as(asn)
-        .await
-        .unwrap();
+    let as_ = state.asdb.get_as(asn).await.unwrap();
     let resp = WSResponse::AsDetails(as_);
     let serialized = bincode::serialize(&resp).unwrap();
     info!("successfuly encoded AS{asn} details");

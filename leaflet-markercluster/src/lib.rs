@@ -23,6 +23,14 @@ extern "C" {
     #[wasm_bindgen(method)]
     pub fn addLayers(this: &MarkerClusterGroup, layers: Vec<Marker>);
 
+    /// specialized for marker now
+    #[wasm_bindgen(method)]
+    pub fn getLayers(this: &MarkerClusterGroup) -> Vec<Marker>;
+
+    /// specialized for marker now
+    #[wasm_bindgen(method)]
+    pub fn hasLayer(this: &MarkerClusterGroup, layer: Vec<Marker>);
+
     #[wasm_bindgen(method, js_name = removeLayer)]
     pub fn removeLayer_marker(this: &MarkerClusterGroup, layer: &Marker);
 

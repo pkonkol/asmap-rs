@@ -8,6 +8,8 @@ use bincode::de;
 use gloo_console::log;
 use gloo_file::{Blob, ObjectUrl};
 use gloo_utils::document;
+use gloo_utils::format::JsValueSerdeExt;
+use js_sys::Object;
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
 
 use protocol::{AsFilters, AsForFrontend};
@@ -374,6 +376,7 @@ impl Component for MapComponent {
                 });
             }
             Msg::GetDetails(asn) => {
+                // check if details already downloaded. Skip if not
                 ctx.link().send_future(async move {
                     match get_as_details(asn).await {
                         Ok(as_) => Msg::UpdateDetails(as_),
@@ -433,15 +436,6 @@ impl Component for MapComponent {
                         let marker_size = scale_as_marker(as_);
                         let country = celes::Country::from_alpha2(&as_.country_code);
 
-                        let details_cb = ctx.link().callback(move |_| Msg::GetDetails(asn));
-                        // TODO how to add this to the popup
-                        let details_button = html! {
-                            <a onclick={details_cb}>{"get details"}</a>
-                        };
-                        //let j = JsValue::from(details_button);
-                        //format!("{details_cb:?}");
-
-
                         let m = create_marker(
                             &format!(
                                 "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}
@@ -449,7 +443,7 @@ impl Component for MapComponent {
                                 <b>name</b>:{}<br>
                                 <b>org</b>:{}<br>
                                 <b>country</b>:{}
-                                <b>get details</b>:{}",
+                                <b>details</b>:{}",
                                 as_.asn,
                                 as_.rank,
                                 as_.prefixes,
@@ -461,21 +455,39 @@ impl Component for MapComponent {
                                 country.map(|c| c.long_name).unwrap_or(""),
                                 "",
                             ),
+                            &format!("AS{}:{}",as_.asn, as_.name),
                             &Point(
                                 as_.coordinates.lat,
                                 as_.coordinates.lon,
                             ),
                             marker_size,
                         );
+                        let details_cb = ctx.link().callback(move |_| Msg::GetDetails(asn));
+                        let closure = Closure::wrap(Box::new(move |e: JsValue| {
+                            log!(format!("{e:?}"));
+                            let x: Object = e.unchecked_into();
+                            log!(&x);
+                            //x.keys();
+                            // JsValueSerdeExt works ok but this object is messed
+                            //let h =  x.into_serde::<serde_json::Value>();
+                            //log!(format!("{h:?}"));
+                            details_cb.emit("");
+                        })
+                            as Box<dyn Fn(JsValue) -> ()>);
+                        let js = closure.into_js_value();
+                        m.on("popupopen", &js);
+                        // I could also store a hashmap with marker references to use it for updating
                         markers.push(m);
+                        // self.marker_cluster.
                     };
                 }
-                // TODO fix readding the same markers after clearLayers(). For some reason only new ones get drawn
                 self.marker_cluster.addLayers(markers);
             }
             Msg::UpdateDetails(as_) => {
                 log!(format!("got details for {as_:?}"));
                 // TODO add the details to the marker popup or something
+                // accessing the marker layer to find exact one may be problematic, maybe send the
+                // reference when pressed somehow
             }
             Msg::ClearMarkers => {
                 self.drawn_filtered_ases.clear();
@@ -593,13 +605,13 @@ struct IconOpts {
     pub class_name: String,
 }
 
-fn create_marker(description: &str, coord: &Point, size: (u64, u64)) -> Marker {
+fn create_marker(description: &str, tooltip: &str, coord: &Point, size: (u64, u64)) -> Marker {
     let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
     let latlng = LatLng::new(coord.0, coord.1);
     let m = Marker::new_with_options(&latlng, &opts);
 
-    let p = JsValue::from_str(description);
-    m.bindPopup(&p, &JsValue::from_str("popup"));
+    m.bindPopup(&JsValue::from_str(description), &JsValue::NULL);
+    m.bindTooltip(&JsValue::from_str(tooltip), &JsValue::NULL);
 
     let i = Icon::new(
         &serde_wasm_bindgen::to_value(&IconOpts {

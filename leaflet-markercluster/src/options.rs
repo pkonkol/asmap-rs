@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 // TODO fill all of them and make such structs for all the types in the library
+// or TODO remove
 /// Simple version of the options. Does not work with closures.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
