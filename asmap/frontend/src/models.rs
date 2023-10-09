@@ -1,3 +1,4 @@
+use asdb_models::As;
 use protocol::AsForFrontend;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +23,35 @@ impl<'a> From<&'a AsForFrontend> for CsvAs<'a> {
             organization,
         }
     }
+}
+
+#[derive(Serialize)]
+pub struct CsvAsDetailed<'a> {
+    pub asn: &'a u32,
+    pub rank: &'a u64,
+    pub name: &'a str,
+    pub organization: &'a str,
+}
+
+impl<'a> From<&'a As> for CsvAsDetailed<'a> {
+    fn from(value: &'a As) -> Self {
+        const DEFAULT: &str = "";
+        let asrank = value.asrank_data.as_ref().unwrap();
+        let rank = &asrank.rank;
+        let name = &asrank.name;
+        let organization = asrank.organization.as_ref().map_or(DEFAULT, |s| s.as_ref());
+        Self {
+            asn: &value.asn,
+            rank,
+            name,
+            organization,
+        }
+    }
+}
+
+pub enum DownloadableCsvInput<'a> {
+    Simple(Box<dyn Iterator<Item = &'a AsForFrontend> + 'a>),
+    Detailed(Box<dyn Iterator<Item = &'a As> + 'a>),
 }
 
 #[derive(Deserialize, Debug)]

@@ -29,6 +29,8 @@ pub struct As {
     pub asrank_data: Option<AsrankAsn>,
     pub ipnetdb_data: Option<IPNetDBAsn>,
     pub whois_data: Option<WhoIsAsn>,
+    // TODO
+    // pub stanford_asdb: Option<StanfordASdb>,
 }
 
 // Based on ipnetdb data? or merge ipnetdb with asrank?

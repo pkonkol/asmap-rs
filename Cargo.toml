@@ -28,11 +28,6 @@ serde = "1.0"
 serde_json = "1.0"
 tokio = "1.28"
 
-# [[bin]]
-# name = "test"
-# src = "src/main.rs"
-
-
 [dependencies]
 asdbmaker = { version = "0.1", path = "asdbmaker" }
 config = { path = "config" }

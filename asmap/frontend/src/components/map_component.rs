@@ -20,7 +20,7 @@ use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
 use super::api::{get_all_as, get_all_as_filtered, get_as_details};
-use crate::models::{self, CsvAs};
+use crate::models::{self, CsvAs, CsvAsDetailed, DownloadableCsvInput};
 use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
 
 const POLAND_LAT: f64 = 52.11431;
@@ -220,10 +220,10 @@ impl MapComponent {
         Html::VRef(node.clone())
     }
 
-    fn create_downloadable_csv<'a>(&self, ases: impl Iterator<Item = &'a AsForFrontend>) {
-        let document = web_sys::window().unwrap().document().unwrap();
-        let body = document.body().expect("document should have a body");
-
+    fn get_simple_csv_writer<'a>(
+        &self,
+        ases: impl Iterator<Item = &'a AsForFrontend>,
+    ) -> (csv::Writer<Vec<u8>>, u64) {
         let mut wtr = csv::Writer::from_writer(Vec::new());
         let mut ases_len = 0u64;
         for a in ases {
@@ -231,6 +231,37 @@ impl MapComponent {
             wtr.serialize(CsvAs::from(a)).unwrap();
         }
         wtr.flush().unwrap();
+        (wtr, ases_len)
+    }
+
+    fn get_detailed_csv_writer<'a>(
+        &self,
+        ases: impl Iterator<Item = &'a As>,
+    ) -> (csv::Writer<Vec<u8>>, u64) {
+        let mut wtr = csv::Writer::from_writer(Vec::new());
+        let mut ases_len = 0u64;
+        for a in ases {
+            ases_len += 1;
+            wtr.serialize(CsvAsDetailed::from(a)).unwrap();
+        }
+        wtr.flush().unwrap();
+        (wtr, ases_len)
+    }
+
+    fn create_downloadable_csv<'a>(&self, input: DownloadableCsvInput) {
+        let document = web_sys::window().unwrap().document().unwrap();
+        let body = document.body().expect("document should have a body");
+
+        let (wtr, ases_len) = match input {
+            DownloadableCsvInput::Simple(x) => {
+                //let ases = x.iter();
+                self.get_simple_csv_writer(x)
+            }
+            DownloadableCsvInput::Detailed(x) => {
+                //let ases = x.iter();
+                self.get_detailed_csv_writer(x)
+            }
+        };
 
         let blob = Blob::new_with_options(wtr.into_inner().unwrap().as_slice(), Some("text/plain"));
         let object_url = ObjectUrl::from(blob);
@@ -525,17 +556,15 @@ impl Component for MapComponent {
                     .iter()
                     .filter(|(asn, _)| self.drawn_filtered_ases.contains(asn))
                     .map(|(_, as_t)| as_t);
-                self.create_downloadable_csv(ases);
+                self.create_downloadable_csv(DownloadableCsvInput::Simple(Box::new(ases)));
             }
             Msg::DownloadAllCached => {
                 let ases = self.as_cache.iter().map(|(_, as_t)| as_t);
-                self.create_downloadable_csv(ases);
+                self.create_downloadable_csv(DownloadableCsvInput::Simple(Box::new(ases)));
             }
             Msg::DownloadDetailed => {
                 let ases = self.as_details_cache.iter().map(|(_, as_t)| as_t);
-                // TODO pass enum containing either AsForFrontend or full As to the method
-                // This will be used to generate either CsvAs(Short?) or CsvAsDetailed
-                //self.create_downloadable_csv(ases);
+                self.create_downloadable_csv(DownloadableCsvInput::Detailed(Box::new(ases)));
             }
             Msg::ShowAllCached => {
                 self.drawn_filtered_ases.clear();
@@ -544,16 +573,6 @@ impl Component for MapComponent {
                 ctx.link().send_future(async { Msg::DrawAs(ases) });
             }
             Msg::ShowFilteredCached => {
-                // There is no way to implement that with AsForFrontend as it is now
-                // I will have to store used filters in a Vec cache, then store filter refs in the ases HashMap.
-                // However in case of implementing full sessionStorage caching this will necessitate
-                // sending a list of skipped ases which were sens in full before so that I can have a information whether given
-                // as matches with the current filter.
-
-                // matching bouds will be ok as we have exact coordinates
-                // ok whatever, we have addresses, rank, coords, org and country name but not code right now so we can filter it
-                // directly on the frontend. I may send jsut coutry code to fronted and then resolve it using a lib for that
-                // so previous used filter will be enough, no need of caching more of them
                 self.drawn_filtered_ases.clear();
                 self.marker_cluster.clearLayers();
 
