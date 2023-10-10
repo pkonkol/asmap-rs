@@ -1,32 +1,25 @@
 use ipnetwork::IpNetwork;
 use maxminddb::Within;
-
+use mongodb::bson::de;
 use serde_json::Value;
-use std::{fmt::Display, net::IpAddr, path::Path};
+use trauma::{download::Download, downloader::DownloaderBuilder};
+use std::{fmt::Display, net::IpAddr, path::{Path, PathBuf}, ffi::OsStr};
 
-const IPNETDB_LATEST: &str = "https://ipnetdb.com/latest.json";
+pub use error::{Result, Error};
 
-#[derive(Debug)]
-pub enum Error {
-    RequestError,
-    DbReadError(String),
+mod error;
+
+const LATEST_PREFIX_MMDB: &str = "https://cdn.ipnetdb.net/ipnetdb_prefix_latest.mmdb";
+const LATEST_ASN_MMDB: &str = "https://cdn.ipnetdb.net/ipnetdb_asn_latest.mmdb";
+
+
+pub async fn load() -> Result<()> {
+    download(&"inputs").await?;
+    // download files if not there
+    // dump them
+    // load dumped into mongo
+    Ok(())
 }
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "whois error {self:?}")
-    }
-}
-
-impl std::error::Error for Error {}
-
-impl From<maxminddb::MaxMindDBError> for Error {
-    fn from(value: maxminddb::MaxMindDBError) -> Self {
-        println!("{value}");
-        Error::DbReadError(value.to_string())
-    }
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 async fn dump_mmdb(db: &impl AsRef<Path>) -> Result<Vec<(IpNetwork, Value)>> {
     let reader = maxminddb::Reader::open_readfile(db)?;
@@ -41,7 +34,7 @@ async fn dump_mmdb(db: &impl AsRef<Path>) -> Result<Vec<(IpNetwork, Value)>> {
     Ok(out)
 }
 
-pub async fn get_prefixes_string(db: &impl AsRef<Path>) -> Result<String> {
+async fn get_prefixes_string(db: &impl AsRef<Path>) -> Result<String> {
     let vec = dump_mmdb(db).await?;
     let mut out = String::new();
     for (_, v) in vec.iter() {
@@ -50,7 +43,7 @@ pub async fn get_prefixes_string(db: &impl AsRef<Path>) -> Result<String> {
     Ok(out)
 }
 
-pub async fn get_asns(db: &impl AsRef<Path>) -> Result<String> {
+async fn get_asns(db: &impl AsRef<Path>) -> Result<String> {
     let vec = dump_mmdb(db).await?;
     let mut out = String::new();
     for (_, v) in vec.iter() {
@@ -59,18 +52,21 @@ pub async fn get_asns(db: &impl AsRef<Path>) -> Result<String> {
     Ok(out)
 }
 
-pub async fn get_ip_details(ip: IpAddr, db: &impl AsRef<Path>) -> Result<String> {
+async fn get_ip_details(ip: IpAddr, db: &impl AsRef<Path>) -> Result<String> {
     let reader = maxminddb::Reader::open_readfile(db)?;
     let data: Value = reader.lookup(ip).unwrap();
 
     Ok(data.to_string())
 }
 
-pub async fn get_latest_ipnetdb() {
-    // reqwest.get(IPNETDB_LATEST)
-    // res["prefix"](["url"], ["file"], ["sha256"])
-    // the same for ["asn"]
-    todo!()
+async fn download<T: AsRef<Path> + AsRef<OsStr>>(dest: &T) -> Result<()> {
+    let downloads = vec![Download::try_from(LATEST_ASN_MMDB).unwrap(),
+    Download::try_from(LATEST_PREFIX_MMDB).unwrap(),];
+    let downloader = DownloaderBuilder::new()
+        .directory(dest.into())
+        .build();
+    downloader.download(&downloads).await;
+    Ok(())
 }
 
 #[cfg(test)]

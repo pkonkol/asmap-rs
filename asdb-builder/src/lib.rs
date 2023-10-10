@@ -10,12 +10,12 @@ use asrank::import_asns;
 use error::Result;
 
 // TODO manage asdb object better
-pub struct Asdbmaker {
+pub struct AsdbBuilder {
     a: Asdb,
     inputs: PathBuf,
 }
 
-impl Asdbmaker {
+impl AsdbBuilder {
     pub async fn new(conn_str: &str, database: &str, inputs_path: &str) -> Result<Self> {
         let a = Asdb::new(conn_str, database).await?;
         Ok(Self {
@@ -36,8 +36,9 @@ impl Asdbmaker {
             .map_err(|e| e.into())
     }
 
-    pub async fn import_ipnetdb_prefixes() -> Result<()> {
-        todo!()
+    pub async fn load_ipnetdb(&self) -> Result<()> {
+        ipnetdb::load().await?;
+        Ok(())
     }
 }
 
@@ -61,7 +62,7 @@ mod tests {
     async fn import_asrank_asns_fills_asdb() {
         let context = TestContext::new(ASDB_CONN_STR).await.unwrap();
 
-        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name, INPUTS_PATH)
+        let m = AsdbBuilder::new(ASDB_CONN_STR, &context.db_name, INPUTS_PATH)
             .await
             .unwrap();
         m.clear_database().await.unwrap();
@@ -77,7 +78,7 @@ mod tests {
     async fn import_asrank_asns_twice_does_not_duplicate_entries() {
         let context = TestContext::new(ASDB_CONN_STR).await.unwrap();
 
-        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name, INPUTS_PATH)
+        let m = AsdbBuilder::new(ASDB_CONN_STR, &context.db_name, INPUTS_PATH)
             .await
             .unwrap();
         m.clear_database().await.unwrap();
@@ -102,7 +103,7 @@ mod tests {
     async fn import_asrank_with_overlapping_supersets_appends_only_new_ones() {
         let context = TestContext::new(ASDB_CONN_STR).await.unwrap();
 
-        let m = Asdbmaker::new(ASDB_CONN_STR, &context.db_name, INPUTS_PATH)
+        let m = AsdbBuilder::new(ASDB_CONN_STR, &context.db_name, INPUTS_PATH)
             .await
             .unwrap();
         m.clear_database().await.unwrap();

@@ -2,10 +2,10 @@ use std::io::{BufRead, BufReader};
 use std::net::{IpAddr, Ipv4Addr};
 use std::process::{Command, Stdio};
 
-use asdbmaker::Asdbmaker;
+use asdb_builder::AsdbBuilder;
 use clap::{Args, Parser, Subcommand};
 
-const INPUTS_PATH: &str = "asdbmaker/inputs";
+const INPUTS_PATH: &str = "inputs";
 const ASNS_JSONL: &str = "asns.jsonl";
 const SERVER_DEV_SCRIPT: &str = "./dev.sh";
 const CONFIG_PATH: &str = "config.yaml";
@@ -27,6 +27,8 @@ enum Commands {
     LoadAsrankAsns(LoadAsrankAsnsArgs),
     /// Starts a server with the map
     Start(StartServerArgs),
+    /// Downloads if not found and loads IpnetDB data
+    LoadIpnetdb,
     // Todo LoadWhois (for range?), LoadIpnetDB, Georesolve(Persons|Orgs|Somethin else?)
 }
 
@@ -51,13 +53,19 @@ async fn main() {
 
     match args.command {
         Commands::LoadAsrankAsns(a) => {
-            let m = Asdbmaker::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
                 .await
                 .unwrap();
             let jsonl_path = a.asns_filename;
             println!("starting import");
             let result = m.import_asrank_asns(&jsonl_path).await;
             println!("import result: {result:?}");
+        }
+        Commands::LoadIpnetdb => {
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+                .await
+                .unwrap();
+            m.load_ipnetdb().await.unwrap();
         }
         Commands::Start(_a) => {
             // TODO pass ip and port from `a`

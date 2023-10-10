@@ -1,5 +1,5 @@
 [package]
-name = "asdbmaker"
+name = "asdb-builder"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,6 +15,7 @@ asdb-models = { path = "../asdb-models" }
 test-context = { path = "../test-context" }
 isocountry = "0.3.2"
 thiserror = "1.0.44"
+trauma = "2.2.4"
 
 [dev-dependencies]
 ctor = "0.2.0"

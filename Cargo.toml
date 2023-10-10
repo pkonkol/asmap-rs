@@ -8,7 +8,7 @@ edition = "2021"
 members = [
     "asdb",
     "asdb-models",
-    "asdbmaker",
+    "asdb-builder",
     "georesolve",
     "asmap/frontend",
     "asmap/server",
@@ -29,7 +29,7 @@ serde_json = "1.0"
 tokio = "1.28"
 
 [dependencies]
-asdbmaker = { version = "0.1", path = "asdbmaker" }
+asdb-builder = { version = "0.1", path = "./asdb-builder" }
 config = { path = "config" }
 clap = { version = "4.3", features = ["derive"] }
 tokio = { workspace = true }
