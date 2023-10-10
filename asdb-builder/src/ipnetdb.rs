@@ -1,3 +1,4 @@
+use asdb_models::IPNetDBAsn;
 use ipnetwork::IpNetwork;
 use maxminddb::Within;
 use mongodb::bson::de;
@@ -5,7 +6,7 @@ use serde_json::Value;
 use std::{
     ffi::OsStr,
     fmt::Display,
-    net::IpAddr,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
 };
 use trauma::{download::Download, downloader::DownloaderBuilder};
@@ -13,6 +14,7 @@ use trauma::{download::Download, downloader::DownloaderBuilder};
 pub use error::{Error, Result};
 
 mod error;
+mod read_models;
 
 const LATEST_PREFIX_MMDB: &str = "https://cdn.ipnetdb.net/ipnetdb_prefix_latest.mmdb";
 const LATEST_ASN_MMDB: &str = "https://cdn.ipnetdb.net/ipnetdb_asn_latest.mmdb";
@@ -20,15 +22,56 @@ const LATEST_ASN_MMDB: &str = "https://cdn.ipnetdb.net/ipnetdb_asn_latest.mmdb";
 pub async fn load() -> Result<()> {
     download(&"inputs").await?;
     // download files if not there
+    read_asns(&"inputs/ipnetdb_asn_latest.mmdb").await.unwrap();
     // dump them
     // load dumped into mongo
     Ok(())
 }
 
+async fn read_asns(db: &impl AsRef<Path>) -> Result<()> {
+    let reader = maxminddb::Reader::open_readfile(db)?;
+    let every_ip = IpNetwork::V4("0.0.0.0/0".parse().unwrap());
+    let iter: Within<read_models::IPNetDBAsn, _> = reader.within(every_ip).unwrap();
+    let prefix_reader = maxminddb::Reader::open_readfile(&"inputs/ipnetdb_prefix_latest.mmdb")?;
+
+    for next in iter {
+        let item = next.unwrap();
+        for i in item.info.ipv4_prefixes.iter() {
+            let huj = prefix_reader.lookup::<read_models::IPNetDBPrefix>(i.network());
+            if huj.is_err() {
+                let huj2 = prefix_reader.lookup::<serde_json::Value>(i.network());
+                println!("huj2: {:#?}", huj2);
+                println!(
+                    "v4 prefix {i:?}, some ip: {:?}, string for that ip: {:#?}\n\n",
+                    i.network(),
+                    huj
+                );
+            }
+            //huj.unwrap();
+        }
+        println!("{:-<100}", "x");
+        // if !item.info.ix.is_empty(){
+        //     println!("{item:#?}");
+        //     for x in item.info.ix.iter(){
+        //        let pars4 = x.ipv4.parse::<Ipv4Addr>();
+        //        let pars6 = x.ipv6.parse::<Ipv6Addr>();
+        //        println!("{} to {pars4:?} and  {} to {pars6:?}", x.ipv4, x.ipv6);
+        //     }
+        //     break;
+        // }
+    }
+    Ok(())
+}
+
+//async fn get_ip_details(ip: IpAddr, reader: maxminddb::Reader<Vec<u8>>) -> Result<String> {
+//    let data: Value = reader.lookup(ip).unwrap();
+//    Ok(data.to_string())
+//}
+
 async fn dump_mmdb(db: &impl AsRef<Path>) -> Result<Vec<(IpNetwork, Value)>> {
     let reader = maxminddb::Reader::open_readfile(db)?;
-    let ip_net = IpNetwork::V4("0.0.0.0/0".parse().unwrap());
-    let iter: Within<serde_json::Value, _> = reader.within(ip_net).unwrap();
+    let every_ip = IpNetwork::V4("0.0.0.0/0".parse().unwrap());
+    let iter: Within<serde_json::Value, _> = reader.within(every_ip).unwrap();
 
     let mut out = Vec::new();
     for next in iter {
@@ -56,7 +99,7 @@ async fn get_asns(db: &impl AsRef<Path>) -> Result<String> {
     Ok(out)
 }
 
-async fn _get_ip_details(ip: IpAddr, db: &impl AsRef<Path>) -> Result<String> {
+async fn get_ip_details_old(ip: IpAddr, db: &impl AsRef<Path>) -> Result<String> {
     let reader = maxminddb::Reader::open_readfile(db)?;
     let data: Value = reader.lookup(ip).unwrap();
     Ok(data.to_string())

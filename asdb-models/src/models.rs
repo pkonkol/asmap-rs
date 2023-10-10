@@ -99,8 +99,8 @@ pub struct IPNetDBIX {
     pub exchange: String,
     // These 2 shoud have proper types but there is some bug with deserialization from mongo
     // thread 'tests::insert_then_get_ipnetdb_as' panicked at 'called `Result::unwrap()` on an `Err` value: Connection("Kind: invalid type: string \"1:2:3:4:5:6:7:8\", expected an array of length 16, labels: {}")
-    pub ipv4: [u8; 4],//Ipv4Addr,
-    pub ipv6: [u8; 8],//Ipv6Addr,
+    pub ipv4: [u8; 4], //Ipv4Addr,
+    pub ipv6: [u8; 8], //Ipv6Addr,
     pub name: String,
     pub speed: u32,
 }
