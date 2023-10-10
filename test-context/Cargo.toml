@@ -9,7 +9,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-mongodb = "2.6.0"
+mongodb = { workspace = true }
 rand = "0.8.5"
-thiserror = "1.0.44"
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }

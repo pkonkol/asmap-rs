@@ -1,12 +1,12 @@
 mod error;
 
-use asdb_models::{As, AsFilters, AsrankAsn, AsrankDegree, Coord};
+use asdb_models::{As, AsFilters, AsrankAsn, AsrankDegree, Coord, IPNetDBAsn};
 pub use error::{Error, Result};
 
 use futures::stream::TryStreamExt;
 use mongodb::{
-    bson::{doc, Document},
-    options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions},
+    bson::{doc, Bson, Document},
+    options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
     Client, IndexModel,
 };
 use tracing::info;
@@ -176,6 +176,23 @@ impl Asdb {
         Ok(())
     }
 
+    pub async fn insert_ipnetdb_asn(&self, asn: u32, a: &IPNetDBAsn) -> Result<()> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let opts = UpdateOptions::builder().build();
+        let update = doc! {
+            "$set": {
+                "ipnetdb_data": mongodb::bson::to_bson(a).expect("IPNetDBAsn should always be serializable to bson")
+            }
+        };
+        collection
+            .update_one(doc! {"asn": asn}, update, opts)
+            .await?;
+        Ok(())
+    }
+
     pub async fn update_as(&self, _a: &As) -> Result<()> {
         let _collection = self
             .client
@@ -189,6 +206,10 @@ impl Asdb {
 
 #[cfg(test)]
 mod tests {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+    use asdb_models::{IPNetDBIX, IPNetDBPrefix, IPNetDBPrefixDetails, Registry};
+    use ipnetwork::{IpNetwork, Ipv6NetworkIterator};
     use itertools::Itertools;
     use test_context::TestContext;
 
@@ -324,6 +345,82 @@ mod tests {
             after_prepare.len(),
             after_prepare.into_iter().unique_by(|x| x.asn).count()
         );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn insert_then_get_ipnetdb_as() {
+        let tested_ipnetdb_as = ipnetdb_as;
+        let tested_as = as_with_asrank;
+        assert!(tested_as().ipnetdb_data.is_none());
+        let tested_asn = tested_as().asn;
+
+        let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
+        let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
+        // first insert normal As so it can be later updated with ipnetdb data
+        asdb.insert_as(&tested_as()).await.unwrap();
+
+        asdb.insert_ipnetdb_asn(tested_asn, &tested_ipnetdb_as())
+            .await
+            .unwrap();
+        let as_ = asdb.get_as(tested_asn).await.unwrap();
+        assert!(as_.ipnetdb_data.is_some());
+        println!("{:#?}", as_);
+        let retrieved_ipnetdb_data = as_.ipnetdb_data.unwrap();
+        assert_eq!(retrieved_ipnetdb_data, tested_ipnetdb_as());
+    }
+
+    fn ipnetdb_as() -> IPNetDBAsn {
+        // TODO fill these
+        let ipv4_prefixes = vec![
+            IPNetDBPrefix {
+                range: IpNetwork::new(IpAddr::V4(Ipv4Addr::new(153, 19, 64, 251)), 16u8).unwrap(),
+                details: Some(IPNetDBPrefixDetails {
+                    allocation: IpNetwork::new(IpAddr::V4(Ipv4Addr::new(153, 19, 64, 251)), 12u8)
+                        .unwrap(),
+                    allocation_cc: "CC".to_string(),
+                    allocation_registry: Registry::AFRINIC,
+                    prefix_entity: "prefix entity".to_string(),
+                    prefix_name: "prefix name".to_string(),
+                    prefix_origin: vec![1, 3241, 8888, 12345],
+                    prefix_registry: Registry::APNIC,
+                }),
+            },
+            IPNetDBPrefix {
+                range: IpNetwork::new(IpAddr::V4(Ipv4Addr::new(10, 10, 10, 1)), 24u8).unwrap(),
+                details: None,
+            },
+        ];
+        let ipv6_prefixes = vec![];
+        let ix = vec![
+            IPNetDBIX {
+                exchange: "used exchange name?".to_string(),
+                ipv4: [127, 0, 0, 1], //Ipv4Addr::new(127, 0, 0, 1),
+                ipv6: [1, 2, 3, 4, 5, 6, 7, 8],
+                name: "ixname".to_string(),
+                speed: 10,
+            },
+            IPNetDBIX {
+                exchange: "used exchange name?".to_string(),
+                ipv4: [88, 23, 1, 99], //Ipv4Addr::new(127, 0, 0, 1),
+                ipv6: [2, 2, 3, 4, 5, 6, 7, 8],
+                name: "ixname".to_string(),
+                speed: 10,
+            },
+        ];
+        //let ix = vec![];
+        IPNetDBAsn {
+            cc: "PL".to_string(),
+            entity: "ENTITY".to_string(),
+            in_use: true,
+            ipv4_prefixes,
+            ipv6_prefixes,
+            name: "NAME".to_string(),
+            peers: vec![123, 3112, 99999],
+            private: false,
+            registry: Registry::RIPE,
+            status: "status".to_string(),
+            ix,
+        }
     }
 
     fn simple_as() -> As {

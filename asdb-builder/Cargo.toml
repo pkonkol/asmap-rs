@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 maxminddb = "0.23.0"
-mongodb = "2.5.0"
-ipnetwork = "0.18.0"
+mongodb = { workspace = true }
+ipnetwork = { workspace = true }
 serde = {workspace = true}
 serde_json = {workspace = true}
 tokio = {workspace = true}
@@ -14,7 +14,7 @@ asdb = { path = "../asdb" }
 asdb-models = { path = "../asdb-models" }
 test-context = { path = "../test-context" }
 isocountry = "0.3.2"
-thiserror = "1.0.44"
+thiserror = { workspace = true }
 trauma = "2.2.4"
 
 [dev-dependencies]

@@ -2,16 +2,20 @@ use ipnetwork::IpNetwork;
 use maxminddb::Within;
 use mongodb::bson::de;
 use serde_json::Value;
+use std::{
+    ffi::OsStr,
+    fmt::Display,
+    net::IpAddr,
+    path::{Path, PathBuf},
+};
 use trauma::{download::Download, downloader::DownloaderBuilder};
-use std::{fmt::Display, net::IpAddr, path::{Path, PathBuf}, ffi::OsStr};
 
-pub use error::{Result, Error};
+pub use error::{Error, Result};
 
 mod error;
 
 const LATEST_PREFIX_MMDB: &str = "https://cdn.ipnetdb.net/ipnetdb_prefix_latest.mmdb";
 const LATEST_ASN_MMDB: &str = "https://cdn.ipnetdb.net/ipnetdb_asn_latest.mmdb";
-
 
 pub async fn load() -> Result<()> {
     download(&"inputs").await?;
@@ -52,19 +56,18 @@ async fn get_asns(db: &impl AsRef<Path>) -> Result<String> {
     Ok(out)
 }
 
-async fn get_ip_details(ip: IpAddr, db: &impl AsRef<Path>) -> Result<String> {
+async fn _get_ip_details(ip: IpAddr, db: &impl AsRef<Path>) -> Result<String> {
     let reader = maxminddb::Reader::open_readfile(db)?;
     let data: Value = reader.lookup(ip).unwrap();
-
     Ok(data.to_string())
 }
 
 async fn download<T: AsRef<Path> + AsRef<OsStr>>(dest: &T) -> Result<()> {
-    let downloads = vec![Download::try_from(LATEST_ASN_MMDB).unwrap(),
-    Download::try_from(LATEST_PREFIX_MMDB).unwrap(),];
-    let downloader = DownloaderBuilder::new()
-        .directory(dest.into())
-        .build();
+    let downloads = vec![
+        Download::try_from(LATEST_ASN_MMDB).unwrap(),
+        Download::try_from(LATEST_PREFIX_MMDB).unwrap(),
+    ];
+    let downloader = DownloaderBuilder::new().directory(dest.into()).build();
     downloader.download(&downloads).await;
     Ok(())
 }
@@ -76,8 +79,8 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    const ASNS_PATH: &str = "inputs/test-data/ipnetdb_asn_latest.mmdb";
-    const PREFIX_PATH: &str = "inputs/test-data/ipnetdb_prefix_latest.mmdb";
+    const ASNS_PATH: &str = "../inputs/ipnetdb_asn_latest.mmdb";
+    const PREFIX_PATH: &str = "../inputs/ipnetdb_prefix_latest.mmdb";
     const IP: IpAddr = IpAddr::V4(Ipv4Addr::new(153, 19, 64, 251));
 
     #[tokio::test(flavor = "multi_thread")]
@@ -102,7 +105,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_get_ip_details() {
         let path = PathBuf::from(PREFIX_PATH);
-        let str = get_ip_details(IP, &path).await.unwrap();
+        let str = _get_ip_details(IP, &path).await.unwrap();
         println!("{str}");
         // let mut f = File::create("ipnetdb-dump/asns.jsonl").unwrap();
         // f.write_all(str.as_bytes()).unwrap();

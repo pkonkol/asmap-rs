@@ -15,7 +15,7 @@ pub enum Error {
     #[error("init error")]
     Init,
     #[error("ipnetdb error")]
-    IpnetDB(#[from] ipnetdb::Error)
+    IpnetDB(#[from] ipnetdb::Error),
 }
 
 impl From<asdb::Error> for Error {

@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 isocountry = "0.3.2"
-ipnetwork = "0.18.0"
+ipnetwork = { workspace = true }
 serde = {workspace = true, features = ["derive"]}
