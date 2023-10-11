@@ -395,14 +395,14 @@ mod tests {
             IPNetDBIX {
                 exchange: "used exchange name?".to_string(),
                 ipv4: [127, 0, 0, 1], //Ipv4Addr::new(127, 0, 0, 1),
-                ipv6: [1, 2, 3, 4, 5, 6, 7, 8],
+                ipv6: [1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1],
                 name: "ixname".to_string(),
                 speed: 10,
             },
             IPNetDBIX {
                 exchange: "used exchange name?".to_string(),
                 ipv4: [88, 23, 1, 99], //Ipv4Addr::new(127, 0, 0, 1),
-                ipv6: [2, 2, 3, 4, 5, 6, 7, 8],
+                ipv6: [2, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1],
                 name: "ixname".to_string(),
                 speed: 10,
             },

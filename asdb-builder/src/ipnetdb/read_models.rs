@@ -20,6 +20,62 @@ pub struct IPNetDBAsn {
     pub ix: Option<Vec<IPNetDBIX>>,
 }
 
+impl TryFrom<IPNetDBAsn> for asdb_models::IPNetDBAsn {
+    type Error = &'static str;
+
+    fn try_from(value: IPNetDBAsn) -> Result<Self, Self::Error> {
+        Ok(Self {
+            cc: value.cc,
+            entity: value.entity,
+            in_use: value.in_use,
+            ipv4_prefixes: value
+                .ipv4_prefixes
+                .into_iter()
+                .map(|x| asdb_models::IPNetDBPrefix {
+                    range: x,
+                    details: None,
+                })
+                .collect(),
+            ipv6_prefixes: value
+                .ipv6_prefixes
+                .unwrap_or(vec![])
+                .into_iter()
+                .map(|x| asdb_models::IPNetDBPrefix {
+                    range: x,
+                    details: None,
+                })
+                .collect(),
+            name: value.name.unwrap_or("".to_string()),
+            peers: value.peers.unwrap_or(vec![]),
+            private: value.private.unwrap_or(false),
+            registry: asdb_models::Registry::try_from(value.registry.unwrap().as_str()).unwrap(),
+            status: value.status.unwrap_or("".to_string()),
+            ix: value
+                .ix
+                .unwrap_or(vec![])
+                .into_iter()
+                .map(|x| asdb_models::IPNetDBIX::try_from(x).unwrap())
+                .collect(),
+        })
+    }
+}
+
+impl TryFrom<IPNetDBIX> for asdb_models::IPNetDBIX {
+    type Error = &'static str;
+
+    fn try_from(value: IPNetDBIX) -> Result<Self, Self::Error> {
+        let ipv4: Ipv4Addr = value.ipv4.parse().unwrap();
+        let ipv6: Ipv6Addr = value.ipv6.parse().unwrap();
+        Ok(Self {
+            exchange: value.exchange,
+            ipv4: ipv4.octets(),
+            ipv6: ipv6.octets(),
+            name: value.name.unwrap_or("".to_string()),
+            speed: value.speed,
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct IPNetDBIX {
     pub exchange: String,
@@ -40,29 +96,47 @@ pub struct IPNetDBPrefix {
     pub as_name: String,
     pub as_private: bool,
     pub as_registry: String,
-    pub allocation: IpNetwork,
+    //pub allocation: Option<IpNetwork>,
+    pub allocation: String, // IpNetwork had deserialization problems
     pub allocation_cc: String,
     pub allocation_registry: String,
     pub allocation_status: String,
     pub prefix_entity: String,
     pub prefix_name: String,
-    pub prefix_origin: Option<Vec<u32>>,
+    pub prefix_origins: Option<Vec<u32>>,
     pub prefix_registry: String,
-    pub prefix_asset: Option<Vec<String>>,
+    pub prefix_asset: Option<Vec<u32>>,
     pub prefix_assignment: Option<String>,
     pub prefix_bogon: bool,
     pub prefix_cc: String,
     pub rpki_status: Option<String>,
-    pub ix: Option<serde_json::Value>,
+    //pub ix: Option<serde_json::Value>,
+    pub ix: Option<PrefixIPNetDBIX>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PrefixIPNetDBIX {
-    pub exchange: String,
+    pub exchange: Option<String>,
     // These 2 shoud have proper types but there is some bug with deserialization from mongo
     // thread 'tests::insert_then_get_ipnetdb_as' panicked at 'called `Result::unwrap()` on an `Err` value: Connection("Kind: invalid type: string \"1:2:3:4:5:6:7:8\", expected an array of length 16, labels: {}")
-    pub ipv4: String, //Ipv4Addr,//[u8; 4],//Ipv4Addr,
-    pub ipv6: String, //Ipv6Addr,//[u8; 8],//Ipv6Addr,
+    pub ipv4: Option<String>, //Ipv4Addr,//[u8; 4],//Ipv4Addr,
+    pub ipv6: Option<String>, //Ipv6Addr,//[u8; 8],//Ipv6Addr,
     pub name: Option<String>,
-    pub speed: u32,
+    pub speed: Option<u32>,
+}
+
+impl TryFrom<IPNetDBPrefix> for asdb_models::IPNetDBPrefixDetails {
+    type Error = &'static str;
+
+    fn try_from(value: IPNetDBPrefix) -> Result<Self, Self::Error> {
+        Ok(Self {
+            allocation: todo!(),
+            allocation_cc: todo!(),
+            allocation_registry: todo!(),
+            prefix_entity: todo!(),
+            prefix_name: todo!(),
+            prefix_origin: todo!(),
+            prefix_registry: todo!(),
+        })
+    }
 }

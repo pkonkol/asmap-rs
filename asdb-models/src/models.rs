@@ -99,8 +99,8 @@ pub struct IPNetDBIX {
     pub exchange: String,
     // These 2 shoud have proper types but there is some bug with deserialization from mongo
     // thread 'tests::insert_then_get_ipnetdb_as' panicked at 'called `Result::unwrap()` on an `Err` value: Connection("Kind: invalid type: string \"1:2:3:4:5:6:7:8\", expected an array of length 16, labels: {}")
-    pub ipv4: [u8; 4], //Ipv4Addr,
-    pub ipv6: [u8; 8], //Ipv6Addr,
+    pub ipv4: [u8; 4],  //Ipv4Addr,
+    pub ipv6: [u8; 16], //Ipv6Addr,
     pub name: String,
     pub speed: u32,
 }
@@ -146,6 +146,26 @@ pub enum Registry {
     APNIC,
     AFRINIC,
     LACNIC,
+}
+
+impl TryFrom<&str> for Registry {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let value = value.trim();
+        if value.eq_ignore_ascii_case("ripe") {
+            return Ok(Self::RIPE);
+        } else if value.eq_ignore_ascii_case("arin") {
+            return Ok(Self::ARIN);
+        } else if value.eq_ignore_ascii_case("apnic") {
+            return Ok(Self::APNIC);
+        } else if value.eq_ignore_ascii_case("afrinic") {
+            return Ok(Self::AFRINIC);
+        } else if value.eq_ignore_ascii_case("lacnic") {
+            return Ok(Self::LACNIC);
+        }
+        return Err("The string didn't match any known registry");
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

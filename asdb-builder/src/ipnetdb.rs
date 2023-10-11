@@ -40,16 +40,13 @@ async fn read_asns(db: &impl AsRef<Path>) -> Result<()> {
             let huj = prefix_reader.lookup::<read_models::IPNetDBPrefix>(i.network());
             if huj.is_err() {
                 let huj2 = prefix_reader.lookup::<serde_json::Value>(i.network());
-                println!("huj2: {:#?}", huj2);
-                println!(
-                    "v4 prefix {i:?}, some ip: {:?}, string for that ip: {:#?}\n\n",
-                    i.network(),
-                    huj
-                );
+                println!("raw serde value: {:#?}", huj2);
+                println!("parsed value {:#?}\n\n", huj);
+                println!("{:-<100}", "x");
+                huj.unwrap();
             }
             //huj.unwrap();
         }
-        println!("{:-<100}", "x");
         // if !item.info.ix.is_empty(){
         //     println!("{item:#?}");
         //     for x in item.info.ix.iter(){
