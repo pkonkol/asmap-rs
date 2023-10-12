@@ -24,6 +24,7 @@ impl TryFrom<IPNetDBAsn> for asdb_models::IPNetDBAsn {
     type Error = &'static str;
 
     fn try_from(value: IPNetDBAsn) -> Result<Self, Self::Error> {
+        //let r = value.registry;
         Ok(Self {
             cc: value.cc,
             entity: value.entity,
@@ -64,12 +65,18 @@ impl TryFrom<IPNetDBIX> for asdb_models::IPNetDBIX {
     type Error = &'static str;
 
     fn try_from(value: IPNetDBIX) -> Result<Self, Self::Error> {
-        let ipv4: Ipv4Addr = value.ipv4.parse().unwrap();
-        let ipv6: Ipv6Addr = value.ipv6.parse().unwrap();
+        let ipv4: Option<Ipv4Addr> = value.ipv4.parse().ok();
+        if ipv4.is_none() {
+            println!("IPNetDBIX couldn't parse ipv4 '{}'", value.ipv4);
+        }
+        let ipv6: Option<Ipv6Addr> = value.ipv6.parse().ok();
+        if ipv6.is_none() {
+            println!("IPNetDBIX couldn't parse ipv6 '{}'", value.ipv6);
+        }
         Ok(Self {
             exchange: value.exchange,
-            ipv4: ipv4.octets(),
-            ipv6: ipv6.octets(),
+            ipv4: ipv4.map(|x| x.octets()),
+            ipv6: ipv6.map(|x| x.octets()),
             name: value.name.unwrap_or("".to_string()),
             speed: value.speed,
         })
@@ -130,13 +137,21 @@ impl TryFrom<IPNetDBPrefix> for asdb_models::IPNetDBPrefixDetails {
 
     fn try_from(value: IPNetDBPrefix) -> Result<Self, Self::Error> {
         Ok(Self {
-            allocation: todo!(),
-            allocation_cc: todo!(),
-            allocation_registry: todo!(),
-            prefix_entity: todo!(),
-            prefix_name: todo!(),
-            prefix_origin: todo!(),
-            prefix_registry: todo!(),
+            allocation: value.allocation.parse().ok(),
+            allocation_cc: if value.allocation_cc.len() >= 2 {
+                Some(value.allocation_cc)
+            } else {
+                None
+            },
+            allocation_registry: asdb_models::Registry::try_from(
+                value.allocation_registry.as_str(),
+            )
+            .ok(),
+            prefix_entity: value.prefix_entity,
+            prefix_name: value.prefix_name,
+            prefix_origins: value.prefix_origins.unwrap_or(vec![]),
+            prefix_registry: asdb_models::Registry::try_from(value.prefix_registry.as_str())
+                .unwrap(),
         })
     }
 }

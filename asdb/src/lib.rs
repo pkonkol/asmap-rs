@@ -176,6 +176,7 @@ impl Asdb {
         Ok(())
     }
 
+    /// Updates the record with given asn with the provided IPNetDB data
     pub async fn insert_ipnetdb_asn(&self, asn: u32, a: &IPNetDBAsn) -> Result<()> {
         let collection = self
             .client
@@ -376,12 +377,12 @@ mod tests {
                 range: IpNetwork::new(IpAddr::V4(Ipv4Addr::new(153, 19, 64, 251)), 16u8).unwrap(),
                 details: Some(IPNetDBPrefixDetails {
                     allocation: IpNetwork::new(IpAddr::V4(Ipv4Addr::new(153, 19, 64, 251)), 12u8)
-                        .unwrap(),
-                    allocation_cc: "CC".to_string(),
-                    allocation_registry: Registry::AFRINIC,
+                        .ok(),
+                    allocation_cc: Some("CC".to_string()),
+                    allocation_registry: Some(Registry::AFRINIC),
                     prefix_entity: "prefix entity".to_string(),
                     prefix_name: "prefix name".to_string(),
-                    prefix_origin: vec![1, 3241, 8888, 12345],
+                    prefix_origins: vec![1, 3241, 8888, 12345],
                     prefix_registry: Registry::APNIC,
                 }),
             },

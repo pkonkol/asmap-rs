@@ -37,7 +37,7 @@ impl AsdbBuilder {
     }
 
     pub async fn load_ipnetdb(&self) -> Result<()> {
-        ipnetdb::load().await?;
+        ipnetdb::load(&self.a).await?;
         Ok(())
     }
 }

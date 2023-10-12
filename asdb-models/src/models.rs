@@ -99,8 +99,8 @@ pub struct IPNetDBIX {
     pub exchange: String,
     // These 2 shoud have proper types but there is some bug with deserialization from mongo
     // thread 'tests::insert_then_get_ipnetdb_as' panicked at 'called `Result::unwrap()` on an `Err` value: Connection("Kind: invalid type: string \"1:2:3:4:5:6:7:8\", expected an array of length 16, labels: {}")
-    pub ipv4: [u8; 4],  //Ipv4Addr,
-    pub ipv6: [u8; 16], //Ipv6Addr,
+    pub ipv4: Option<[u8; 4]>,  //Ipv4Addr,
+    pub ipv6: Option<[u8; 16]>, //Ipv6Addr,
     pub name: String,
     pub speed: u32,
 }
@@ -113,12 +113,12 @@ pub struct IPNetDBPrefix {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct IPNetDBPrefixDetails {
-    pub allocation: IpNetwork,
-    pub allocation_cc: String,
-    pub allocation_registry: Registry,
+    pub allocation: Option<IpNetwork>,
+    pub allocation_cc: Option<String>,
+    pub allocation_registry: Option<Registry>,
     pub prefix_entity: String,
     pub prefix_name: String,
-    pub prefix_origin: Vec<Asn>,
+    pub prefix_origins: Vec<Asn>,
     pub prefix_registry: Registry,
 }
 
@@ -146,10 +146,12 @@ pub enum Registry {
     APNIC,
     AFRINIC,
     LACNIC,
+    UNKNOWN(String),
+    EMPTY,
 }
 
 impl TryFrom<&str> for Registry {
-    type Error = &'static str;
+    type Error = String;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let value = value.trim();
@@ -164,7 +166,12 @@ impl TryFrom<&str> for Registry {
         } else if value.eq_ignore_ascii_case("lacnic") {
             return Ok(Self::LACNIC);
         }
-        return Err("The string didn't match any known registry");
+        println!("found no matching registry for {value}");
+        if value.is_empty() {
+            return Ok(Self::EMPTY);
+        }
+        return Ok(Self::UNKNOWN(value.to_string()));
+        //return Err(format!("The string '{value}' didn't match any known registry"));
     }
 }
 

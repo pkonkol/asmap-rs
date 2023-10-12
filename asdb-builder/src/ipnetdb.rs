@@ -1,3 +1,4 @@
+use asdb::Asdb;
 use asdb_models::IPNetDBAsn;
 use ipnetwork::IpNetwork;
 use maxminddb::Within;
@@ -19,43 +20,44 @@ mod read_models;
 const LATEST_PREFIX_MMDB: &str = "https://cdn.ipnetdb.net/ipnetdb_prefix_latest.mmdb";
 const LATEST_ASN_MMDB: &str = "https://cdn.ipnetdb.net/ipnetdb_asn_latest.mmdb";
 
-pub async fn load() -> Result<()> {
+pub async fn load(asdb: &Asdb) -> Result<()> {
     download(&"inputs").await?;
     // download files if not there
-    read_asns(&"inputs/ipnetdb_asn_latest.mmdb").await.unwrap();
+    read_asns(&"inputs/ipnetdb_asn_latest.mmdb", asdb)
+        .await
+        .unwrap();
     // dump them
     // load dumped into mongo
     Ok(())
 }
 
-async fn read_asns(db: &impl AsRef<Path>) -> Result<()> {
-    let reader = maxminddb::Reader::open_readfile(db)?;
+async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
+    let reader = maxminddb::Reader::open_readfile(mmdb)?;
     let every_ip = IpNetwork::V4("0.0.0.0/0".parse().unwrap());
     let iter: Within<read_models::IPNetDBAsn, _> = reader.within(every_ip).unwrap();
     let prefix_reader = maxminddb::Reader::open_readfile(&"inputs/ipnetdb_prefix_latest.mmdb")?;
 
     for next in iter {
+        print!(".");
         let item = next.unwrap();
-        for i in item.info.ipv4_prefixes.iter() {
-            let huj = prefix_reader.lookup::<read_models::IPNetDBPrefix>(i.network());
+        let asn = item.info.as_;
+        let mut asn_model: asdb_models::IPNetDBAsn = item.info.try_into().unwrap();
+        for i in asn_model.ipv4_prefixes.iter_mut() {
+            let huj = prefix_reader.lookup::<read_models::IPNetDBPrefix>(i.range.network());
             if huj.is_err() {
-                let huj2 = prefix_reader.lookup::<serde_json::Value>(i.network());
+                let huj2 = prefix_reader.lookup::<serde_json::Value>(i.range.network());
                 println!("raw serde value: {:#?}", huj2);
                 println!("parsed value {:#?}\n\n", huj);
                 println!("{:-<100}", "x");
-                huj.unwrap();
+                continue;
             }
-            //huj.unwrap();
+            let details = asdb_models::IPNetDBPrefixDetails::try_from(huj.unwrap());
+            if details.is_err() {
+                println!("fucked details: {details:?}");
+            }
+            i.details = Some(details.unwrap());
         }
-        // if !item.info.ix.is_empty(){
-        //     println!("{item:#?}");
-        //     for x in item.info.ix.iter(){
-        //        let pars4 = x.ipv4.parse::<Ipv4Addr>();
-        //        let pars6 = x.ipv6.parse::<Ipv6Addr>();
-        //        println!("{} to {pars4:?} and  {} to {pars6:?}", x.ipv4, x.ipv6);
-        //     }
-        //     break;
-        // }
+        asdb.insert_ipnetdb_asn(asn, &asn_model).await.unwrap();
     }
     Ok(())
 }
@@ -145,7 +147,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_get_ip_details() {
         let path = PathBuf::from(PREFIX_PATH);
-        let str = _get_ip_details(IP, &path).await.unwrap();
+        let str = get_ip_details_old(IP, &path).await.unwrap();
         println!("{str}");
         // let mut f = File::create("ipnetdb-dump/asns.jsonl").unwrap();
         // f.write_all(str.as_bytes()).unwrap();
