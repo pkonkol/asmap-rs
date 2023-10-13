@@ -7,7 +7,8 @@
 
 ## fill DB with data
 
-`cargo run -- load-asrank-asns`
+`cargo run -- load-asrank`
+`cargo run -- load-ipnetdb`
 
 ## start web service
 

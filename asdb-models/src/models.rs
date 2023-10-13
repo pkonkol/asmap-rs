@@ -85,12 +85,12 @@ pub struct IPNetDBAsn {
     pub in_use: bool,
     pub ipv4_prefixes: Vec<IPNetDBPrefix>,
     pub ipv6_prefixes: Vec<IPNetDBPrefix>,
-    pub name: String,
+    pub name: Option<String>,
     /// stores a list of peer asns
     pub peers: Vec<Asn>,
     pub private: bool,
-    pub registry: Registry,
-    pub status: String,
+    pub registry: InternetRegistry,
+    pub status: Option<String>,
     pub ix: Vec<IPNetDBIX>,
 }
 
@@ -101,7 +101,7 @@ pub struct IPNetDBIX {
     // thread 'tests::insert_then_get_ipnetdb_as' panicked at 'called `Result::unwrap()` on an `Err` value: Connection("Kind: invalid type: string \"1:2:3:4:5:6:7:8\", expected an array of length 16, labels: {}")
     pub ipv4: Option<[u8; 4]>,  //Ipv4Addr,
     pub ipv6: Option<[u8; 16]>, //Ipv6Addr,
-    pub name: String,
+    pub name: Option<String>,
     pub speed: u32,
 }
 
@@ -115,11 +115,11 @@ pub struct IPNetDBPrefix {
 pub struct IPNetDBPrefixDetails {
     pub allocation: Option<IpNetwork>,
     pub allocation_cc: Option<String>,
-    pub allocation_registry: Option<Registry>,
+    pub allocation_registry: Option<InternetRegistry>,
     pub prefix_entity: String,
     pub prefix_name: String,
     pub prefix_origins: Vec<Asn>,
-    pub prefix_registry: Registry,
+    pub prefix_registry: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -140,38 +140,37 @@ pub struct WhoIsAsn {}
 pub struct WhoIsOrg {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum Registry {
+pub enum InternetRegistry {
     RIPE,
     ARIN,
     APNIC,
     AFRINIC,
     LACNIC,
-    UNKNOWN(String),
+    LOCAL(String),
     EMPTY,
 }
 
-impl TryFrom<&str> for Registry {
-    type Error = String;
+impl From<&str> for InternetRegistry {
+    //type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn from(value: &str) -> Self {
         let value = value.trim();
         if value.eq_ignore_ascii_case("ripe") {
-            return Ok(Self::RIPE);
+            return Self::RIPE;
         } else if value.eq_ignore_ascii_case("arin") {
-            return Ok(Self::ARIN);
+            return Self::ARIN;
         } else if value.eq_ignore_ascii_case("apnic") {
-            return Ok(Self::APNIC);
+            return Self::APNIC;
         } else if value.eq_ignore_ascii_case("afrinic") {
-            return Ok(Self::AFRINIC);
+            return Self::AFRINIC;
         } else if value.eq_ignore_ascii_case("lacnic") {
-            return Ok(Self::LACNIC);
+            return Self::LACNIC;
         }
-        println!("found no matching registry for {value}");
         if value.is_empty() {
-            return Ok(Self::EMPTY);
+            return Self::EMPTY;
         }
-        return Ok(Self::UNKNOWN(value.to_string()));
-        //return Err(format!("The string '{value}' didn't match any known registry"));
+        println!("unknown (local?) registry {value}");
+        return Self::LOCAL(value.to_string());
     }
 }
 

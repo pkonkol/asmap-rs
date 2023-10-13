@@ -24,7 +24,7 @@ struct Cli {
 enum Commands {
     /// Load asrank asns.jsonl from file, takes in the path
     /// todo default path value to inputs
-    LoadAsrankAsns(LoadAsrankAsnsArgs),
+    LoadAsrank(LoadAsrankAsnsArgs),
     /// Starts a server with the map
     Start(StartServerArgs),
     /// Downloads if not found and loads IpnetDB data
@@ -52,7 +52,7 @@ async fn main() {
     let args = Cli::parse();
 
     match args.command {
-        Commands::LoadAsrankAsns(a) => {
+        Commands::LoadAsrank(a) => {
             let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
                 .await
                 .unwrap();

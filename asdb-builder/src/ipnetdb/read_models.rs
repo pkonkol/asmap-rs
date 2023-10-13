@@ -21,10 +21,9 @@ pub struct IPNetDBAsn {
 }
 
 impl TryFrom<IPNetDBAsn> for asdb_models::IPNetDBAsn {
-    type Error = &'static str;
+    type Error = String;
 
     fn try_from(value: IPNetDBAsn) -> Result<Self, Self::Error> {
-        //let r = value.registry;
         Ok(Self {
             cc: value.cc,
             entity: value.entity,
@@ -46,40 +45,42 @@ impl TryFrom<IPNetDBAsn> for asdb_models::IPNetDBAsn {
                     details: None,
                 })
                 .collect(),
-            name: value.name.unwrap_or("".to_string()),
+            name: value.name,
             peers: value.peers.unwrap_or(vec![]),
             private: value.private.unwrap_or(false),
-            registry: asdb_models::Registry::try_from(value.registry.unwrap().as_str()).unwrap(),
-            status: value.status.unwrap_or("".to_string()),
+            registry: asdb_models::InternetRegistry::from(
+                value.registry.unwrap_or("".to_string()).as_str(),
+            ),
+            status: value.status,
             ix: value
                 .ix
                 .unwrap_or(vec![])
                 .into_iter()
-                .map(|x| asdb_models::IPNetDBIX::try_from(x).unwrap())
+                .map(|x| asdb_models::IPNetDBIX::from(x))
                 .collect(),
         })
     }
 }
 
-impl TryFrom<IPNetDBIX> for asdb_models::IPNetDBIX {
-    type Error = &'static str;
+impl From<IPNetDBIX> for asdb_models::IPNetDBIX {
+    //type Error = &'static str;
 
-    fn try_from(value: IPNetDBIX) -> Result<Self, Self::Error> {
+    fn from(value: IPNetDBIX) -> Self {
         let ipv4: Option<Ipv4Addr> = value.ipv4.parse().ok();
-        if ipv4.is_none() {
+        if ipv4.is_none() && !value.ipv4.is_empty() {
             println!("IPNetDBIX couldn't parse ipv4 '{}'", value.ipv4);
         }
         let ipv6: Option<Ipv6Addr> = value.ipv6.parse().ok();
-        if ipv6.is_none() {
+        if ipv6.is_none() && !value.ipv6.is_empty() {
             println!("IPNetDBIX couldn't parse ipv6 '{}'", value.ipv6);
         }
-        Ok(Self {
+        Self {
             exchange: value.exchange,
             ipv4: ipv4.map(|x| x.octets()),
             ipv6: ipv6.map(|x| x.octets()),
-            name: value.name.unwrap_or("".to_string()),
+            name: value.name,
             speed: value.speed,
-        })
+        }
     }
 }
 
@@ -132,26 +133,27 @@ pub struct PrefixIPNetDBIX {
     pub speed: Option<u32>,
 }
 
-impl TryFrom<IPNetDBPrefix> for asdb_models::IPNetDBPrefixDetails {
-    type Error = &'static str;
+impl From<IPNetDBPrefix> for asdb_models::IPNetDBPrefixDetails {
+    //type Error = &'static str;
 
-    fn try_from(value: IPNetDBPrefix) -> Result<Self, Self::Error> {
-        Ok(Self {
+    fn from(value: IPNetDBPrefix) -> Self {
+        Self {
             allocation: value.allocation.parse().ok(),
             allocation_cc: if value.allocation_cc.len() >= 2 {
                 Some(value.allocation_cc)
             } else {
                 None
             },
-            allocation_registry: asdb_models::Registry::try_from(
+            allocation_registry: asdb_models::InternetRegistry::try_from(
                 value.allocation_registry.as_str(),
             )
             .ok(),
             prefix_entity: value.prefix_entity,
             prefix_name: value.prefix_name,
             prefix_origins: value.prefix_origins.unwrap_or(vec![]),
-            prefix_registry: asdb_models::Registry::try_from(value.prefix_registry.as_str())
-                .unwrap(),
-        })
+            prefix_registry: value.prefix_registry,
+            // prefix_registry: asdb_models::Registry::try_from(value.prefix_registry.as_str())
+            //     .unwrap(),
+        }
     }
 }

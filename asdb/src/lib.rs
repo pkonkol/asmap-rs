@@ -209,7 +209,7 @@ impl Asdb {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-    use asdb_models::{IPNetDBIX, IPNetDBPrefix, IPNetDBPrefixDetails, Registry};
+    use asdb_models::{IPNetDBIX, IPNetDBPrefix, IPNetDBPrefixDetails, InternetRegistry};
     use ipnetwork::{IpNetwork, Ipv6NetworkIterator};
     use itertools::Itertools;
     use test_context::TestContext;
@@ -379,11 +379,11 @@ mod tests {
                     allocation: IpNetwork::new(IpAddr::V4(Ipv4Addr::new(153, 19, 64, 251)), 12u8)
                         .ok(),
                     allocation_cc: Some("CC".to_string()),
-                    allocation_registry: Some(Registry::AFRINIC),
+                    allocation_registry: Some(InternetRegistry::AFRINIC),
                     prefix_entity: "prefix entity".to_string(),
                     prefix_name: "prefix name".to_string(),
                     prefix_origins: vec![1, 3241, 8888, 12345],
-                    prefix_registry: Registry::APNIC,
+                    prefix_registry: "registro.br".to_string(), //Registry::APNIC,
                 }),
             },
             IPNetDBPrefix {
@@ -395,16 +395,16 @@ mod tests {
         let ix = vec![
             IPNetDBIX {
                 exchange: "used exchange name?".to_string(),
-                ipv4: [127, 0, 0, 1], //Ipv4Addr::new(127, 0, 0, 1),
-                ipv6: [1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1],
-                name: "ixname".to_string(),
+                ipv4: Some([127, 0, 0, 1]), //Ipv4Addr::new(127, 0, 0, 1),
+                ipv6: Some([1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1]),
+                name: Some("ixname".to_string()),
                 speed: 10,
             },
             IPNetDBIX {
                 exchange: "used exchange name?".to_string(),
-                ipv4: [88, 23, 1, 99], //Ipv4Addr::new(127, 0, 0, 1),
-                ipv6: [2, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1],
-                name: "ixname".to_string(),
+                ipv4: Some([88, 23, 1, 99]), //Ipv4Addr::new(127, 0, 0, 1),
+                ipv6: Some([2, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1]),
+                name: Some("ixname".to_string()),
                 speed: 10,
             },
         ];
@@ -418,7 +418,7 @@ mod tests {
             name: "NAME".to_string(),
             peers: vec![123, 3112, 99999],
             private: false,
-            registry: Registry::RIPE,
+            registry: InternetRegistry::RIPE,
             status: "status".to_string(),
             ix,
         }

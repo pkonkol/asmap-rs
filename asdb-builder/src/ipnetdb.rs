@@ -41,19 +41,28 @@ async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
         print!(".");
         let item = next.unwrap();
         let asn = item.info.as_;
-        let mut asn_model: asdb_models::IPNetDBAsn = item.info.try_into().unwrap();
+        let asn_model: std::result::Result<asdb_models::IPNetDBAsn, _> =
+            item.info.clone().try_into();
+        if asn_model.is_err() {
+            println!("\ncouldnt' parse read model into db model from read model {:#?} \nwith err {asn_model:#?}", item.info);
+            return Err(Error::RequestError);
+        }
+        let mut asn_model = asn_model.expect("checked for err before");
         for i in asn_model.ipv4_prefixes.iter_mut() {
-            let huj = prefix_reader.lookup::<read_models::IPNetDBPrefix>(i.range.network());
-            if huj.is_err() {
-                let huj2 = prefix_reader.lookup::<serde_json::Value>(i.range.network());
-                println!("raw serde value: {:#?}", huj2);
-                println!("parsed value {:#?}\n\n", huj);
+            let prefix_model =
+                prefix_reader.lookup::<read_models::IPNetDBPrefix>(i.range.network());
+            if prefix_model.is_err() {
+                let serde_raw_prefix = prefix_reader.lookup::<serde_json::Value>(i.range.network());
+                println!("raw serde value: {:#?}", serde_raw_prefix);
+                println!("parsed value {:#?}\n\n", prefix_model);
                 println!("{:-<100}", "x");
                 continue;
             }
-            let details = asdb_models::IPNetDBPrefixDetails::try_from(huj.unwrap());
+            let details = asdb_models::IPNetDBPrefixDetails::try_from(prefix_model.unwrap());
             if details.is_err() {
-                println!("fucked details: {details:?}");
+                let serde_raw_prefix = prefix_reader.lookup::<serde_json::Value>(i.range.network());
+                println!("couldn't cast read prefix model {serde_raw_prefix:#?} with error : {details:?}");
+                continue;
             }
             i.details = Some(details.unwrap());
         }
