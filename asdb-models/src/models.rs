@@ -1,3 +1,4 @@
+use core::prelude::v1;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use ipnetwork::IpNetwork;
@@ -10,8 +11,19 @@ pub struct As {
     pub asrank_data: Option<AsrankAsn>,
     pub ipnetdb_data: Option<IPNetDBAsn>,
     pub whois_data: Option<WhoIsAsn>,
-    // TODO
-    // pub stanford_asdb: Option<StanfordASdb>,
+    pub stanford_asdb: Vec<StanfordASdbCategory>,
+}
+
+impl Default for As {
+    fn default() -> Self {
+        Self {
+            asn: 0,
+            asrank_data: None,
+            ipnetdb_data: None,
+            whois_data: None,
+            stanford_asdb: vec![],
+        }
+    }
 }
 
 // Based on ipnetdb data? or merge ipnetdb with asrank?
@@ -172,6 +184,12 @@ impl From<&str> for InternetRegistry {
         println!("unknown (local?) registry {value}");
         return Self::LOCAL(value.to_string());
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StanfordASdbCategory {
+    pub layer1: String,
+    pub layer2: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

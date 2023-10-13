@@ -1,6 +1,8 @@
 mod error;
 
-use asdb_models::{As, AsFilters, AsrankAsn, AsrankDegree, Coord, IPNetDBAsn};
+use asdb_models::{
+    As, AsFilters, AsrankAsn, AsrankDegree, Coord, IPNetDBAsn, StanfordASdbCategory,
+};
 pub use error::{Error, Result};
 
 use futures::stream::TryStreamExt;
@@ -176,7 +178,7 @@ impl Asdb {
         Ok(())
     }
 
-    /// Updates the record with given asn with the provided IPNetDB data
+    /// Updates the record for given asn with the provided IPNetDB data
     pub async fn insert_ipnetdb_asn(&self, asn: u32, a: &IPNetDBAsn) -> Result<()> {
         let collection = self
             .client
@@ -186,6 +188,28 @@ impl Asdb {
         let update = doc! {
             "$set": {
                 "ipnetdb_data": mongodb::bson::to_bson(a).expect("IPNetDBAsn should always be serializable to bson")
+            }
+        };
+        collection
+            .update_one(doc! {"asn": asn}, update, opts)
+            .await?;
+        Ok(())
+    }
+
+    /// Updates the record for given asn with the provided categories list from stanford asdb
+    pub async fn insert_stanford_asdb_categories(
+        &self,
+        asn: u32,
+        categories: &[StanfordASdbCategory],
+    ) -> Result<()> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let opts = UpdateOptions::builder().build();
+        let update = doc! {
+            "$set": {
+                "stanford_asdb_data": mongodb::bson::to_bson(categories).expect("StandordAsdbCategory should always be serializable to bson")
             }
         };
         collection
@@ -415,11 +439,11 @@ mod tests {
             in_use: true,
             ipv4_prefixes,
             ipv6_prefixes,
-            name: "NAME".to_string(),
+            name: Some("name".to_string()),
             peers: vec![123, 3112, 99999],
             private: false,
             registry: InternetRegistry::RIPE,
-            status: "status".to_string(),
+            status: Some("status".to_string()),
             ix,
         }
     }
@@ -430,6 +454,7 @@ mod tests {
             asrank_data: None,
             ipnetdb_data: None,
             whois_data: None,
+            ..Default::default()
         }
     }
 
@@ -440,18 +465,21 @@ mod tests {
                 asrank_data: None,
                 ipnetdb_data: None,
                 whois_data: None,
+                ..Default::default()
             },
             As {
                 asn: 5552,
                 asrank_data: None,
                 ipnetdb_data: None,
                 whois_data: None,
+                ..Default::default()
             },
             As {
                 asn: 5553,
                 asrank_data: None,
                 ipnetdb_data: None,
                 whois_data: None,
+                ..Default::default()
             },
         ]
     }
@@ -485,6 +513,7 @@ mod tests {
             asrank_data: Some(asrank),
             ipnetdb_data: None,
             whois_data: None,
+            ..Default::default()
         }
     }
 }

@@ -1,6 +1,7 @@
 mod asrank;
 mod error;
 mod ipnetdb;
+mod stanford_asdb;
 mod whois;
 
 use std::path::{Path, PathBuf};
@@ -38,6 +39,11 @@ impl AsdbBuilder {
 
     pub async fn load_ipnetdb(&self) -> Result<()> {
         ipnetdb::load(&self.a).await?;
+        Ok(())
+    }
+
+    pub async fn load_stanford_asdb(&self) -> Result<()> {
+        stanford_asdb::load(&self.a).await?;
         Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use crate::{asrank, ipnetdb};
+use crate::{asrank, ipnetdb, stanford_asdb};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -16,6 +16,8 @@ pub enum Error {
     Init,
     #[error("ipnetdb error")]
     IpnetDB(#[from] ipnetdb::Error),
+    #[error("stanford asdb error")]
+    StanfordASdb(#[from] stanford_asdb::Error),
 }
 
 impl From<asdb::Error> for Error {

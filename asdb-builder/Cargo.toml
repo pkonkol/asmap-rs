@@ -16,6 +16,9 @@ test-context = { path = "../test-context" }
 isocountry = "0.3.2"
 thiserror = { workspace = true }
 trauma = "2.2.4"
+csv = "1.3.0"
+reqwest = "0.11.22"
+itertools = "0.11.0"
 
 [dev-dependencies]
 ctor = "0.2.0"

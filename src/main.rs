@@ -25,10 +25,12 @@ enum Commands {
     /// Load asrank asns.jsonl from file, takes in the path
     /// todo default path value to inputs
     LoadAsrank(LoadAsrankAsnsArgs),
-    /// Starts a server with the map
-    Start(StartServerArgs),
     /// Downloads if not found and loads IpnetDB data
     LoadIpnetdb,
+    /// Downloads and loads into databse the AS categories data from stanford asdb
+    LoadStanfordAsdb,
+    /// Starts a server with the map
+    Start(StartServerArgs),
     // Todo LoadWhois (for range?), LoadIpnetDB, Georesolve(Persons|Orgs|Somethin else?)
 }
 
@@ -60,6 +62,12 @@ async fn main() {
             println!("starting import");
             let result = m.import_asrank_asns(&jsonl_path).await;
             println!("import result: {result:?}");
+        }
+        Commands::LoadStanfordAsdb => {
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+                .await
+                .unwrap();
+            m.load_stanford_asdb().await.unwrap();
         }
         Commands::LoadIpnetdb => {
             let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)

@@ -8,6 +8,7 @@ python -m venv inputs/venv
 source inputs/venv/bin/activate
 pip install graphqlclient
 whois --help >/dev/null 2>&1 # check whether whois is installed
+# TODO move this to rust code
 if [ ! -f "asrank-download.py" ]; then
     wget https://api.asrank.caida.org/dev/scripts/asrank-download.py -O inputs/asrank-download.py
 fi

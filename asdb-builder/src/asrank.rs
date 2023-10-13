@@ -48,6 +48,7 @@ pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
                 }),
                 ipnetdb_data: None,
                 whois_data: None,
+                ..Default::default()
             }
         })
         .collect();
