@@ -1,5 +1,8 @@
+use itertools::Itertools;
 use std::{
     ffi::OsStr,
+    fs::File,
+    io::{prelude::*, BufReader},
     path::{Path, PathBuf},
 };
 use trauma::{download::Download, downloader::DownloaderBuilder};
@@ -24,7 +27,7 @@ pub async fn load(asdb: &Asdb) -> Result<()> {
 
 /// Takes in path to a directory where the file will be saved
 async fn download<T: AsRef<Path> + AsRef<OsStr>>(dest: &T) -> Result<()> {
-    //let downloads = vec![Download::try_from(LATEST_ASDB_CSV).unwrap()];
+    println!("donwloading stanford asdb csv from {LATEST_ASDB_CSV}");
     let d = Download::new(
         &reqwest::Url::parse(LATEST_ASDB_CSV).unwrap(),
         ASDB_DST_FILENAME,
@@ -39,10 +42,9 @@ async fn download<T: AsRef<Path> + AsRef<OsStr>>(dest: &T) -> Result<()> {
 }
 
 async fn write_to_db(asdb: &Asdb, csv: &impl AsRef<Path>) -> Result<()> {
-    use itertools::Itertools;
+    println!("Writing stanford asdb categories to the database");
+    let bar = indicatif::ProgressBar::new(BufReader::new(File::open(csv)?).lines().count() as u64);
     let mut rdr = csv::ReaderBuilder::new().flexible(true).from_path(csv)?;
-    //let h = rdr.headers();
-    //println!("{h:#?}");
     for result in rdr.records() {
         let record = result?;
         let asn = record.get(0).unwrap();
@@ -65,11 +67,11 @@ async fn write_to_db(asdb: &Asdb, csv: &impl AsRef<Path>) -> Result<()> {
             };
             categories.push(c);
         }
-        //println!("done as {asn}\ncategories are:{categories:?}");
-        print!(".");
         asdb.insert_stanford_asdb_categories(asn, categories.as_slice())
             .await
             .unwrap();
+        bar.inc(1);
     }
+    bar.finish();
     Ok(())
 }

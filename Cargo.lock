@@ -168,6 +168,7 @@ dependencies = [
  "csv",
  "ctor",
  "futures",
+ "indicatif",
  "ipnetwork",
  "isocountry",
  "itertools",

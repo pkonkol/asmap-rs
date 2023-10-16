@@ -37,14 +37,14 @@ async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
     let iter: Within<read_models::IPNetDBAsn, _> = reader.within(every_ip).unwrap();
     let prefix_reader = maxminddb::Reader::open_readfile(&"inputs/ipnetdb_prefix_latest.mmdb")?;
 
+    let bar = indicatif::ProgressBar::new(reader.within::<()>(every_ip).unwrap().count() as u64);
     for next in iter {
-        print!(".");
         let item = next.unwrap();
         let asn = item.info.as_;
         let asn_model: std::result::Result<asdb_models::IPNetDBAsn, _> =
             item.info.clone().try_into();
         if asn_model.is_err() {
-            println!("\ncouldnt' parse read model into db model from read model {:#?} \nwith err {asn_model:#?}", item.info);
+            println!("\ncouldn't parse asn read model into db model from read model {:#?} \nwith err {asn_model:#?}", item.info);
             return Err(Error::RequestError);
         }
         let mut asn_model = asn_model.expect("checked for err before");
@@ -55,7 +55,7 @@ async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
                 let serde_raw_prefix = prefix_reader.lookup::<serde_json::Value>(i.range.network());
                 println!("raw serde value: {:#?}", serde_raw_prefix);
                 println!("parsed value {:#?}\n\n", prefix_model);
-                println!("{:-<100}", "x");
+                println!("omitting prefix details {:-<100}", "x");
                 continue;
             }
             let details = asdb_models::IPNetDBPrefixDetails::try_from(prefix_model.unwrap());
@@ -67,7 +67,9 @@ async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
             i.details = Some(details.unwrap());
         }
         asdb.insert_ipnetdb_asn(asn, &asn_model).await.unwrap();
+        bar.inc(1);
     }
+    bar.finish();
     Ok(())
 }
 
