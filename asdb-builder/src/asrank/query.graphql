@@ -1,0 +1,45 @@
+query AsnsQuery($first: Int!, $offset: Int!) { 
+    asns(first: $first, offset: $offset) {
+        totalCount
+        pageInfo {
+            first
+            hasNextPage
+        }
+        edges {
+            node {
+                asn
+                asnName
+                rank
+                organization {
+                    orgId
+                    orgName
+                }
+                cliqueMember
+                seen
+                longitude
+                latitude
+                cone {
+                    numberAsns
+                    numberPrefixes
+                    numberAddresses
+                }
+                country {
+                    iso
+                    name
+                }
+                asnDegree {
+                    provider
+                    peer
+                    customer
+                    total
+                    transit
+                    sibling
+                }
+                announcing {
+                    numberPrefixes
+                    numberAddresses
+                }
+            }
+        }
+    }
+}

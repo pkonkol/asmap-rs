@@ -32,7 +32,6 @@ async fn download<T: AsRef<Path> + AsRef<OsStr>>(dest: &T) -> Result<()> {
         &reqwest::Url::parse(LATEST_ASDB_CSV).unwrap(),
         ASDB_DST_FILENAME,
     );
-    //let mut dest_file = PathBuf::from(dest);
 
     let downloader = DownloaderBuilder::new()
         .directory(PathBuf::from(dest))

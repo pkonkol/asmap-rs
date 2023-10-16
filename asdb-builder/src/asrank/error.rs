@@ -14,6 +14,8 @@ pub enum Error {
     BulkWrite(String),
     #[error("bulk write duplicates found")]
     BulkWriteDuplicates(u64),
+    #[error("reqwest err")]
+    Reqwest(#[from] reqwest::Error),
 }
 
 impl From<asdb::Error> for Error {

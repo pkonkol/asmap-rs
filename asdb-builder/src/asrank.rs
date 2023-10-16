@@ -1,24 +1,35 @@
 //! methods for executing and parsing asrank data
 mod error;
+mod graphql;
 
 use asdb::Asdb;
 use asdb_models::{As, AsrankAsn, AsrankDegree, Coord};
 pub use error::{Error, Result};
 
+use indicatif::ProgressIterator;
 use serde_json::Value;
+use std::io::prelude::*;
+use std::io::BufReader;
 use std::{fs::File, path::Path};
+
+use crate::asrank::graphql::asns_query;
 
 //const API_URL: &str = "https:///api.asrank.caida.org/v2/graphql";
 
 /// Imports asns from "asns.jsonl" file which can be obtained from asrank API using
 /// asrank-download.py from https://api.asrank.caida.org/dev/docs
 pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
-    let f = File::open(file)?;
+    download_asns().await.unwrap();
+    panic!();
 
+    let len = BufReader::new(File::open(file)?).lines().count() as u64;
+
+    println!("reading asrank data");
     // TODO catch unwind form  this deserializer and return jsonl error
     // why the catch unwind even? don't remember
-    let json: Vec<As> = serde_json::Deserializer::from_reader(f)
+    let json: Vec<As> = serde_json::Deserializer::from_reader(File::open(file)?)
         .into_iter::<Value>()
+        .progress_count(len)
         .map(|x| {
             let line = x.unwrap();
             As {
@@ -46,13 +57,12 @@ pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
                     addresses: line["announcing"]["numberAddresses"].as_u64().unwrap(),
                     name: line["asnName"].as_str().unwrap().to_string(),
                 }),
-                ipnetdb_data: None,
-                whois_data: None,
                 ..Default::default()
             }
         })
         .collect();
 
+    println!("Inserting asrank data into the database");
     let insert_result = asdb.insert_ases(&json).await;
     if let Err(e) = insert_result {
         match e {
@@ -69,24 +79,33 @@ pub async fn import_asns(file: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
     Ok(())
 }
 
-pub async fn import_orgs() {
-    todo!()
-}
-
-pub async fn import_asnlinks() {
-    todo!()
-}
-
 /// download the asns from https://api.asrank.caida.org
 /// TODO https://lib.rs/crates/graphql_client use this this to reimplement asrank-download.py
-pub async fn download_asns() {
-    todo!()
-}
+pub async fn download_asns() -> Result<()> {
+    use graphql::AsnsQuery;
+    use graphql_client::{GraphQLQuery, Response};
+    use reqwest;
 
-pub async fn download_orgs() {
-    todo!()
-}
+    let variables = asns_query::Variables {
+        first: 1,
+        offset: 2,
+    };
+    // variables.first = 1;
+    // variables.offset = 2;
 
-pub async fn download_asnlinks() {
-    todo!()
+    let request_body = AsnsQuery::build_query(variables);
+    let client = reqwest::Client::new();
+    let mut res = client
+        .post("https://api.asrank.caida.org/v2/graphql")
+        .json(&request_body)
+        .send()
+        .await?;
+    let response_body: Response<asns_query::ResponseData> = res.json().await?;
+    println!("{response_body:?}");
+    let data = response_body.data.unwrap();
+    println!("{data:?}");
+    let edges = data.asns.edges.unwrap();
+    println!("{edges:?}");
+
+    Ok(())
 }
