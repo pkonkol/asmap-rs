@@ -7,7 +7,6 @@ mod whois;
 use std::path::{Path, PathBuf};
 
 use asdb::Asdb;
-use asrank::import_asns;
 use error::Result;
 
 // TODO manage asdb object better
@@ -31,10 +30,10 @@ impl AsdbBuilder {
         Ok(())
     }
 
-    pub async fn import_asrank_asns(&self, asns_jsonl: &impl AsRef<Path>) -> Result<()> {
-        import_asns(&self.inputs.join(asns_jsonl), &self.a)
-            .await
-            .map_err(|e| e.into())
+    pub async fn load_asrank_asns(&self, asns_jsonl: Option<impl AsRef<Path>>) -> Result<()> {
+        asrank::load(&self.a, asns_jsonl.map(|x| self.inputs.join(x))).await?;
+        //    .map_err(|e| e.into())
+        Ok(())
     }
 
     pub async fn load_ipnetdb(&self) -> Result<()> {
@@ -72,7 +71,7 @@ mod tests {
             .await
             .unwrap();
         m.clear_database().await.unwrap();
-        m.import_asrank_asns(&ASNS).await.unwrap();
+        m.load_asrank_asns(Some(&ASNS)).await.unwrap();
 
         let lines = count_lines(&PathBuf::from(INPUTS_PATH).join(ASNS));
         let docs = count_asn_entries(&context.db_name).await;
@@ -88,13 +87,13 @@ mod tests {
             .await
             .unwrap();
         m.clear_database().await.unwrap();
-        m.import_asrank_asns(&ASNS).await.unwrap();
+        m.load_asrank_asns(Some(&ASNS)).await.unwrap();
 
         let lines = count_lines(&PathBuf::from(INPUTS_PATH).join(ASNS));
         let docs = count_asn_entries(&context.db_name).await;
         assert_eq!(lines, docs);
 
-        m.import_asrank_asns(&ASNS).await.unwrap();
+        m.load_asrank_asns(Some(&ASNS)).await.unwrap();
 
         let lines = count_lines(&PathBuf::from(INPUTS_PATH).join(ASNS));
         let docs = count_asn_entries(&context.db_name).await;
@@ -113,10 +112,10 @@ mod tests {
             .await
             .unwrap();
         m.clear_database().await.unwrap();
-        m.import_asrank_asns(&ASNS).await.unwrap();
+        m.load_asrank_asns(Some(&ASNS)).await.unwrap();
         let first_docs = count_asn_entries(&context.db_name).await;
 
-        m.import_asrank_asns(&ASNS2).await.unwrap();
+        m.load_asrank_asns(Some(&ASNS2)).await.unwrap();
         let second_docs = count_asn_entries(&context.db_name).await;
 
         let ases = m.a.get_ases(0, 0).await.unwrap();

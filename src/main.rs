@@ -22,6 +22,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// resets the database to starting state
+    ClearDB,
+    /// Performs all of the loading steps in the correct order
+    LoadAll(LoadAllArgs),
     /// Load asrank asns.jsonl from file, takes in the path
     /// todo default path value to inputs
     LoadAsrank(LoadAsrankAsnsArgs),
@@ -36,8 +40,14 @@ enum Commands {
 
 #[derive(Args)]
 struct LoadAsrankAsnsArgs {
-    #[arg(short, long, default_value = ASNS_JSONL)]
-    pub asns_filename: String,
+    #[arg(short, long)]
+    pub asns_filename: Option<String>,
+}
+
+#[derive(Args)]
+struct LoadAllArgs {
+    #[arg(short, long)]
+    pub asrank_asns_filename: Option<String>,
 }
 
 #[derive(Args)]
@@ -54,13 +64,29 @@ async fn main() {
     let args = Cli::parse();
 
     match args.command {
+        Commands::ClearDB => {
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+                .await
+                .unwrap();
+            m.clear_database().await.unwrap();
+        }
+        Commands::LoadAll(a) => {
+            println!("performing complete database load");
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+                .await
+                .unwrap();
+            m.load_asrank_asns(a.asrank_asns_filename).await.unwrap();
+            m.load_stanford_asdb().await.unwrap();
+            m.load_ipnetdb().await.unwrap();
+            //let b1 = m.load_stanford_asdb();
+            //let b2 = m.load_ipnetdb();
+            //let x = futures::future::join_all(vec![b1, b2]).await;
+        }
         Commands::LoadAsrank(a) => {
             let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
                 .await
                 .unwrap();
-            let jsonl_path = a.asns_filename;
-            println!("starting import");
-            let result = m.import_asrank_asns(&jsonl_path).await;
+            let result = m.load_asrank_asns(a.asns_filename).await;
             println!("import result: {result:?}");
         }
         Commands::LoadStanfordAsdb => {
