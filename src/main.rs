@@ -1,13 +1,11 @@
 use std::io::{BufRead, BufReader};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv6Addr};
 use std::process::{Command, Stdio};
 
 use asdb_builder::AsdbBuilder;
 use clap::{Args, Parser, Subcommand};
 
 const INPUTS_PATH: &str = "inputs";
-const ASNS_JSONL: &str = "asns.jsonl";
-const SERVER_DEV_SCRIPT: &str = "./dev.sh";
 const CONFIG_PATH: &str = "config.yaml";
 
 #[derive(Parser)]
@@ -63,6 +61,7 @@ async fn main() {
     let cfg = config::parse(CONFIG_PATH);
     let args = Cli::parse();
 
+    std::fs::create_dir_all(INPUTS_PATH).expect("Couldn't create input dir");
     match args.command {
         Commands::ClearDB => {
             let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
