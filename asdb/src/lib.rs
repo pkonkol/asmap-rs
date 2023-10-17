@@ -209,7 +209,7 @@ impl Asdb {
         let opts = UpdateOptions::builder().build();
         let update = doc! {
             "$set": {
-                "stanford_asdb_data": mongodb::bson::to_bson(categories).expect("StandordAsdbCategory should always be serializable to bson")
+                "stanford_asdb": mongodb::bson::to_bson(categories).expect("StandordAsdbCategory should always be serializable to bson")
             }
         };
         collection

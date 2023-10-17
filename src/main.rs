@@ -5,7 +5,6 @@ use std::process::{Command, Stdio};
 use asdb_builder::AsdbBuilder;
 use clap::{Args, Parser, Subcommand};
 
-const INPUTS_PATH: &str = "inputs";
 const CONFIG_PATH: &str = "config.yaml";
 
 #[derive(Parser)]
@@ -14,8 +13,8 @@ const CONFIG_PATH: &str = "config.yaml";
 struct Cli {
     #[command(subcommand)]
     pub command: Commands,
-    #[arg(short, long, default_value = INPUTS_PATH)]
-    pub iputs_path: String,
+    #[arg(short, long, default_value = "inputs/")]
+    pub inputs_path: String,
 }
 
 #[derive(Subcommand)]
@@ -61,17 +60,17 @@ async fn main() {
     let cfg = config::parse(CONFIG_PATH);
     let args = Cli::parse();
 
-    std::fs::create_dir_all(INPUTS_PATH).expect("Couldn't create input dir");
+    std::fs::create_dir_all(&args.inputs_path).expect("Couldn't create input dir");
     match args.command {
         Commands::ClearDB => {
-            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
                 .await
                 .unwrap();
             m.clear_database().await.unwrap();
         }
         Commands::LoadAll(a) => {
             println!("performing complete database load");
-            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
                 .await
                 .unwrap();
             m.load_asrank_asns(a.asrank_asns_filename).await.unwrap();
@@ -79,20 +78,20 @@ async fn main() {
             m.load_ipnetdb().await.unwrap();
         }
         Commands::LoadAsrank(a) => {
-            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
                 .await
                 .unwrap();
             let result = m.load_asrank_asns(a.asns_filename).await;
             println!("import result: {result:?}");
         }
         Commands::LoadStanfordAsdb => {
-            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
                 .await
                 .unwrap();
             m.load_stanford_asdb().await.unwrap();
         }
         Commands::LoadIpnetdb => {
-            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.iputs_path)
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
                 .await
                 .unwrap();
             m.load_ipnetdb().await.unwrap();

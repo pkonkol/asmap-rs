@@ -481,11 +481,10 @@ impl Component for MapComponent {
                         let m = create_marker(
                             &format!(
                                 "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}
-                                <b>links</b>:{},{}<br>
+                                <b>links</b>:{},{}, shodan<br>
                                 <b>name</b>:{}<br>
                                 <b>org</b>:{}<br>
-                                <b>country</b>:{}
-                                <b>details</b>:{}",
+                                <b>country</b>:{}<br>",
                                 as_.asn,
                                 as_.rank,
                                 as_.prefixes,
@@ -495,9 +494,8 @@ impl Component for MapComponent {
                                 as_.name,
                                 as_.organization.as_ref().map(|x| x.as_str()).unwrap_or("none"),
                                 country.map(|c| c.long_name).unwrap_or(""),
-                                "",
                             ),
-                            &format!("AS{}:{}",as_.asn, as_.name),
+                            &format!("AS{}:{}:{:.20}",as_.asn, as_.name, as_.organization.as_deref().unwrap_or("")),
                             &Point(
                                 as_.coordinates.lat,
                                 as_.coordinates.lon,
@@ -507,9 +505,8 @@ impl Component for MapComponent {
                         let details_cb = ctx
                             .link()
                             .callback(move |marker_id: u64| Msg::GetDetails(asn, marker_id));
-                        let closure = Closure::wrap(Box::new(move |e: JsValue| {
+                        let detail_update_closure = Closure::wrap(Box::new(move |e: JsValue| {
                             let x: Object = e.unchecked_into();
-                            //log!(&x);
                             #[derive(Deserialize, Debug)]
                             struct Target {
                                 _leaflet_id: u64,
@@ -524,7 +521,7 @@ impl Component for MapComponent {
                             details_cb.emit(id);
                         })
                             as Box<dyn Fn(JsValue) -> ()>);
-                        let js = closure.into_js_value();
+                        let js = detail_update_closure.into_js_value();
                         m.on("popupopen", &js);
                         markers.push(m);
                     };
@@ -532,18 +529,56 @@ impl Component for MapComponent {
                 self.marker_cluster.addLayers(markers);
             }
             Msg::UpdateDetails(as_, marker_id) => {
-                log!(format!("got details for {as_:?}"));
-                let newm = self.marker_cluster.getLayer(marker_id);
-                log!(format!("newm: {newm:?}"));
-                let pop = newm.getPopup();
-                let old_content = pop.getContent();
-                let old_str = old_content.as_string().unwrap();
-                // TODO fill in the rest of the details with IPnetDB data
-                let new_str = format!(
-                    "{old_str}<br><b>details</b>:{:?}",
+                log!(format!("got details for {as_:?}, proceeding to write them"));
+                let marker = self.marker_cluster.getLayer(marker_id);
+                let mut old_str = marker.getPopup().getContent().as_string().unwrap();
+
+                let mut details = String::new();
+                details.push_str(&format!(
+                    "<b>degree</b>: {:?}",
                     as_.asrank_data.as_ref().unwrap().degree
-                );
-                newm.setPopupContent(&JsValue::from_str(&new_str));
+                ));
+
+                //format!("<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>"),
+                // https://bgpview.io/prefix/91.230.202.0/24#whois
+                //https://www.shodan.io/search?query=net%3A195.2.209.0%2F24%2C91.230.202.0%2F24
+                let prefixes = if let Some(ipnetdb) = as_.ipnetdb_data.as_ref() {
+                    old_str = old_str.replace("shodan", &format!("<a href=\"https://www.shodan.io/search?query=net:{}\" target=\"_blank\">shodan</a>", ipnetdb
+                        .ipv4_prefixes
+                        .iter()
+                        .map(|x| x.range.to_string())
+                        .map(|mut x| {
+                            x.push(',');
+                            x
+                        })
+                        .collect::<String>()));
+                    format!(
+                        "<br><b>prefixes</b>: {}",
+                        ipnetdb
+                            .ipv4_prefixes
+                            .iter()
+                            .map(|x| format!("<b>></b>{}, ", x.range.to_string()))
+                            .collect::<String>()
+                    )
+                } else {
+                    String::new()
+                };
+                details.push_str(&prefixes);
+
+                let mut stanford = HashSet::new();
+                for c in as_.stanford_asdb.iter() {
+                    //log!(format!("found category {:?}", c));
+                    stanford.insert(c.layer1.as_str());
+                }
+                details.push_str(&format!(
+                    "<br><b>categories</b>: {}",
+                    stanford
+                        .iter()
+                        .map(|x| format!("<b>></b>{x}<b>.</b><br>\n"))
+                        .collect::<String>()
+                ));
+
+                marker.setPopupContent(&JsValue::from_str(&format!("{old_str}<br>{details}")));
                 self.as_details_cache.insert(as_.asn, as_);
             }
             Msg::ClearMarkers => {
