@@ -32,7 +32,6 @@ impl AsdbBuilder {
 
     pub async fn load_asrank_asns(&self, asns_jsonl: Option<impl AsRef<Path>>) -> Result<()> {
         asrank::load(&self.a, asns_jsonl.map(|x| self.inputs.join(x))).await?;
-        //    .map_err(|e| e.into())
         Ok(())
     }
 

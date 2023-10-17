@@ -86,16 +86,14 @@ pub async fn write_to_db(ases: &Vec<As>, asdb: &Asdb) -> Result<()> {
             }
         }
     }
-    // TODO Result<u64> with n inserted
     Ok(())
 }
 
-/// download the asns from https://api.asrank.caida.org
-/// TODO https://lib.rs/crates/graphql_client use this this to reimplement asrank-download.py
+/// download the asns from https://api.asrank.caida.org/graphql
 pub async fn download_asns() -> Result<Vec<As>> {
     use graphql::AsnsQuery;
     use graphql_client::{GraphQLQuery, Response};
-    println!("starting download of asns");
+    println!("starting download of asns from {API_URL}");
 
     let client = reqwest::Client::new();
     let request_body = AsnsQuery::build_query(asns_query::Variables {
@@ -120,11 +118,7 @@ pub async fn download_asns() -> Result<Vec<As>> {
             offset: 0 + PAGE_SIZE * page,
         };
         let request_body = AsnsQuery::build_query(variables);
-        let res = client
-            .post("https://api.asrank.caida.org/v2/graphql")
-            .json(&request_body)
-            .send()
-            .await?;
+        let res = client.post(API_URL).json(&request_body).send().await?;
         let response_body: Response<asns_query::ResponseData> = res.json().await?;
         let data = response_body
             .data

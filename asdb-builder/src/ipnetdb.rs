@@ -31,7 +31,19 @@ pub async fn load(asdb: &Asdb) -> Result<()> {
     Ok(())
 }
 
+async fn download<T: AsRef<Path> + AsRef<OsStr>>(dest: &T) -> Result<()> {
+    println!("downloading ipnetdb databases from {LATEST_PREFIX_MMDB} and {LATEST_ASN_MMDB}");
+    let downloads = vec![
+        Download::try_from(LATEST_ASN_MMDB).unwrap(),
+        Download::try_from(LATEST_PREFIX_MMDB).unwrap(),
+    ];
+    let downloader = DownloaderBuilder::new().directory(dest.into()).build();
+    downloader.download(&downloads).await;
+    Ok(())
+}
+
 async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
+    println!("importing ipnetdb asns from mmdb file to the database");
     let reader = maxminddb::Reader::open_readfile(mmdb)?;
     let every_ip = IpNetwork::V4("0.0.0.0/0".parse().unwrap());
     let iter: Within<read_models::IPNetDBAsn, _> = reader.within(every_ip).unwrap();
@@ -113,16 +125,6 @@ async fn get_ip_details_old(ip: IpAddr, db: &impl AsRef<Path>) -> Result<String>
     let reader = maxminddb::Reader::open_readfile(db)?;
     let data: Value = reader.lookup(ip).unwrap();
     Ok(data.to_string())
-}
-
-async fn download<T: AsRef<Path> + AsRef<OsStr>>(dest: &T) -> Result<()> {
-    let downloads = vec![
-        Download::try_from(LATEST_ASN_MMDB).unwrap(),
-        Download::try_from(LATEST_PREFIX_MMDB).unwrap(),
-    ];
-    let downloader = DownloaderBuilder::new().directory(dest.into()).build();
-    downloader.download(&downloads).await;
-    Ok(())
 }
 
 #[cfg(test)]
