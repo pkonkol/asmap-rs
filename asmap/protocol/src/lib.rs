@@ -58,10 +58,18 @@ impl From<As> for AsForFrontend {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum AsFiltersHasOrg {
+    Yes,
+    No,
+    Both,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AsFilters {
     /// 2 letter country code
     pub country: Option<String>,
     // Bound comes from asdb_models so it's kinda mixed in into the protocol but should do for now
+    pub exclude_country: bool,
     /// top left and bottom right corners of the geo bound
     pub bounds: Option<Bound>,
     /// range of addresses, (min, max)
@@ -69,17 +77,24 @@ pub struct AsFilters {
     /// range of rank, (min, max)
     pub rank: Option<(i64, i64)>,
     /// some ases have no organisation in asrank data
-    pub has_org: Option<bool>,
+    pub has_org: AsFiltersHasOrg,
+    /// layer 1 category from stanford asdb
+    pub category: Option<String>,
 }
 
 impl From<AsFilters> for asdb_models::AsFilters {
     fn from(value: AsFilters) -> Self {
+        let has_org = match value.has_org {
+            AsFiltersHasOrg::Both => None,
+            AsFiltersHasOrg::No => Some(false),
+            AsFiltersHasOrg::Yes => Some(true),
+        };
         asdb_models::AsFilters {
             country_iso: value.country,
             bounds: value.bounds,
             addresses: value.addresses,
             rank: value.rank,
-            has_org: value.has_org,
+            has_org,
             ..Default::default()
         }
     }
@@ -89,10 +104,12 @@ impl Default for AsFilters {
     fn default() -> Self {
         Self {
             country: None,
+            exclude_country: false,
             bounds: None,
             addresses: None,
             rank: None,
-            has_org: None,
+            has_org: AsFiltersHasOrg::Both,
+            category: None,
         }
     }
 }

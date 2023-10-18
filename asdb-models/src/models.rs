@@ -1,5 +1,8 @@
 use core::prelude::v1;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::{
+    fmt::Display,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+};
 
 use ipnetwork::IpNetwork;
 use isocountry::CountryCode;
@@ -86,6 +89,16 @@ pub struct AsrankDegree {
     pub total: u32,
     pub transit: u32,
     pub sibling: u32,
+}
+
+impl Display for AsrankDegree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "provider:{},peer:{},customer:{},total:{},transit:{},sibling:{}",
+            self.provider, self.peer, self.customer, self.total, self.transit, self.sibling
+        )
+    }
 }
 
 type Asn = u32;

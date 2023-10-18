@@ -12,7 +12,7 @@ use gloo_utils::format::JsValueSerdeExt;
 use js_sys::Object;
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
 
-use protocol::{AsFilters, AsForFrontend};
+use protocol::{AsFilters, AsFiltersHasOrg, AsForFrontend};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_timer::SystemTime;
@@ -46,13 +46,15 @@ pub enum Msg {
 
 #[derive(Debug)]
 pub enum FilterForm {
-    HasOrg,
+    HasOrg(String),
     MinAddresses(u64),
     MaxAddresses(u64),
     CountryCode(String),
+    ExcludeCountry,
     MinRank(u64),
     MaxRank(u64),
     IsBounded,
+    Category(String),
 }
 
 pub struct MapComponent {
@@ -128,8 +130,7 @@ impl MapComponent {
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
-                    </div>
-                    <div style="display:inline-block;">{"max addr"}<br/>
+                        <br/>{"max addr"}<br/>
                         <input type="number" id="maxAddresses" value={self.filters.addresses.unwrap().1.to_string()} min="0" max="99999999" style="width: 5em;"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MaxAddresses(
@@ -137,11 +138,18 @@ impl MapComponent {
                             })}
                         />
                     </div>
-                    <div style="display:inline-block;">{"country code"}<br/>
+                    <div style="display:inline-block;">{"country"}<br/>
                         <input type="text" id="countryCode" value={self.filters.country.clone()} size="2"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::CountryCode(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                            })}
+                        />
+                        <br/>
+                        {"exclude"}<br/>
+                        <input type="checkbox" id="excludeCountry" checked={self.filters.exclude_country}
+                            oninput={ctx.link().callback(|_e: InputEvent| {
+                                Msg::UpdateFilters(FilterForm::ExcludeCountry)
                             })}
                         />
                     </div>
@@ -152,29 +160,43 @@ impl MapComponent {
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
+                        <br/>{"max rank"}<br/>
+                            <input type="number" id="maxRank" value={self.filters.rank.unwrap().1.to_string()} min="0" max="999999" style="width: 4em;"
+                                oninput={ctx.link().callback(|e: InputEvent| {
+                                    Msg::UpdateFilters(FilterForm::MaxRank(
+                                        e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                                })}
+                            />
                     </div>
-                    <div style="display:inline-block;">{"max rank"}<br/>
-                        <input type="number" id="maxRank" value={self.filters.rank.unwrap().1.to_string()} min="0" max="999999" style="width: 4em;"
-                            oninput={ctx.link().callback(|e: InputEvent| {
-                                Msg::UpdateFilters(FilterForm::MaxRank(
-                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
-                            })}
-                        />
-                    </div>
-                    <div style="display:inline-block;">{"hasOrg\u{00a0}"}<br/>
-                        <input type="checkbox" id="hasOrg" checked={self.filters.has_org.unwrap()}
-                            oninput={ctx.link().callback(|_e: InputEvent| {
-                                Msg::UpdateFilters(FilterForm::HasOrg)
-                            })}
-
-                        />
-                    </div>
-                    <div style="display:inline-block;">{"isBounded"}<br/>
+                    <div style="display:inline-block;">
+                        {"hasOrg\u{00a0}"}<br/>
+                        <select id="hasOrg" name="hasOrgSel"
+                            onchange={ctx.link().callback(|e: Event| {
+                                let selected = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("value")).unwrap().as_string().unwrap();
+                                Msg::UpdateFilters(FilterForm::HasOrg(selected))
+                        })}>
+                            <option value="yes">{"yes"}</option>
+                            <option value="no">{"no"}</option>
+                            <option value="both">{"both"}</option>
+                        </select>
+                        <br/>{"isBounded"}<br/>
                         <input type="checkbox" id="isBounded" checked={!self.filters.bounds.is_none()}
                             oninput={ctx.link().callback(|_e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::IsBounded)
                             })}
                         />
+                    </div>
+                    <div style="display:inline-block;">
+                        {"category\u{00a0}"}<br/>
+                        <select id="category" name="category"
+                            onchange={ctx.link().callback(|e: Event| {
+                                let selected = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("value")).unwrap().as_string().unwrap();
+                                Msg::UpdateFilters(FilterForm::Category(selected))
+                        })}>
+                            // TODO show shortened when select not expanded
+                            <option value="Any">{"Any"}</option>
+                            <option value="TODO">{format!("{:.30}", "TODO, generate static hashmap from nacislite.csv")}</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -325,10 +347,12 @@ impl Component for MapComponent {
         marker_cluster.addTo(&leaflet_map);
         let initial_filters = AsFilters {
             country: Some("PL".to_string()),
+            exclude_country: false,
             bounds: None,
             addresses: Some((0, 21000000)),
             rank: Some((0, 115000)),
-            has_org: Some(false),
+            has_org: AsFiltersHasOrg::Both,
+            category: None,
         };
         Self {
             map: leaflet_map,
@@ -418,12 +442,17 @@ impl Component for MapComponent {
             }
             Msg::GetDetails(asn, marker_id) => {
                 if !self.as_details_cache.contains_key(&asn) {
+                    log!(format!(
+                        "sending get details request for asn {asn} which has marker {marker_id}"
+                    ));
                     ctx.link().send_future(async move {
                         match get_as_details(asn).await {
                             Ok(as_) => Msg::UpdateDetails(as_, marker_id),
                             Err(e) => Msg::Error(e),
                         }
                     });
+                } else {
+                    log!("as details are already in cache");
                 }
             }
             Msg::UpdateFilters(filter) => {
@@ -448,6 +477,9 @@ impl Component for MapComponent {
                             self.filters.country = Some(code.to_uppercase())
                         }
                     }
+                    FilterForm::ExcludeCountry => {
+                        self.filters.exclude_country = !self.filters.exclude_country;
+                    }
                     FilterForm::IsBounded => {
                         // The value just needs to be some, it will be udated on load filtered button press
                         self.filters.bounds = if self.filters.bounds.is_none() {
@@ -459,8 +491,15 @@ impl Component for MapComponent {
                             None
                         };
                     }
-                    FilterForm::HasOrg => {
-                        self.filters.has_org = Some(!self.filters.has_org.unwrap())
+                    FilterForm::HasOrg(s) => {
+                        self.filters.has_org = match s.as_str() {
+                            "yes" => AsFiltersHasOrg::Yes,
+                            "no" => AsFiltersHasOrg::No,
+                            "both" | _ => AsFiltersHasOrg::Both,
+                        };
+                    }
+                    FilterForm::Category(s) => {
+                        self.filters.category = if !s.is_empty() { Some(s) } else { None }
                     }
                 }
             }
@@ -484,7 +523,7 @@ impl Component for MapComponent {
                                 <b>links</b>:{},{}, shodan<br>
                                 <b>name</b>:{}<br>
                                 <b>org</b>:{}<br>
-                                <b>country</b>:{}<br>",
+                                <b>country</b>:{}",
                                 as_.asn,
                                 as_.rank,
                                 as_.prefixes,
@@ -529,19 +568,19 @@ impl Component for MapComponent {
                 self.marker_cluster.addLayers(markers);
             }
             Msg::UpdateDetails(as_, marker_id) => {
-                log!(format!("got details for {as_:?}, proceeding to write them"));
+                log!(format!(
+                    "got details for {}, proceeding to update popup in marker {marker_id}",
+                    as_.asn
+                ));
                 let marker = self.marker_cluster.getLayer(marker_id);
                 let mut old_str = marker.getPopup().getContent().as_string().unwrap();
 
                 let mut details = String::new();
                 details.push_str(&format!(
-                    "<b>degree</b>: {:?}",
+                    "<b>degree</b>: {}",
                     as_.asrank_data.as_ref().unwrap().degree
                 ));
 
-                //format!("<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>"),
-                // https://bgpview.io/prefix/91.230.202.0/24#whois
-                //https://www.shodan.io/search?query=net%3A195.2.209.0%2F24%2C91.230.202.0%2F24
                 let prefixes = if let Some(ipnetdb) = as_.ipnetdb_data.as_ref() {
                     old_str = old_str.replace("shodan", &format!("<a href=\"https://www.shodan.io/search?query=net:{}\" target=\"_blank\">shodan</a>", ipnetdb
                         .ipv4_prefixes
@@ -557,7 +596,15 @@ impl Component for MapComponent {
                         ipnetdb
                             .ipv4_prefixes
                             .iter()
-                            .map(|x| format!("<b>></b>{}, ", x.range.to_string()))
+                            .map( |x| {
+                                let cidr = x.range.to_string();
+                                format!("{}:<b>{}</b>|<b>{}</b>|<b>{}</b> ",
+                                cidr,
+                                format!("<a href=\"https://www.shodan.io/search?query=net%3A{}\" target=\"_blank\">s</a>", &cidr),
+                                format!("<a href=\"https://www.zoomeye.org/searchResult?q=cidr%3A{}\" target=\"_blank\">z</a>", &cidr),
+                                format!("<a href=\"https://search.censys.io/search?resource=hosts&sort=RELEVANCE&per_page=25&virtual_hosts=EXCLUDE&q=ip%3A{}\" target=\"_blank\">c</a>", &cidr),
+                                )
+                            })
                             .collect::<String>()
                     )
                 } else {
@@ -580,6 +627,7 @@ impl Component for MapComponent {
 
                 marker.setPopupContent(&JsValue::from_str(&format!("{old_str}<br>{details}")));
                 self.as_details_cache.insert(as_.asn, as_);
+                log!("marker updated");
             }
             Msg::ClearMarkers => {
                 self.drawn_filtered_ases.clear();
@@ -621,7 +669,7 @@ impl Component for MapComponent {
                     && a.rank <= self.filters.rank.as_ref().unwrap().1 as u32
                     // TODO pass country code instead of name so the comparison works
                     && &a.country_code == self.filters.country.as_ref().unwrap()
-                    && a.organization.is_some() == self.filters.has_org.is_some()
+                    && a.organization.is_some() == if let AsFiltersHasOrg::Both|AsFiltersHasOrg::Yes = self.filters.has_org {true} else {false}
                     // TODO take the bounds, pull the most up to date ones, compare if needed
                     && ((self.filters.bounds.is_some()
                         && (a.coordinates.lat <= bounds._northEast.lat && a.coordinates.lat >= bounds._southWest.lat)
@@ -692,12 +740,21 @@ struct IconOpts {
     pub class_name: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PopupOpts {
+    pub max_width: i64,
+}
+
 fn create_marker(description: &str, tooltip: &str, coord: &Point, size: (u64, u64)) -> Marker {
     let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
     let latlng = LatLng::new(coord.0, coord.1);
     let m = Marker::new_with_options(&latlng, &opts);
 
-    m.bindPopup(&JsValue::from_str(description), &JsValue::NULL);
+    m.bindPopup(
+        &JsValue::from_str(description),
+        &serde_wasm_bindgen::to_value(&PopupOpts { max_width: 600 }).unwrap(),
+    );
     m.bindTooltip(&JsValue::from_str(tooltip), &JsValue::NULL);
 
     let i = Icon::new(
