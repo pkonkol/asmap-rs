@@ -10,6 +10,7 @@ use trauma::{download::Download, downloader::DownloaderBuilder};
 use asdb::Asdb;
 pub use error::{Error, Result};
 
+pub mod categories;
 mod error;
 
 const LATEST_ASDB_CSV: &str = "https://asdb.stanford.edu/data/2023-05_categorized_ases.csv";

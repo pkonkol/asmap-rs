@@ -195,6 +195,7 @@ impl MapComponent {
                         })}>
                             // TODO show shortened when select not expanded
                             <option value="Any">{"Any"}</option>
+                            // { categories.into_iter().map(|x| html!{})}).collect::<Html>()
                             <option value="TODO">{format!("{:.30}", "TODO, generate static hashmap from nacislite.csv")}</option>
                         </select>
                     </div>

@@ -44,6 +44,11 @@ impl AsdbBuilder {
         stanford_asdb::load(&self.a).await?;
         Ok(())
     }
+
+    pub async fn generate_categories(&self) -> Result<()> {
+        stanford_asdb::categories::generate().await;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

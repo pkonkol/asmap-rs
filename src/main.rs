@@ -29,7 +29,11 @@ enum Commands {
     /// Downloads if not found and loads IpnetDB data
     LoadIpnetdb,
     /// Downloads and loads into databse the AS categories data from stanford asdb
+    /// This step will also generate static categories data.
     LoadStanfordAsdb,
+    /// Generates static data structure containing stanford asdb categories based on NAICSlite.csv file
+    /// from https://asdb.stanford.edu. Not necessary to run manually if loadStanfordAsdb was used.
+    GenerateCategories,
     /// Starts a server with the map
     Start(StartServerArgs),
     // Todo LoadWhois (for range?), LoadIpnetDB, Georesolve(Persons|Orgs|Somethin else?)
@@ -89,6 +93,13 @@ async fn main() {
                 .await
                 .unwrap();
             m.load_stanford_asdb().await.unwrap();
+        }
+        Commands::GenerateCategories => {
+            //This will also be loaded automatically during loadStanfordAsdb but can be also trigerred manually
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
+                .await
+                .unwrap();
+            m.generate_categories().await.unwrap();
         }
         Commands::LoadIpnetdb => {
             let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
