@@ -29,11 +29,13 @@ enum Commands {
     /// Downloads if not found and loads IpnetDB data
     LoadIpnetdb,
     /// Downloads and loads into databse the AS categories data from stanford asdb
-    /// This step will also generate static categories data.
     LoadStanfordAsdb,
     /// Generates static data structure containing stanford asdb categories based on NAICSlite.csv file
-    /// from https://asdb.stanford.edu. Not necessary to run manually if loadStanfordAsdb was used.
+    /// from https://asdb.stanford.edu.
     GenerateCategories,
+    /// Creates detailed json file containing information about chosen asns based on csv downloaded
+    /// from asmap
+    GetDetailed(GetDetailedArgs),
     /// Starts a server with the map
     Start(StartServerArgs),
     // Todo LoadWhois (for range?), LoadIpnetDB, Georesolve(Persons|Orgs|Somethin else?)
@@ -49,6 +51,12 @@ struct LoadAsrankAsnsArgs {
 struct LoadAllArgs {
     #[arg(short, long)]
     pub asrank_asns_filename: Option<String>,
+}
+
+#[derive(Args)]
+struct GetDetailedArgs {
+    #[arg(short, long)]
+    pub csv: String,
 }
 
 #[derive(Args)]
@@ -88,6 +96,12 @@ async fn main() {
             let result = m.load_asrank_asns(a.asns_filename).await;
             println!("import result: {result:?}");
         }
+        Commands::LoadIpnetdb => {
+            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
+                .await
+                .unwrap();
+            m.load_ipnetdb().await.unwrap();
+        }
         Commands::LoadStanfordAsdb => {
             let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
                 .await
@@ -101,11 +115,9 @@ async fn main() {
                 .unwrap();
             m.generate_categories().await.unwrap();
         }
-        Commands::LoadIpnetdb => {
-            let m = AsdbBuilder::new(&cfg.mongo_conn_str, &cfg.db_name, &args.inputs_path)
-                .await
-                .unwrap();
-            m.load_ipnetdb().await.unwrap();
+        Commands::GetDetailed(a) => {
+            println!("generating details for {:?}", a.csv);
+            todo!()
         }
         Commands::Start(_a) => {
             let release_flag = if cfg!(debug_assertions) {
