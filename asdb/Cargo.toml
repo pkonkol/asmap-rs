@@ -17,6 +17,7 @@ serde = {workspace = true}
 thiserror = { workspace = true }
 tracing = "0.1.37"
 ipnetwork = { workspace = true }
+itertools = "0.11.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

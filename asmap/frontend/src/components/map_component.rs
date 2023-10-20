@@ -16,7 +16,7 @@ use protocol::{AsFilters, AsFiltersHasOrg, AsForFrontend};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_timer::SystemTime;
-use web_sys::{Element, HtmlElement, HtmlInputElement, Node};
+use web_sys::{Element, HtmlCollection, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
 use super::api::{get_all_as, get_all_as_filtered, get_as_details};
@@ -54,7 +54,7 @@ pub enum FilterForm {
     MinRank(u64),
     MaxRank(u64),
     IsBounded,
-    Category(String),
+    Category(Vec<String>),
 }
 
 pub struct MapComponent {
@@ -80,14 +80,14 @@ impl MapComponent {
     fn load_all_as_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::LoadAllAs);
         html! {
-            <button onclick={cb}>{"Load ASes"}</button>
+            <button onclick={cb}>{"Load all ASes"}</button>
         }
     }
 
     fn load_as_bounded_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::LoadAsBounded);
         html! {
-            <button onclick={cb}>{"Load ASes in visible range"}</button>
+            <button onclick={cb}>{"Load all ASes in bounds"}</button>
         }
     }
 
@@ -188,15 +188,25 @@ impl MapComponent {
                     </div>
                     <div style="display:inline-block;">
                         {"category\u{00a0}"}<br/>
-                        <select id="category" name="category"
+                        <select id="category" name="category" multiple=true style="width: 20em;"
                             onchange={ctx.link().callback(|e: Event| {
-                                let selected = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("value")).unwrap().as_string().unwrap();
+                                let selected_options = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("selectedOptions"))
+                                    .unwrap()
+                                    .dyn_into::<HtmlCollection>()
+                                    .unwrap();
+
+                                let mut selected = vec![];
+                                for i in 0..selected_options.length() {
+                                    let item = selected_options.item(i).unwrap();
+                                    let category = js_sys::Reflect::get(&item, &JsValue::from_str("text")).unwrap().as_string().unwrap();
+                                    selected.push(category);
+                                };
                                 Msg::UpdateFilters(FilterForm::Category(selected))
                         })}>
-                            // TODO show shortened when select not expanded
                             <option value="Any">{"Any"}</option>
-                            // { categories.into_iter().map(|x| html!{})}).collect::<Html>()
-                            <option value="TODO">{format!("{:.30}", "TODO, generate static hashmap from nacislite.csv")}</option>
+                            { asdb_models::categories::CATEGORIES.into_iter().map(|(category, _subcategories)| {
+                                html!{<option value={ *category }>{ category }</option>}
+                            }).collect::<Html>() }
                         </select>
                     </div>
                 </div>
@@ -276,14 +286,8 @@ impl MapComponent {
         let body = document.body().expect("document should have a body");
 
         let (wtr, ases_len) = match input {
-            DownloadableCsvInput::Simple(x) => {
-                //let ases = x.iter();
-                self.get_simple_csv_writer(x)
-            }
-            DownloadableCsvInput::Detailed(x) => {
-                //let ases = x.iter();
-                self.get_detailed_csv_writer(x)
-            }
+            DownloadableCsvInput::Simple(x) => self.get_simple_csv_writer(x),
+            DownloadableCsvInput::Detailed(x) => self.get_detailed_csv_writer(x),
         };
 
         let blob = Blob::new_with_options(wtr.into_inner().unwrap().as_slice(), Some("text/plain"));
@@ -353,7 +357,7 @@ impl Component for MapComponent {
             addresses: Some((0, 21000000)),
             rank: Some((0, 115000)),
             has_org: AsFiltersHasOrg::Both,
-            category: None,
+            category: vec![],
         };
         Self {
             map: leaflet_map,
@@ -500,7 +504,7 @@ impl Component for MapComponent {
                         };
                     }
                     FilterForm::Category(s) => {
-                        self.filters.category = if !s.is_empty() { Some(s) } else { None }
+                        self.filters.category = s;
                     }
                 }
             }

@@ -79,7 +79,7 @@ pub struct AsFilters {
     /// some ases have no organisation in asrank data
     pub has_org: AsFiltersHasOrg,
     /// layer 1 category from stanford asdb
-    pub category: Option<String>,
+    pub category: Vec<String>,
 }
 
 impl From<AsFilters> for asdb_models::AsFilters {
@@ -91,11 +91,13 @@ impl From<AsFilters> for asdb_models::AsFilters {
         };
         asdb_models::AsFilters {
             country_iso: value.country,
+            exclude_country: value.exclude_country,
             bounds: value.bounds,
             addresses: value.addresses,
             rank: value.rank,
             has_org,
-            ..Default::default()
+            category: value.category,
+            // ..Default::default()
         }
     }
 }
@@ -109,7 +111,7 @@ impl Default for AsFilters {
             addresses: None,
             rank: None,
             has_org: AsFiltersHasOrg::Both,
-            category: None,
+            category: vec![],
         }
     }
 }

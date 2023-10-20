@@ -221,6 +221,8 @@ pub struct Bound {
 pub struct AsFilters {
     /// 2 letter country code
     pub country_iso: Option<String>,
+    // should the country_iso field be excluded from the resuts or included
+    pub exclude_country: bool,
     /// top left and bottom right corners of the geo bound
     pub bounds: Option<Bound>,
     /// range of addresses, (min, max)
@@ -229,4 +231,6 @@ pub struct AsFilters {
     pub rank: Option<(i64, i64)>,
     // pub contry_name (is that even needed? I have to figure out which to use )
     pub has_org: Option<bool>,
+    /// layer 1 category from stanford asdb
+    pub category: Vec<String>,
 }

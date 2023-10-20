@@ -6,6 +6,7 @@ use asdb_models::{
 pub use error::{Error, Result};
 
 use futures::stream::TryStreamExt;
+use itertools::Itertools;
 use mongodb::{
     bson::{doc, Bson, Document},
     options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
@@ -106,7 +107,14 @@ impl Asdb {
             );
         }
         if let Some(x) = &filters.country_iso {
-            db_filter.insert("asrank_data.country_iso", x);
+            db_filter.insert(
+                "asrank_data.country_iso",
+                if filters.exclude_country {
+                    doc! { "$ne": x }
+                } else {
+                    doc! { "$eq": x }
+                },
+            );
         }
         if let Some((min, max)) = &filters.addresses {
             // gt than min and lt than max
@@ -119,6 +127,12 @@ impl Asdb {
         if let Some(true) = &filters.has_org {
             // gt than min and lt than max
             db_filter.insert("asrank_data.organization", doc! {"$ne": null});
+        }
+        if !filters.category.iter().contains(&"Any".to_string()) && filters.category.len() > 0 {
+            db_filter.insert(
+                "stanford_asdb.layer1",
+                doc! { "$all": filters.category.as_slice() },
+            );
         }
         db_filter
     }
