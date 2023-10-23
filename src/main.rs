@@ -56,13 +56,24 @@ struct LoadAllArgs {
     pub asrank_asns_filename: Option<String>,
 }
 
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum GetDetailedFormat {
+    /// full database dump in json format
+    Json,
+    /// input list supported by nmap and masscan
+    InputList,
+}
+
 #[derive(Args)]
 struct GetDetailedArgs {
     #[arg(short, long)]
     pub csv: String,
-    /// custom filename for output json file. By default It will be derived from input csv path
+    /// custom filename for output file. By default It will be derived from input csv path
     #[arg(short, long)]
     pub output: Option<String>,
+    /// format of the output file
+    #[arg(value_enum, short, long, default_value_t = GetDetailedFormat::InputList)]
+    pub format: GetDetailedFormat,
 }
 
 #[derive(Args)]
@@ -135,12 +146,24 @@ async fn main() {
                 asns.len()
             );
 
-            let output_path = if let Some(p) = a.output {
-                p
-            } else {
-                format!("{}-detailed.json", a.csv.strip_suffix(".csv").unwrap())
-            };
-            generate_json(&ases_detailed, &output_path);
+            match a.format {
+                GetDetailedFormat::InputList => {
+                    let output_path = if let Some(p) = a.output {
+                        p
+                    } else {
+                        format!("{}", a.csv.strip_suffix(".csv").unwrap())
+                    };
+                    details::generate_nmap_inputlist(&ases_detailed, &output_path);
+                }
+                GetDetailedFormat::Json => {
+                    let output_path = if let Some(p) = a.output {
+                        p
+                    } else {
+                        format!("{}-detailed.json", a.csv.strip_suffix(".csv").unwrap())
+                    };
+                    generate_json(&ases_detailed, &output_path);
+                }
+            }
         }
         Commands::Start(_a) => {
             let release_flag = if cfg!(debug_assertions) {
