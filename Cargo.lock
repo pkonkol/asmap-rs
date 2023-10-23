@@ -203,9 +203,14 @@ dependencies = [
 name = "asmap-rs"
 version = "0.1.0"
 dependencies = [
+ "asdb",
  "asdb-builder",
+ "asdb-models",
  "clap",
  "config 0.1.0",
+ "csv",
+ "indicatif",
+ "serde_json",
  "tokio",
 ]
 

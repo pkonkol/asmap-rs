@@ -122,7 +122,7 @@ mod tests {
         m.load_asrank_asns(Some(&ASNS2)).await.unwrap();
         let second_docs = count_asn_entries(&context.db_name).await;
 
-        let ases = m.a.get_ases(0, 0).await.unwrap();
+        let ases = m.a.get_ases_page(0, 0).await.unwrap();
         println!("ases: {ases:#?}");
 
         assert!(second_docs > first_docs);

@@ -4,6 +4,9 @@ use std::process::{Command, Stdio};
 
 use asdb_builder::AsdbBuilder;
 use clap::{Args, Parser, Subcommand};
+use config::parse;
+
+mod details;
 
 const CONFIG_PATH: &str = "config.yaml";
 
@@ -57,6 +60,9 @@ struct LoadAllArgs {
 struct GetDetailedArgs {
     #[arg(short, long)]
     pub csv: String,
+    /// custom filename for output json file. By default It will be derived from input csv path
+    #[arg(short, long)]
+    pub output: Option<String>,
 }
 
 #[derive(Args)]
@@ -116,8 +122,25 @@ async fn main() {
             m.generate_categories().await.unwrap();
         }
         Commands::GetDetailed(a) => {
+            use asdb::Asdb;
+            use details::*;
             println!("generating details for {:?}", a.csv);
-            todo!()
+
+            let asns = parse_input_csv(&a.csv);
+
+            let asdb = Asdb::new(&cfg.mongo_conn_str, &cfg.db_name).await.unwrap();
+            let (ases_detailed, count) = asdb.get_ases(&asns).await.unwrap();
+            println!(
+                "retrieved {count} detailed ases for {} asns from input",
+                asns.len()
+            );
+
+            let output_path = if let Some(p) = a.output {
+                p
+            } else {
+                format!("{}-detailed.json", a.csv.strip_suffix(".csv").unwrap())
+            };
+            generate_json(&ases_detailed, &output_path);
         }
         Commands::Start(_a) => {
             let release_flag = if cfg!(debug_assertions) {

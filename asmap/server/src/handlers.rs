@@ -59,7 +59,7 @@ pub async fn handle_as_socket(mut socket: WebSocket, state: ServerState) {
 /// returns WsResponse containing requested page of ases encoded using bincode
 async fn all_as(page: u32, state: &ServerState) -> Vec<u8> {
     let skip = page as u64 * PAGE_SIZE as u64;
-    let (ases, total_count) = state.asdb.get_ases(PAGE_SIZE, skip).await.unwrap();
+    let (ases, total_count) = state.asdb.get_ases_page(PAGE_SIZE, skip).await.unwrap();
     let ases = ases
         .into_iter()
         .map(|a| AsForFrontend::from(a))

@@ -73,7 +73,7 @@ impl Asdb {
 
     // TODO consider merging get_ases and get_as_filtered, just do filters: Option<AsFilters>
     /// returns result with found ases and total count of ases in the DB
-    pub async fn get_ases(&self, limit: i64, skip: u64) -> Result<(Vec<As>, u64)> {
+    pub async fn get_ases_page(&self, limit: i64, skip: u64) -> Result<(Vec<As>, u64)> {
         let collection = self
             .client
             .database(&self.database)
@@ -90,6 +90,24 @@ impl Asdb {
             "found {} mathcing ases for skip {skip} and limit {limit}",
             ases.len()
         );
+        Ok((ases, count))
+    }
+
+    pub async fn get_ases(&self, asns: &[u32]) -> Result<(Vec<As>, u64)> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let opts = FindOptions::builder().build();
+        // .skip(skip)
+        // .limit(limit)
+        // .sort(doc! { "asn": 1 })
+        // .build();
+        let res = collection
+            .find(doc! {"asn": doc! { "$in": asns}}, opts)
+            .await?;
+        let count = collection.count_documents(doc! {}, None).await?;
+        let ases: Vec<As> = res.try_collect().await?;
         Ok((ases, count))
     }
 
@@ -269,7 +287,7 @@ mod tests {
         let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
         let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
 
-        asdb.get_ases(0, 0).await.unwrap();
+        asdb.get_ases_page(0, 0).await.unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -290,7 +308,7 @@ mod tests {
         let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
 
         asdb.insert_as(&tested_as()).await.unwrap();
-        let (asns, count) = asdb.get_ases(0, 0).await.unwrap();
+        let (asns, count) = asdb.get_ases_page(0, 0).await.unwrap();
         assert!(asns.iter().find(|x| x.asn == tested_asn).is_some());
     }
 
@@ -315,7 +333,7 @@ mod tests {
         let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
         let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
         asdb.clear_database().await.unwrap();
-        let (asns, count) = asdb.get_ases(0, 0).await.unwrap();
+        let (asns, count) = asdb.get_ases_page(0, 0).await.unwrap();
         assert_eq!(asns.len(), 0);
     }
 
@@ -329,9 +347,9 @@ mod tests {
         asdb.clear_database().await.unwrap();
         asdb.prepare_database().await.unwrap();
         asdb.insert_as(&tested_as()).await.unwrap();
-        let first_get = asdb.get_ases(0, 0).await.unwrap();
+        let first_get = asdb.get_ases_page(0, 0).await.unwrap();
         let second_insert = asdb.insert_as(&tested_as()).await;
-        let second_get = asdb.get_ases(0, 0).await.unwrap();
+        let second_get = asdb.get_ases_page(0, 0).await.unwrap();
 
         assert!(second_insert.is_err());
         assert_eq!(first_get.0.len(), second_get.0.len());
@@ -348,10 +366,10 @@ mod tests {
         asdb.prepare_database().await.unwrap();
         asdb.insert_ases(&tested_ases()).await.unwrap();
 
-        let (first_get, _) = asdb.get_ases(0, 0).await.unwrap();
+        let (first_get, _) = asdb.get_ases_page(0, 0).await.unwrap();
 
         let second_insert = asdb.insert_ases(&tested_ases()).await;
-        let (second_get, _) = asdb.get_ases(0, 0).await.unwrap();
+        let (second_get, _) = asdb.get_ases_page(0, 0).await.unwrap();
 
         assert!(second_insert.is_err());
         assert_eq!(first_get.len(), second_get.len());
@@ -376,9 +394,9 @@ mod tests {
         asdb.prepare_database().await.unwrap();
         asdb.prepare_database().await.unwrap();
         asdb.insert_as(&tested_as()).await.unwrap();
-        let (before_prepare, _) = asdb.get_ases(0, 0).await.unwrap();
+        let (before_prepare, _) = asdb.get_ases_page(0, 0).await.unwrap();
         asdb.prepare_database().await.unwrap();
-        let (after_prepare, _) = asdb.get_ases(0, 0).await.unwrap();
+        let (after_prepare, _) = asdb.get_ases_page(0, 0).await.unwrap();
         assert_eq!(before_prepare.len(), after_prepare.len());
         assert_eq!(
             after_prepare.len(),
