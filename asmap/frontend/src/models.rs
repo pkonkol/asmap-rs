@@ -59,10 +59,13 @@ pub struct LatLng {
     pub lat: f64,
     pub lng: f64,
 }
+
 #[derive(Deserialize, Debug)]
 pub struct LatLngBounds {
-    pub _southWest: LatLng,
-    pub _northEast: LatLng,
+    #[serde(alias = "_southWest")]
+    pub _south_west: LatLng,
+    #[serde(alias = "_northEast")]
+    pub _north_east: LatLng,
 }
 
 // TODO is it needed? It would allow to use a bit less unwraps when forking with the frontend inputs

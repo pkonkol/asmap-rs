@@ -400,12 +400,12 @@ impl Component for MapComponent {
                 let filters = AsFilters {
                     bounds: Some(Bound {
                         north_east: Coord {
-                            lat: bounds._northEast.lat,
-                            lon: bounds._northEast.lng,
+                            lat: bounds._north_east.lat,
+                            lon: bounds._north_east.lng,
                         },
                         south_west: Coord {
-                            lat: bounds._southWest.lat,
-                            lon: bounds._southWest.lng,
+                            lat: bounds._south_west.lat,
+                            lon: bounds._south_west.lng,
                         },
                     }),
                     ..Default::default()
@@ -425,12 +425,12 @@ impl Component for MapComponent {
                         serde_wasm_bindgen::from_value(self.map.getBounds().into()).unwrap();
                     self.filters.bounds = Some(Bound {
                         north_east: Coord {
-                            lat: bounds._northEast.lat,
-                            lon: bounds._northEast.lng,
+                            lat: bounds._north_east.lat,
+                            lon: bounds._north_east.lng,
                         },
                         south_west: Coord {
-                            lat: bounds._southWest.lat,
-                            lon: bounds._southWest.lng,
+                            lat: bounds._south_west.lat,
+                            lon: bounds._south_west.lng,
                         },
                     })
                 };
@@ -671,8 +671,8 @@ impl Component for MapComponent {
                     && a.organization.is_some() == matches!(self.filters.has_org, AsFiltersHasOrg::Both|AsFiltersHasOrg::Yes)
                     // TODO take the bounds, pull the most up to date ones, compare if needed
                     && ((self.filters.bounds.is_some()
-                        && (a.coordinates.lat <= bounds._northEast.lat && a.coordinates.lat >= bounds._southWest.lat)
-                        && (a.coordinates.lon <= bounds._northEast.lng && a.coordinates.lon >= bounds._southWest.lng)
+                        && (a.coordinates.lat <= bounds._north_east.lat && a.coordinates.lat >= bounds._south_west.lat)
+                        && (a.coordinates.lon <= bounds._north_east.lng && a.coordinates.lon >= bounds._south_west.lng)
                         )
                     || self.filters.bounds.is_none()
                     )

@@ -2,7 +2,7 @@ mod asrank;
 mod error;
 mod ipnetdb;
 mod stanford_asdb;
-mod whois;
+// mod whois;
 
 use std::path::{Path, PathBuf};
 
