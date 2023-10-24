@@ -9,8 +9,8 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-js-sys = "0.3.64"
-leaflet = "0.2.2"
+js-sys = "0.3"
+leaflet = "0.2"
 serde = { workspace = true, features = ["serde_derive"] }
-wasm-bindgen = { version = "0.2.87", features = ["serde-serialize"] }
-web-sys = "0.3.64"
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+web-sys = "0.3"

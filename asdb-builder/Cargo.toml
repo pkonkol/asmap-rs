@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-maxminddb = "0.23.0"
+maxminddb = "0.23"
 mongodb = { workspace = true }
 ipnetwork = { workspace = true }
 serde = {workspace = true}
@@ -13,15 +13,15 @@ tokio = {workspace = true}
 asdb = { path = "../asdb" }
 asdb-models = { path = "../asdb-models" }
 test-context = { path = "../test-context" }
-isocountry = "0.3.2"
+isocountry = "0.3"
 thiserror = { workspace = true }
-trauma = "2.2.4"
+trauma = "2.2"
 csv = { workspace = true }
-reqwest = "0.11.22"
-itertools = "0.11.0"
+reqwest = "0.11"
+itertools = "0.11"
 indicatif = { workspace = true }
-graphql_client = "0.13.0"
+graphql_client = "0.13"
 
 [dev-dependencies]
-ctor = "0.2.0"
-futures = "0.3.28"
+ctor = "0.2"
+futures = "0.3"
