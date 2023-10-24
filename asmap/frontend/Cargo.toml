@@ -27,7 +27,7 @@ anyhow = "1.0"
 serde-wasm-bindgen = "0.6.0"
 serde = { workspace = true, features = ["serde_derive"] }
 gloo-file = "0.3.0"
-csv = "1.2.2"
+csv = { workspace = true }
 wasm-timer = "0.2.5"
 js-sys = "0.3.64"
 celes = "2.4.0"

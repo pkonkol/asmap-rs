@@ -1,7 +1,5 @@
-use serde_json::Serializer;
 use std::{
     ffi::OsStr,
-    fmt::write,
     fs::File,
     io::{BufWriter, Write},
     path::{Path, PathBuf},

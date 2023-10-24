@@ -4,7 +4,6 @@ use std::process::{Command, Stdio};
 
 use asdb_builder::AsdbBuilder;
 use clap::{Args, Parser, Subcommand};
-use config::parse;
 
 mod details;
 
@@ -22,22 +21,19 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// resets the database to starting state
+    /// Resets the database
     ClearDB,
     /// Performs all of the loading steps in the correct order
     LoadAll(LoadAllArgs),
     /// Load asrank asns.jsonl from file, takes in the path
-    /// todo default path value to inputs
     LoadAsrank(LoadAsrankAsnsArgs),
     /// Downloads if not found and loads IpnetDB data
     LoadIpnetdb,
-    /// Downloads and loads into databse the AS categories data from stanford asdb
+    /// Downloads and saves the AS categories data from stanford asdb
     LoadStanfordAsdb,
-    /// Generates static data structure containing stanford asdb categories based on NAICSlite.csv file
-    /// from https://asdb.stanford.edu.
+    /// Generates static stanford asdb categories data structure
     GenerateCategories,
-    /// Creates detailed json file containing information about chosen asns based on csv downloaded
-    /// from asmap
+    /// Creates detailed file containing information about chosen asns
     GetDetailed(GetDetailedArgs),
     /// Starts a server with the map
     Start(StartServerArgs),
@@ -66,9 +62,10 @@ enum GetDetailedFormat {
 
 #[derive(Args)]
 struct GetDetailedArgs {
+    /// csv file downloaded from asmap website
     #[arg(short, long)]
     pub csv: String,
-    /// custom filename for output file. By default It will be derived from input csv path
+    /// custom filename for output file. By default derived from input csv path
     #[arg(short, long)]
     pub output: Option<String>,
     /// format of the output file
