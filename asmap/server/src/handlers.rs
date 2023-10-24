@@ -16,6 +16,7 @@ pub async fn as_handler(
     ws: WebSocketUpgrade,
     State(state): State<ServerState>,
 ) -> impl IntoResponse {
+    info!("handler before upgrading to websocket");
     ws.on_upgrade(move |socket| handle_as_socket(socket, state))
 }
 
@@ -40,20 +41,28 @@ pub async fn handle_as_socket(mut socket: WebSocket, state: ServerState) {
                     WSRequest::FilteredAS(filters) => {
                         let resp = filtered_as(filters, &state).await;
                         socket.send(Message::Binary(resp)).await.unwrap();
+                        socket.send(Message::Close(None)).await.unwrap();
+                        break;
                     }
                     WSRequest::AsDetails(asn) => {
                         let resp = as_details(asn, &state).await;
                         socket.send(Message::Binary(resp)).await.unwrap();
+                        socket.send(Message::Close(None)).await.unwrap();
+                        break;
                     }
                 };
             }
             Message::Close(_x) => {
                 break;
             }
-            _ => {}
+            _ => {
+                info!("Received unsupported message type: {msg:?}");
+                socket.send(Message::Close(None)).await.unwrap();
+                break;
+            }
         };
     }
-    info!("closing AS socket handler");
+    info!("closing as socket handler");
 }
 
 /// returns WsResponse containing requested page of ases encoded using bincode

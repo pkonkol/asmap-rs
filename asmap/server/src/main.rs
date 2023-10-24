@@ -1,11 +1,18 @@
-use axum::{routing::get, Router};
+use axum::{error_handling::HandleErrorLayer, routing::get, BoxError, Router, ServiceExt};
 use clap::Parser;
 use std::{
     net::{IpAddr, Ipv6Addr, SocketAddr},
     str::FromStr,
 };
 use tower::ServiceBuilder;
+use tower_governor::{
+    errors::display_error,
+    governor::{self, GovernorConfigBuilder},
+    key_extractor::SmartIpKeyExtractor,
+    GovernorLayer,
+};
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
+use tracing::Level;
 
 use handlers::as_handler;
 use state::ServerState;
@@ -42,12 +49,33 @@ struct Opt {
 async fn main() {
     let opt = Opt::parse();
     let cfg = config::parse(&opt.config);
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .init();
+
+    let governor_conf = Box::new(
+        GovernorConfigBuilder::default()
+            .per_second(1)
+            .burst_size(2)
+            .key_extractor(SmartIpKeyExtractor)
+            .finish()
+            .unwrap(),
+    );
+    // let governor_conf = Box::new(GovernorConfigBuilder::default().finish().unwrap());
 
     let state = ServerState::new(&cfg.mongo_conn_str, &cfg.db_name).await;
     let app = Router::new()
         .route("/as", get(as_handler))
         .fallback_service(ServeDir::new(opt.static_dir))
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(|e: BoxError| async move {
+                    display_error(e)
+                }))
+                .layer(GovernorLayer {
+                    config: Box::leak(governor_conf),
+                }),
+        )
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .layer(CorsLayer::permissive())
         .with_state(state);
@@ -60,7 +88,8 @@ async fn main() {
     log::info!("listening on http://{}", sock_addr);
 
     axum::Server::bind(&sock_addr)
-        .serve(app.into_make_service())
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+        // .serve(app.i)
         .await
         .expect("Unable to start server");
 }
