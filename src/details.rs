@@ -35,14 +35,14 @@ pub fn generate_nmap_inputlist<T: Into<PathBuf> + AsRef<OsStr>>(ases: &[As], bas
             continue;
         }
         let v4_prefixes = &as_.ipnetdb_data.as_ref().unwrap().ipv4_prefixes;
-        write!(&mut writer_v4, "# AS{}\n", as_.asn).unwrap();
+        writeln!(&mut writer_v4, "# AS{}", as_.asn).unwrap();
         for p in v4_prefixes {
-            write!(&mut writer_v4, "{}\n", p.range).unwrap();
+            writeln!(&mut writer_v4, "{}", p.range).unwrap();
         }
         let v6_prefixes = &as_.ipnetdb_data.as_ref().unwrap().ipv6_prefixes;
-        write!(&mut writer_v6, "# AS{}\n", as_.asn).unwrap();
+        writeln!(&mut writer_v6, "# AS{}", as_.asn).unwrap();
         for p in v6_prefixes {
-            write!(&mut writer_v6, "{}\n", p.range).unwrap();
+            writeln!(&mut writer_v6, "{}", p.range).unwrap();
         }
     }
 }

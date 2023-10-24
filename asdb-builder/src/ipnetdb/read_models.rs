@@ -38,7 +38,7 @@ impl TryFrom<IPNetDBAsn> for asdb_models::IPNetDBAsn {
                 .collect(),
             ipv6_prefixes: value
                 .ipv6_prefixes
-                .unwrap_or(vec![])
+                .unwrap_or_default()
                 .into_iter()
                 .map(|x| asdb_models::IPNetDBPrefix {
                     range: x,
@@ -46,7 +46,7 @@ impl TryFrom<IPNetDBAsn> for asdb_models::IPNetDBAsn {
                 })
                 .collect(),
             name: value.name,
-            peers: value.peers.unwrap_or(vec![]),
+            peers: value.peers.unwrap_or_default(),
             private: value.private.unwrap_or(false),
             registry: asdb_models::InternetRegistry::from(
                 value.registry.unwrap_or("".to_string()).as_str(),
@@ -54,9 +54,9 @@ impl TryFrom<IPNetDBAsn> for asdb_models::IPNetDBAsn {
             status: value.status,
             ix: value
                 .ix
-                .unwrap_or(vec![])
+                .unwrap_or_default()
                 .into_iter()
-                .map(|x| asdb_models::IPNetDBIX::from(x))
+                .map(asdb_models::IPNetDBIX::from)
                 .collect(),
         })
     }
@@ -150,7 +150,7 @@ impl From<IPNetDBPrefix> for asdb_models::IPNetDBPrefixDetails {
             .ok(),
             prefix_entity: value.prefix_entity,
             prefix_name: value.prefix_name,
-            prefix_origins: value.prefix_origins.unwrap_or(vec![]),
+            prefix_origins: value.prefix_origins.unwrap_or_default(),
             prefix_registry: value.prefix_registry,
             // prefix_registry: asdb_models::Registry::try_from(value.prefix_registry.as_str())
             //     .unwrap(),

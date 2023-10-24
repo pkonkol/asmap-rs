@@ -148,7 +148,7 @@ async fn main() {
                     let output_path = if let Some(p) = a.output {
                         p
                     } else {
-                        format!("{}", a.csv.strip_suffix(".csv").unwrap())
+                        a.csv.strip_suffix(".csv").unwrap().to_string()
                     };
                     details::generate_nmap_inputlist(&ases_detailed, &output_path);
                 }
@@ -183,7 +183,7 @@ async fn main() {
             if !release_flag.is_empty() {
                 trunk_args.push(release_flag)
             };
-            let mut trunk_cmd = Command::new(format!("trunk"))
+            let mut trunk_cmd = Command::new("trunk")
                 .args(trunk_args)
                 .current_dir("asmap/frontend/")
                 .env("CARGO_TARGET_DIR", "../target-trunk")

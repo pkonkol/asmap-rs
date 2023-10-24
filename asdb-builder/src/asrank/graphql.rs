@@ -21,7 +21,7 @@ impl From<asns_query::AsnsQueryAsnsEdges> for asdb_models::As {
             asn: node.asn.parse().unwrap(),
             asrank_data: Some(AsrankAsn {
                 rank: node.rank.unwrap() as u64,
-                organization: node.organization.map(|x| x.org_name).flatten(),
+                organization: node.organization.and_then(|x| x.org_name),
                 country_iso: country.iso.unwrap(),
                 country_name: country.name.unwrap(),
                 coordinates: Coord {

@@ -81,7 +81,6 @@ mod tests {
     use super::*;
 
     const ASDB_CONN_STR: &str = "mongodb://root:devrootpass@localhost:27017";
-    const ASDB_DB: &str = "asmap";
 
     #[tokio::test(flavor = "multi_thread")]
     async fn it_works() {

@@ -1,17 +1,13 @@
 use std::{
     collections::{HashMap, HashSet},
-    io::Write,
+    fmt::Write,
 };
 
-use asdb_models::{As, Bound, Coord};
-use bincode::de;
 use gloo_console::log;
 use gloo_file::{Blob, ObjectUrl};
 use gloo_utils::document;
-use gloo_utils::format::JsValueSerdeExt;
 use js_sys::Object;
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
-
 use protocol::{AsFilters, AsFiltersHasOrg, AsForFrontend};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{prelude::*, JsCast};
@@ -21,6 +17,7 @@ use yew::prelude::*;
 
 use super::api::{get_all_as, get_all_as_filtered, get_as_details};
 use crate::models::{self, CsvAs, CsvAsDetailed, DownloadableCsvInput};
+use asdb_models::{As, Bound, Coord};
 use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
 
 const POLAND_LAT: f64 = 52.11431;
@@ -66,7 +63,7 @@ pub struct MapComponent {
     /// these are actually just last drawn ases and serve as a proxy for the last filter use
     drawn_filtered_ases: HashSet<u32>,
     filters: AsFilters,
-    last_executed_filters: AsFilters,
+    _last_executed_filters: AsFilters,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -180,7 +177,7 @@ impl MapComponent {
                             <option value="both">{"both"}</option>
                         </select>
                         <br/>{"isBounded"}<br/>
-                        <input type="checkbox" id="isBounded" checked={!self.filters.bounds.is_none()}
+                        <input type="checkbox" id="isBounded" checked={self.filters.bounds.is_some()}
                             oninput={ctx.link().callback(|_e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::IsBounded)
                             })}
@@ -204,7 +201,7 @@ impl MapComponent {
                                 Msg::UpdateFilters(FilterForm::Category(selected))
                         })}>
                             <option value="Any">{"Any"}</option>
-                            { asdb_models::categories::CATEGORIES.into_iter().map(|(category, _subcategories)| {
+                            { asdb_models::categories::CATEGORIES.iter().map(|(category, _subcategories)| {
                                 html!{<option value={ *category }>{ category }</option>}
                             }).collect::<Html>() }
                         </select>
@@ -281,7 +278,7 @@ impl MapComponent {
         (wtr, ases_len)
     }
 
-    fn create_downloadable_csv<'a>(&self, input: DownloadableCsvInput) {
+    fn create_downloadable_csv(&self, input: DownloadableCsvInput) {
         let document = web_sys::window().unwrap().document().unwrap();
         let body = document.body().expect("document should have a body");
 
@@ -367,7 +364,7 @@ impl Component for MapComponent {
             as_details_cache: HashMap::new(),
             drawn_filtered_ases: HashSet::new(),
             filters: initial_filters.clone(),
-            last_executed_filters: initial_filters,
+            _last_executed_filters: initial_filters,
         }
     }
 
@@ -500,7 +497,7 @@ impl Component for MapComponent {
                         self.filters.has_org = match s.as_str() {
                             "yes" => AsFiltersHasOrg::Yes,
                             "no" => AsFiltersHasOrg::No,
-                            "both" | _ => AsFiltersHasOrg::Both,
+                            _ => AsFiltersHasOrg::Both,
                         };
                     }
                     FilterForm::Category(s) => {
@@ -525,7 +522,7 @@ impl Component for MapComponent {
                         let m = create_marker(
                             &format!(
                                 "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}
-                                <b>links</b>:{},{}, shodan<br>
+                                <b>links</b>:<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>, <a href=\"https://bgpview.io/asn/{asn}\" target=\"_blank\">bgpview</a>, shodan<br>
                                 <b>name</b>:{}<br>
                                 <b>org</b>:{}<br>
                                 <b>country</b>:{}",
@@ -533,10 +530,8 @@ impl Component for MapComponent {
                                 as_.rank,
                                 as_.prefixes,
                                 as_.addresses,
-                                format!("<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>"),
-                                format!("<a href=\"https://bgpview.io/asn/{asn}\" target=\"_blank\">bgpview</a>"),
                                 as_.name,
-                                as_.organization.as_ref().map(|x| x.as_str()).unwrap_or("none"),
+                                as_.organization.as_deref().unwrap_or("none"),
                                 country.map(|c| c.long_name).unwrap_or(""),
                             ),
                             &format!("AS{}:{}:{:.20}",as_.asn, as_.name, as_.organization.as_deref().unwrap_or("")),
@@ -564,7 +559,7 @@ impl Component for MapComponent {
                             log!(format!("marker id: {id}"));
                             details_cb.emit(id);
                         })
-                            as Box<dyn Fn(JsValue) -> ()>);
+                            as Box<dyn Fn(JsValue)>);
                         let js = detail_update_closure.into_js_value();
                         m.on("popupopen", &js);
                         markers.push(m);
@@ -601,16 +596,14 @@ impl Component for MapComponent {
                         ipnetdb
                             .ipv4_prefixes
                             .iter()
-                            .map( |x| {
+                            .fold(String::new(),  |mut output, x| {
                                 let cidr = x.range.to_string();
-                                format!("{}:<b>{}</b>|<b>{}</b>|<b>{}</b> ",
-                                cidr,
-                                format!("<a href=\"https://www.shodan.io/search?query=net%3A{}\" target=\"_blank\">s</a>", &cidr),
-                                format!("<a href=\"https://www.zoomeye.org/searchResult?q=cidr%3A{}\" target=\"_blank\">z</a>", &cidr),
-                                format!("<a href=\"https://search.censys.io/search?resource=hosts&sort=RELEVANCE&per_page=25&virtual_hosts=EXCLUDE&q=ip%3A{}\" target=\"_blank\">c</a>", &cidr),
-                                )
-                            })
-                            .collect::<String>()
+                                let _ = write!(output, "{cidr}:<b><a href=\"https://www.shodan.io/search?query=net%3A{cidr}\" target=\"_blank\">s</a>\
+                                </b>|<b><a href=\"https://www.zoomeye.org/searchResult?q=cidr%3A{cidr}\" target=\"_blank\">z</a>\
+                                </b>|<b><a href=\"https://search.censys.io/search?resource=hosts&sort=RELEVANCE&per_page=25&virtual_hosts=EXCLUDE&q=ip%3A{cidr}\" target=\"_blank\">c</a></b> ",
+                                );
+                                output
+                        })
                     )
                 } else {
                     String::new()
@@ -624,10 +617,10 @@ impl Component for MapComponent {
                 }
                 details.push_str(&format!(
                     "<br><b>categories</b>: {}",
-                    stanford
-                        .iter()
-                        .map(|x| format!("<b>></b>{x}<b>.</b><br>\n"))
-                        .collect::<String>()
+                    stanford.iter().fold(String::new(), |mut output, x| {
+                        let _ = writeln!(output, "<b>></b>{x}<b>.</b><br>");
+                        output
+                    })
                 ));
 
                 marker.setPopupContent(&JsValue::from_str(&format!("{old_str}<br>{details}")));
@@ -647,17 +640,17 @@ impl Component for MapComponent {
                 self.create_downloadable_csv(DownloadableCsvInput::Simple(Box::new(ases)));
             }
             Msg::DownloadAllCached => {
-                let ases = self.as_cache.iter().map(|(_, as_t)| as_t);
+                let ases = self.as_cache.values();
                 self.create_downloadable_csv(DownloadableCsvInput::Simple(Box::new(ases)));
             }
             Msg::DownloadDetailed => {
-                let ases = self.as_details_cache.iter().map(|(_, as_t)| as_t);
+                let ases = self.as_details_cache.values();
                 self.create_downloadable_csv(DownloadableCsvInput::Detailed(Box::new(ases)));
             }
             Msg::ShowAllCached => {
                 self.drawn_filtered_ases.clear();
                 self.marker_cluster.clearLayers();
-                let ases = self.as_cache.iter().map(|(_, v)| v.clone()).collect();
+                let ases = self.as_cache.values().cloned().collect();
                 ctx.link().send_future(async { Msg::DrawAs(ases) });
             }
             Msg::ShowFilteredCached => {
@@ -674,7 +667,8 @@ impl Component for MapComponent {
                     && a.rank <= self.filters.rank.as_ref().unwrap().1 as u32
                     // TODO pass country code instead of name so the comparison works
                     && &a.country_code == self.filters.country.as_ref().unwrap()
-                    && a.organization.is_some() == if let AsFiltersHasOrg::Both|AsFiltersHasOrg::Yes = self.filters.has_org {true} else {false}
+                    // && a.organization.is_some() == if let AsFiltersHasOrg::Both|AsFiltersHasOrg::Yes = self.filters.has_org {true} else {false}
+                    && a.organization.is_some() == matches!(self.filters.has_org, AsFiltersHasOrg::Both|AsFiltersHasOrg::Yes)
                     // TODO take the bounds, pull the most up to date ones, compare if needed
                     && ((self.filters.bounds.is_some()
                         && (a.coordinates.lat <= bounds._northEast.lat && a.coordinates.lat >= bounds._southWest.lat)

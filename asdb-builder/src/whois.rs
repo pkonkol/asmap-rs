@@ -4,7 +4,7 @@ use std::{fmt::Display, process::Command, string::FromUtf8Error};
 pub enum Error {
     FailedCommand,
     FailedUTF8Parse,
-    FailedSpawnBlocking,
+    _FailedSpawnBlocking,
 }
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -33,7 +33,7 @@ impl From<FromUtf8Error> for Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-async fn get_asn_details(asn: u32) -> Result<String> {
+async fn _get_asn_details(asn: u32) -> Result<String> {
     let out =
         tokio::task::block_in_place(|| Command::new("whois").arg(format!("AS{asn}")).output())?;
 
@@ -41,20 +41,20 @@ async fn get_asn_details(asn: u32) -> Result<String> {
     Ok(stdout)
 }
 
-async fn get_org_details(org: &str) -> Result<String> {
+async fn _get_org_details(org: &str) -> Result<String> {
     let out = tokio::task::block_in_place(|| Command::new("whois").arg(org).output())?;
 
     let stdout = String::from_utf8(out.stdout)?;
     Ok(stdout)
 }
 
-async fn get_org_for_asn(_asn: u32) -> String {
-    todo!()
-}
+// async fn get_org_for_asn(_asn: u32) -> String {
+//     todo!()
+// }
 
-async fn get_people_for_org(_org: &str) -> String {
-    todo!()
-}
+// async fn get_people_for_org(_org: &str) -> String {
+//     todo!()
+// }
 
 #[cfg(test)]
 mod tests {
@@ -65,14 +65,14 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_get_asn_details() {
-        let result = get_asn_details(TESTED_ASN).await.unwrap();
+        let result = _get_asn_details(TESTED_ASN).await.unwrap();
         println!("{result}");
         assert!(!result.is_empty());
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_get_org_details() {
-        let result = get_org_details(TESTED_ORG).await.unwrap();
+        let result = _get_org_details(TESTED_ORG).await.unwrap();
         println!("{result}");
         assert!(!result.is_empty());
     }

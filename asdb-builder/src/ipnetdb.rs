@@ -1,15 +1,9 @@
 use asdb::Asdb;
-use asdb_models::IPNetDBAsn;
+
 use ipnetwork::IpNetwork;
 use maxminddb::Within;
-use mongodb::bson::de;
-use serde_json::Value;
-use std::{
-    ffi::OsStr,
-    fmt::Display,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    path::{Path, PathBuf},
-};
+
+use std::{ffi::OsStr, path::Path};
 use trauma::{download::Download, downloader::DownloaderBuilder};
 
 pub use error::{Error, Result};
@@ -47,7 +41,7 @@ async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
     let reader = maxminddb::Reader::open_readfile(mmdb)?;
     let every_ip = IpNetwork::V4("0.0.0.0/0".parse().unwrap());
     let iter: Within<read_models::IPNetDBAsn, _> = reader.within(every_ip).unwrap();
-    let prefix_reader = maxminddb::Reader::open_readfile(&"inputs/ipnetdb_prefix_latest.mmdb")?;
+    let prefix_reader = maxminddb::Reader::open_readfile("inputs/ipnetdb_prefix_latest.mmdb")?;
 
     let bar = indicatif::ProgressBar::new(reader.within::<()>(every_ip).unwrap().count() as u64);
     for next in iter {
@@ -85,84 +79,15 @@ async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
     Ok(())
 }
 
-//async fn get_ip_details(ip: IpAddr, reader: maxminddb::Reader<Vec<u8>>) -> Result<String> {
-//    let data: Value = reader.lookup(ip).unwrap();
-//    Ok(data.to_string())
-//}
-
-async fn dump_mmdb(db: &impl AsRef<Path>) -> Result<Vec<(IpNetwork, Value)>> {
-    let reader = maxminddb::Reader::open_readfile(db)?;
-    let every_ip = IpNetwork::V4("0.0.0.0/0".parse().unwrap());
-    let iter: Within<serde_json::Value, _> = reader.within(every_ip).unwrap();
-
-    let mut out = Vec::new();
-    for next in iter {
-        let item = next.unwrap();
-        out.push((item.ip_net, item.info));
-    }
-    Ok(out)
-}
-
-async fn get_prefixes_string(db: &impl AsRef<Path>) -> Result<String> {
-    let vec = dump_mmdb(db).await?;
-    let mut out = String::new();
-    for (_, v) in vec.iter() {
-        out.push_str(&format!("{v}\n"));
-    }
-    Ok(out)
-}
-
-async fn get_asns(db: &impl AsRef<Path>) -> Result<String> {
-    let vec = dump_mmdb(db).await?;
-    let mut out = String::new();
-    for (_, v) in vec.iter() {
-        out.push_str(&format!("{v}\n"));
-    }
-    Ok(out)
-}
-
-async fn get_ip_details_old(ip: IpAddr, db: &impl AsRef<Path>) -> Result<String> {
-    let reader = maxminddb::Reader::open_readfile(db)?;
-    let data: Value = reader.lookup(ip).unwrap();
-    Ok(data.to_string())
-}
-
 #[cfg(test)]
 mod tests {
 
-    use std::net::Ipv4Addr;
-    use std::path::PathBuf;
+    // use std::net::Ipv4Addr;
+    // use std::path::PathBuf;
 
-    use super::*;
-    const ASNS_PATH: &str = "../inputs/ipnetdb_asn_latest.mmdb";
-    const PREFIX_PATH: &str = "../inputs/ipnetdb_prefix_latest.mmdb";
-    const IP: IpAddr = IpAddr::V4(Ipv4Addr::new(153, 19, 64, 251));
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_prefixes_string() {
-        let path = PathBuf::from(PREFIX_PATH);
-        let str = get_prefixes_string(&path).await.unwrap();
-
-        assert!(str.lines().count() > 1000000)
-        //let mut f = File::create("ipnetdb-dump/prefixes.jsonl").unwrap();
-        //f.write_all(str.as_bytes()).unwrap();
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_get_asn_string() {
-        let path = PathBuf::from(ASNS_PATH);
-        let str = get_asns(&path).await.unwrap();
-
-        assert!(str.lines().count() > 100000)
-        //let mut f = File::create("ipnetdb-dump/asns.jsonl").unwrap();
-        //f.write_all(str.as_bytes()).unwrap();
-    }
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_get_ip_details() {
-        let path = PathBuf::from(PREFIX_PATH);
-        let str = get_ip_details_old(IP, &path).await.unwrap();
-        println!("{str}");
-        // let mut f = File::create("ipnetdb-dump/asns.jsonl").unwrap();
-        // f.write_all(str.as_bytes()).unwrap();
-    }
+    // use super::*;
+    // const ASNS_PATH: &str = "../inputs/ipnetdb_asn_latest.mmdb";
+    // const PREFIX_PATH: &str = "../inputs/ipnetdb_prefix_latest.mmdb";
+    // const IP: IpAddr = IpAddr::V4(Ipv4Addr::new(153, 19, 64, 251));
+    // TODO some up to date tests
 }

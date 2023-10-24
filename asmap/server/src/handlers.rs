@@ -62,7 +62,7 @@ async fn all_as(page: u32, state: &ServerState) -> Vec<u8> {
     let (ases, total_count) = state.asdb.get_ases_page(PAGE_SIZE, skip).await.unwrap();
     let ases = ases
         .into_iter()
-        .map(|a| AsForFrontend::from(a))
+        .map(AsForFrontend::from)
         .collect::<Vec<_>>();
     let total_pages = total_count as u32 / PAGE_SIZE as u32;
 
@@ -80,7 +80,7 @@ async fn filtered_as(filters: AsFilters, state: &ServerState) -> Vec<u8> {
         .await
         .unwrap()
         .into_iter()
-        .map(|a| AsForFrontend::from(a))
+        .map(AsForFrontend::from)
         .collect::<Vec<_>>();
     let resp = WSResponse::FilteredAS((filters.clone(), ases));
     let serialized = bincode::serialize(&resp).unwrap();

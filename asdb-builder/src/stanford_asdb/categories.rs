@@ -19,14 +19,14 @@ pub async fn generate() {
         &[OUT_DIR, NAICSLITE_FILENAME].iter().collect::<PathBuf>(),
     ))
     .unwrap();
-    print!("pub const CATEGORIES: &[(&str, &[&str])] = &[\n");
+    println!("pub const CATEGORIES: &[(&str, &[&str])] = &[");
     for (i, r) in rdr.records().enumerate() {
         let r = r.unwrap();
         let (category, layer) = (r.get(0).unwrap(), r.get(1).unwrap());
 
-        if layer.trim().starts_with("1") {
+        if layer.trim().starts_with('1') {
             if i > 0 {
-                print!("]),\n");
+                println!("]),");
             };
             print!("    (\"{category}\", &[");
         } else {

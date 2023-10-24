@@ -69,12 +69,12 @@ pub async fn import_asns(file: impl AsRef<Path>) -> Result<Vec<As>> {
             }
         })
         .collect();
-    return Ok(json);
+    Ok(json)
 }
 
-pub async fn write_to_db(ases: &Vec<As>, asdb: &Asdb) -> Result<()> {
+pub async fn write_to_db(ases: &[As], asdb: &Asdb) -> Result<()> {
     println!("Inserting asrank data into the database");
-    let insert_result = asdb.insert_ases(&ases).await;
+    let insert_result = asdb.insert_ases(ases).await;
     if let Err(e) = insert_result {
         match e {
             asdb::Error::DuplicatesFound(c) => {
@@ -115,7 +115,7 @@ pub async fn download_asns() -> Result<Vec<As>> {
     loop {
         let variables = asns_query::Variables {
             first: PAGE_SIZE,
-            offset: 0 + PAGE_SIZE * page,
+            offset: PAGE_SIZE * page,
         };
         let request_body = AsnsQuery::build_query(variables);
         let res = client.post(API_URL).json(&request_body).send().await?;
@@ -132,7 +132,7 @@ pub async fn download_asns() -> Result<Vec<As>> {
 
         if let Some(true) = data.asns.page_info.has_next_page {
             bar.inc(PAGE_SIZE as u64);
-            page = page + 1;
+            page += 1;
             continue;
         }
         bar.finish();

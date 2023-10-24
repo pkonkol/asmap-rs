@@ -3,9 +3,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Could not download file")]
-    DownloadError,
+    Download,
     #[error("something with reading csv file")]
-    CsvError(#[from] csv::Error),
+    Csv(#[from] csv::Error),
     #[error("io")]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 }

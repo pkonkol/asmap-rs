@@ -1,32 +1,16 @@
-use core::prelude::v1;
-use std::{
-    fmt::Display,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
-};
+use std::fmt::Display;
 
 use ipnetwork::IpNetwork;
 use isocountry::CountryCode;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct As {
     pub asn: u32,
     pub asrank_data: Option<AsrankAsn>,
     pub ipnetdb_data: Option<IPNetDBAsn>,
     pub whois_data: Option<WhoIsAsn>,
     pub stanford_asdb: Vec<StanfordASdbCategory>,
-}
-
-impl Default for As {
-    fn default() -> Self {
-        Self {
-            asn: 0,
-            asrank_data: None,
-            ipnetdb_data: None,
-            whois_data: None,
-            stanford_asdb: vec![],
-        }
-    }
 }
 
 // Based on ipnetdb data? or merge ipnetdb with asrank?
@@ -195,7 +179,7 @@ impl From<&str> for InternetRegistry {
             return Self::EMPTY;
         }
         println!("unknown (local?) registry {value}");
-        return Self::LOCAL(value.to_string());
+        Self::LOCAL(value.to_string())
     }
 }
 

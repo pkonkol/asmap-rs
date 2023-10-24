@@ -1,25 +1,16 @@
 mod error;
 
-use asdb_models::{
-    As, AsFilters, AsrankAsn, AsrankDegree, Coord, IPNetDBAsn, StanfordASdbCategory,
-};
+use asdb_models::{As, AsFilters, IPNetDBAsn, StanfordASdbCategory};
 pub use error::{Error, Result};
 
 use futures::stream::TryStreamExt;
 use itertools::Itertools;
 use mongodb::{
-    bson::{doc, Bson, Document},
+    bson::{doc, Document},
     options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
     Client, IndexModel,
 };
 use tracing::info;
-
-enum Collection {
-    ASNS,
-    ORGANIZATIONS,
-    PREFIXES,
-    PERSONS,
-}
 
 pub struct Asdb {
     client: Client,
@@ -39,7 +30,7 @@ impl Asdb {
         Ok(s)
     }
 
-    async fn ping(&self) -> Result<()> {
+    async fn _ping(&self) -> Result<()> {
         self.client
             .database(&self.database)
             .run_command(doc! {"ping": 1}, None)
@@ -146,7 +137,7 @@ impl Asdb {
             // gt than min and lt than max
             db_filter.insert("asrank_data.organization", doc! {"$ne": null});
         }
-        if !filters.category.iter().contains(&"Any".to_string()) && filters.category.len() > 0 {
+        if !filters.category.iter().contains(&"Any".to_string()) && !filters.category.is_empty() {
             db_filter.insert(
                 "stanford_asdb.layer1",
                 doc! { "$all": filters.category.as_slice() },
@@ -263,10 +254,13 @@ impl Asdb {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use std::net::{IpAddr, Ipv4Addr};
 
-    use asdb_models::{IPNetDBIX, IPNetDBPrefix, IPNetDBPrefixDetails, InternetRegistry};
-    use ipnetwork::{IpNetwork, Ipv6NetworkIterator};
+    use asdb_models::{
+        AsrankAsn, AsrankDegree, Coord, IPNetDBIX, IPNetDBPrefix, IPNetDBPrefixDetails,
+        InternetRegistry,
+    };
+    use ipnetwork::IpNetwork;
     use itertools::Itertools;
     use test_context::TestContext;
 
@@ -279,7 +273,7 @@ mod tests {
         let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
         let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
 
-        asdb.ping().await.unwrap();
+        asdb._ping().await.unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -308,8 +302,8 @@ mod tests {
         let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
 
         asdb.insert_as(&tested_as()).await.unwrap();
-        let (asns, count) = asdb.get_ases_page(0, 0).await.unwrap();
-        assert!(asns.iter().find(|x| x.asn == tested_asn).is_some());
+        let (asns, _count) = asdb.get_ases_page(0, 0).await.unwrap();
+        assert!(asns.iter().any(|x| x.asn == tested_asn));
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -333,7 +327,7 @@ mod tests {
         let context = TestContext::new(TESTED_CONN_STR).await.unwrap();
         let asdb = Asdb::new(TESTED_CONN_STR, &context.db_name).await.unwrap();
         asdb.clear_database().await.unwrap();
-        let (asns, count) = asdb.get_ases_page(0, 0).await.unwrap();
+        let (asns, _count) = asdb.get_ases_page(0, 0).await.unwrap();
         assert_eq!(asns.len(), 0);
     }
 
