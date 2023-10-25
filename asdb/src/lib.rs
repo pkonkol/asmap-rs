@@ -1,8 +1,3 @@
-mod error;
-
-use asdb_models::{As, AsFilters, IPNetDBAsn, StanfordASdbCategory};
-pub use error::{Error, Result};
-
 use futures::stream::TryStreamExt;
 use itertools::Itertools;
 use mongodb::{
@@ -10,11 +5,21 @@ use mongodb::{
     options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
     Client, IndexModel,
 };
-use tracing::info;
+
+use asdb_models::{As, AsFilters, IPNetDBAsn, StanfordASdbCategory};
+pub use error::{Error, Result};
+
+mod error;
 
 pub struct Asdb {
     client: Client,
     database: String,
+}
+
+impl std::fmt::Debug for Asdb {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Asdb {{ database: {} }}", self.database)
+    }
 }
 
 impl Asdb {
@@ -77,10 +82,6 @@ impl Asdb {
         let res = collection.find(doc! {}, opts).await?;
         let count = collection.count_documents(doc! {}, None).await?;
         let ases: Vec<As> = res.try_collect().await?;
-        info!(
-            "found {} mathcing ases for skip {skip} and limit {limit}",
-            ases.len()
-        );
         Ok((ases, count))
     }
 
@@ -89,13 +90,10 @@ impl Asdb {
             .client
             .database(&self.database)
             .collection::<As>("asns");
-        let opts = FindOptions::builder().build();
-        // .skip(skip)
-        // .limit(limit)
-        // .sort(doc! { "asn": 1 })
-        // .build();
+        // let opts = FindOptions::builder().build();
+
         let res = collection
-            .find(doc! {"asn": doc! { "$in": asns}}, opts)
+            .find(doc! {"asn": doc! { "$in": asns}}, None)
             .await?;
         let count = collection.count_documents(doc! {}, None).await?;
         let ases: Vec<As> = res.try_collect().await?;
@@ -105,7 +103,6 @@ impl Asdb {
     fn create_db_filter(filters: &AsFilters) -> Document {
         let mut db_filter = doc! {};
         if let Some(bounds) = &filters.bounds {
-            // are the comparisons correct?
             db_filter.insert(
                 "asrank_data.coordinates.lat",
                 doc! {"$lte": bounds.north_east.lat, "$gt": bounds.south_west.lat},
@@ -153,7 +150,6 @@ impl Asdb {
             .collection::<As>("asns");
         let db_filter = Self::create_db_filter(filters);
 
-        // let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
         let res = collection.count_documents(db_filter, None).await?;
         Ok(res)
     }
@@ -194,8 +190,6 @@ impl Asdb {
             .client
             .database(&self.database)
             .collection::<As>("asns");
-        // let opts = UpdateOptions::builder().upsert(true).build();
-        // collection.update_many(doc! {}, a, opts).await?;
         let opts = InsertManyOptions::builder().ordered(false).build();
         collection.insert_many(a, opts).await?;
         Ok(())
@@ -240,16 +234,6 @@ impl Asdb {
             .await?;
         Ok(())
     }
-
-    pub async fn update_as(&self, _a: &As) -> Result<()> {
-        let _collection = self
-            .client
-            .database(&self.database)
-            .collection::<As>("asns");
-        todo!()
-    }
-
-    // TODO the same for prefixes, orgs and persons
 }
 
 #[cfg(test)]

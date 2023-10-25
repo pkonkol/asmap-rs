@@ -4,18 +4,18 @@ use asdb::Asdb;
 use governor::{DefaultKeyedRateLimiter, Quota, RateLimiter};
 use nonzero_ext::*;
 
-const SIMPLE_PER_MIN: u32 = 20; //20_000;
-const SIMPLE_MAX_BURST: u32 = 10000; //250_000;
-const DETAILED_PER_SEC: u32 = 1;
+// TODO move this to external config
+const SIMPLE_PER_MIN: u32 = 20_000;
+const SIMPLE_MAX_BURST: u32 = 250_000;
+const DETAILED_PER_SEC: u32 = 2;
 
-// type Limiter = RateLimiter<String, DashMap<String, InMemoryState>, QuantaClock, NoOpMiddleware<QuantaInstant>>;
 type LimiterKey = IpAddr;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ServerState {
     pub asdb: Arc<Asdb>,
     pub simple_limiter: Arc<DefaultKeyedRateLimiter<LimiterKey>>,
-    pub detailed_limiter: Arc<DefaultKeyedRateLimiter<LimiterKey>>, // Arc<Limiter>,
+    pub detailed_limiter: Arc<DefaultKeyedRateLimiter<LimiterKey>>,
 }
 
 impl ServerState {

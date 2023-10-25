@@ -21,13 +21,12 @@ pub async fn as_handler(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     State(state): State<ServerState>,
 ) -> impl IntoResponse {
-    debug!("handler before upgrading to websocket, request from {addr}");
     ws.on_upgrade(move |socket| handle_as_socket(socket, addr, state))
 }
 
+#[tracing::instrument(skip(state, socket))]
 pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: ServerState) {
-    debug!("started handling as socket");
-
+    debug!("started handling as socket for {addr}");
     loop {
         trace!("handle_as_socket loop start");
         let msg = if let Some(Ok(msg)) = socket.recv().await {
@@ -40,6 +39,10 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
                 let req: WSRequest = bincode::deserialize(&b).unwrap();
                 match req {
                     WSRequest::AllAs(page) => {
+                        info!(
+                            "reveived WSRequest::AllAs for page {page} from {}",
+                            addr.ip()
+                        );
                         if let Ok(v) = all_as(page, addr, &state).await {
                             socket.send(Message::Binary(v)).await.unwrap();
                         } else {
@@ -50,12 +53,20 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
                         }
                     }
                     WSRequest::FilteredAS(filters) => {
+                        info!(
+                            "reveived WSRequest::FilteredAs with filters {filters:?} from {}",
+                            addr.ip()
+                        );
                         let resp = filtered_as(filters, addr, &state).await;
                         socket.send(Message::Binary(resp)).await.unwrap();
                         socket.send(Message::Close(None)).await.unwrap();
                         break;
                     }
                     WSRequest::AsDetails(asn) => {
+                        info!(
+                            "reveived WSRequest::AsDetails for asn {asn} from {}",
+                            addr.ip()
+                        );
                         let resp = as_details(asn, addr, &state).await;
                         socket.send(Message::Binary(resp)).await.unwrap();
                         socket.send(Message::Close(None)).await.unwrap();
@@ -64,19 +75,24 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
                 };
             }
             Message::Close(_x) => {
+                info!("reveived websocket Message::Close from {}", addr.ip());
                 break;
             }
             _ => {
-                info!("Received unsupported message type: {msg:?}");
+                info!(
+                    "Received unsupported message type: {msg:?} from {}",
+                    addr.ip()
+                );
                 socket.send(Message::Close(None)).await.unwrap();
                 break;
             }
         };
     }
-    info!("closing as socket handler");
+    info!("closing websocket connection");
 }
 
 /// returns WsResponse containing requested page of ases encoded using bincode
+#[tracing::instrument(skip(state))]
 async fn all_as(page: u32, addr: SocketAddr, state: &ServerState) -> Result<Vec<u8>> {
     state
         .simple_limiter
@@ -93,18 +109,19 @@ async fn all_as(page: u32, addr: SocketAddr, state: &ServerState) -> Result<Vec<
 
     let resp = WSResponse::AllAs((page, total_pages, ases));
     let serialized = bincode::serialize(&resp).unwrap();
-    info!("successfuly encoded page {page} of ases");
+    debug!("successfuly encoded page {page} of ases");
     Ok(serialized)
 }
 
 /// returns WsResponse containing ases that match certain filters encoded using bincode
+#[tracing::instrument(skip(state))]
 async fn filtered_as(filters: AsFilters, addr: SocketAddr, state: &ServerState) -> Vec<u8> {
     let ases_count = state
         .asdb
         .count_ases_filtered(&asdb_models::AsFilters::from(filters.clone()))
         .await
         .unwrap();
-    info!("ases count for current filters is {ases_count}");
+    debug!("ases count for current filters is {ases_count}");
 
     state
         .simple_limiter
@@ -122,11 +139,12 @@ async fn filtered_as(filters: AsFilters, addr: SocketAddr, state: &ServerState) 
         .collect::<Vec<_>>();
     let resp = WSResponse::FilteredAS((filters.clone(), ases));
     let serialized = bincode::serialize(&resp).unwrap();
-    info!("successfuly encoded ases filtered by {filters:?} ");
+    debug!("successfuly encoded ases filtered by {filters:?} ");
     serialized
 }
 
 /// returns WsResponse containing details for single AS encoded using bincode
+#[tracing::instrument(skip(state))]
 async fn as_details(asn: u32, addr: SocketAddr, state: &ServerState) -> Vec<u8> {
     // separate limiter for detailed request? would be best TODO
     state
@@ -138,6 +156,6 @@ async fn as_details(asn: u32, addr: SocketAddr, state: &ServerState) -> Vec<u8> 
     let as_ = state.asdb.get_as(asn).await.unwrap();
     let resp = WSResponse::AsDetails(as_);
     let serialized = bincode::serialize(&resp).unwrap();
-    info!("successfuly encoded AS{asn} details");
+    debug!("successfuly encoded AS{asn} details");
     serialized
 }

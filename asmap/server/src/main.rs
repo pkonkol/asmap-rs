@@ -47,9 +47,7 @@ struct Opt {
 async fn main() {
     let opt = Opt::parse();
     let cfg = config::parse(&opt.config);
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     let governor_conf = Box::new(
         GovernorConfigBuilder::default()
