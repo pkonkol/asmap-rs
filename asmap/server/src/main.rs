@@ -10,7 +10,8 @@ use tower_governor::{
     GovernorLayer,
 };
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
-use tracing::Level;
+use tracing::{info, Level};
+use tracing_subscriber::fmt::format::FmtSpan;
 
 use handlers::as_handler;
 use state::ServerState;
@@ -47,7 +48,10 @@ struct Opt {
 async fn main() {
     let opt = Opt::parse();
     let cfg = config::parse(&opt.config);
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    tracing_subscriber::fmt()
+        .with_span_events(FmtSpan::CLOSE)
+        .with_max_level(Level::DEBUG)
+        .init();
 
     let governor_conf = Box::new(
         GovernorConfigBuilder::default()
@@ -59,6 +63,10 @@ async fn main() {
     );
     // let governor_conf = Box::new(GovernorConfigBuilder::default().finish().unwrap());
 
+    info!(
+        "Connecting to the database, target database: {}",
+        &cfg.db_name
+    );
     let state = ServerState::new(&cfg.mongo_conn_str, &cfg.db_name).await;
     let app = Router::new()
         .route("/as", get(as_handler))
@@ -81,11 +89,10 @@ async fn main() {
         opt.port,
     ));
 
-    log::info!("listening on http://{}", sock_addr);
+    info!("Starting server on http://{}", sock_addr);
 
     axum::Server::bind(&sock_addr)
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-        // .serve(app.i)
         .await
         .expect("Unable to start server");
 }

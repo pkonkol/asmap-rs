@@ -55,6 +55,7 @@ impl Asdb {
         Ok(())
     }
 
+    #[tracing::instrument]
     pub async fn prepare_database(&self) -> Result<()> {
         struct T {}
         let collection = self.client.database(&self.database).collection::<T>("asns");
@@ -69,6 +70,7 @@ impl Asdb {
 
     // TODO consider merging get_ases and get_as_filtered, just do filters: Option<AsFilters>
     /// returns result with found ases and total count of ases in the DB
+    #[tracing::instrument]
     pub async fn get_ases_page(&self, limit: i64, skip: u64) -> Result<(Vec<As>, u64)> {
         let collection = self
             .client
@@ -85,6 +87,7 @@ impl Asdb {
         Ok((ases, count))
     }
 
+    #[tracing::instrument]
     pub async fn get_ases(&self, asns: &[u32]) -> Result<(Vec<As>, u64)> {
         let collection = self
             .client
@@ -154,6 +157,7 @@ impl Asdb {
         Ok(res)
     }
 
+    #[tracing::instrument]
     pub async fn get_ases_filtered(&self, filters: &AsFilters) -> Result<Vec<As>> {
         let collection = self
             .client
@@ -167,6 +171,7 @@ impl Asdb {
         Ok(ases)
     }
 
+    #[tracing::instrument]
     pub async fn get_as(&self, asn: u32) -> Result<As> {
         let collection = self
             .client
@@ -176,6 +181,7 @@ impl Asdb {
         res.ok_or(Error::AsNotFound)
     }
 
+    #[tracing::instrument]
     pub async fn insert_as(&self, a: &As) -> Result<()> {
         let collection = self
             .client
@@ -185,6 +191,7 @@ impl Asdb {
         Ok(())
     }
 
+    #[tracing::instrument]
     pub async fn insert_ases(&self, a: &[As]) -> Result<()> {
         let collection = self
             .client
@@ -196,6 +203,7 @@ impl Asdb {
     }
 
     /// Updates the record for given asn with the provided IPNetDB data
+    #[tracing::instrument]
     pub async fn insert_ipnetdb_asn(&self, asn: u32, a: &IPNetDBAsn) -> Result<()> {
         let collection = self
             .client
@@ -214,6 +222,7 @@ impl Asdb {
     }
 
     /// Updates the record for given asn with the provided categories list from stanford asdb
+    #[tracing::instrument]
     pub async fn insert_stanford_asdb_categories(
         &self,
         asn: u32,

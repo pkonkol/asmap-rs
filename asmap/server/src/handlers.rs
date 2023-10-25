@@ -26,7 +26,6 @@ pub async fn as_handler(
 
 #[tracing::instrument(skip(state, socket))]
 pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: ServerState) {
-    debug!("started handling as socket for {addr}");
     loop {
         trace!("handle_as_socket loop start");
         let msg = if let Some(Ok(msg)) = socket.recv().await {
@@ -88,7 +87,6 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
             }
         };
     }
-    info!("closing websocket connection");
 }
 
 /// returns WsResponse containing requested page of ases encoded using bincode

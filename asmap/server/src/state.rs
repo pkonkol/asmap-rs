@@ -3,6 +3,7 @@ use std::{net::IpAddr, sync::Arc};
 use asdb::Asdb;
 use governor::{DefaultKeyedRateLimiter, Quota, RateLimiter};
 use nonzero_ext::*;
+use tracing::Level;
 
 // TODO move this to external config
 const SIMPLE_PER_MIN: u32 = 20_000;
@@ -19,6 +20,7 @@ pub struct ServerState {
 }
 
 impl ServerState {
+    #[tracing::instrument(level=Level::DEBUG, skip(conn_str))]
     pub async fn new(conn_str: &str, db: &str) -> Self {
         let asdb = Asdb::new(conn_str, db).await.unwrap();
         // or just get rid of nonzero_ext and do NonZeroU32::new(20).unwrap();
