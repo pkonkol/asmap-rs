@@ -1,4 +1,4 @@
-use axum::{error_handling::HandleErrorLayer, routing::get, BoxError, Router, ServiceExt};
+use axum::{error_handling::HandleErrorLayer, routing::get, BoxError, Router};
 use clap::Parser;
 use std::{
     net::{IpAddr, Ipv6Addr, SocketAddr},
@@ -6,9 +6,7 @@ use std::{
 };
 use tower::ServiceBuilder;
 use tower_governor::{
-    errors::display_error,
-    governor::{self, GovernorConfigBuilder},
-    key_extractor::SmartIpKeyExtractor,
+    errors::display_error, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
     GovernorLayer,
 };
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
