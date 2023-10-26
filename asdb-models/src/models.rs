@@ -218,3 +218,22 @@ pub struct AsFilters {
     /// layer 1 category from stanford asdb
     pub category: Vec<String>,
 }
+
+// TODO use if manual impl wont work 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AsForFrontendFromDB {
+    pub asn: u32,
+    #[serde(alias="asrank_data")]
+    pub asrank: AsForFrontendFromDBAsrank,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AsForFrontendFromDBAsrank {
+    pub rank: u64,
+    pub name: String,
+    pub country_iso: String,
+    pub organization: Option<String>,
+    pub prefixes: u64,
+    pub addresses: u64,
+    pub coordinates: Coord,
+}

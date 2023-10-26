@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use asdb_models::{As, Bound, Coord};
+use asdb_models::{As, Bound, Coord, AsForFrontendFromDB};
 
 type Page = u32;
 type TotalPages = u32;
@@ -36,6 +36,15 @@ pub struct AsForFrontend {
     pub prefixes: u16,
     pub addresses: u32,
     pub coordinates: Coord,
+}
+
+
+// prob 1000 times easier
+impl From<AsForFrontendFromDB> for AsForFrontend {
+    fn from(value: AsForFrontendFromDB) -> Self {
+        Self { asn: value.asn, rank: value.asrank.rank as u32, name: value.asrank.name, country_code: value.asrank.country_iso, organization: value.asrank.organization , prefixes: value.asrank.prefixes as u16, addresses: value.asrank.addresses as u32, coordinates: value.asrank.coordinates }
+        
+    }
 }
 
 impl From<As> for AsForFrontend {

@@ -6,7 +6,7 @@ use mongodb::{
     Client, IndexModel,
 };
 
-use asdb_models::{As, AsFilters, IPNetDBAsn, StanfordASdbCategory};
+use asdb_models::{As, AsFilters, IPNetDBAsn, StanfordASdbCategory, AsForFrontendFromDB};
 pub use error::{Error, Result};
 
 mod error;
@@ -71,11 +71,11 @@ impl Asdb {
     // TODO consider merging get_ases and get_as_filtered, just do filters: Option<AsFilters>
     /// returns result with found ases and total count of ases in the DB
     #[tracing::instrument]
-    pub async fn get_ases_page(&self, limit: i64, skip: u64) -> Result<(Vec<As>, u64)> {
+    pub async fn get_ases_page(&self, limit: i64, skip: u64) -> Result<(Vec<AsForFrontendFromDB>, u64)> {
         let collection = self
             .client
             .database(&self.database)
-            .collection::<As>("asns");
+            .collection::<AsForFrontendFromDB>("asns");
         let opts = FindOptions::builder()
             .skip(skip)
             .limit(limit)
@@ -83,7 +83,9 @@ impl Asdb {
             .build();
         let res = collection.find(doc! {}, opts).await?;
         let count = collection.count_documents(doc! {}, None).await?;
-        let ases: Vec<As> = res.try_collect().await?;
+        let ases: Vec<AsForFrontendFromDB> = res.try_collect().await?;
+        //let x = res.into_stream();
+        //res.into_async_read()
         Ok((ases, count))
     }
 
@@ -158,16 +160,17 @@ impl Asdb {
     }
 
     #[tracing::instrument]
-    pub async fn get_ases_filtered(&self, filters: &AsFilters) -> Result<Vec<As>> {
+    pub async fn get_ases_filtered(&self, filters: &AsFilters) -> Result<Vec<AsForFrontendFromDB>> {
         let collection = self
             .client
             .database(&self.database)
-            .collection::<As>("asns");
+            .collection::<AsForFrontendFromDB>("asns");
         let db_filter = Self::create_db_filter(filters);
 
-        let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
+        // let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
+        let opts = FindOptions::builder().build();
         let res = collection.find(db_filter, opts).await?;
-        let ases: Vec<As> = res.try_collect().await?;
+        let ases: Vec<AsForFrontendFromDB> = res.try_collect().await?;
         Ok(ases)
     }
 
