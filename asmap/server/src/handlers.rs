@@ -99,10 +99,7 @@ async fn all_as(page: u32, addr: SocketAddr, state: &ServerState) -> Result<Vec<
 
     let skip = page as u64 * PAGE_SIZE as u64;
     let (ases, total_count) = state.asdb.get_ases_page(PAGE_SIZE, skip).await.unwrap();
-    let ases = ases
-        .into_iter()
-        .map(AsForFrontend::from)
-        .collect::<Vec<_>>();
+
     let total_pages = total_count as u32 / PAGE_SIZE as u32;
 
     let resp = WSResponse::AllAs((page, total_pages, ases));
@@ -131,10 +128,7 @@ async fn filtered_as(filters: AsFilters, addr: SocketAddr, state: &ServerState) 
         .asdb
         .get_ases_filtered(&asdb_models::AsFilters::from(filters.clone()))
         .await
-        .unwrap()
-        .into_iter()
-        .map(AsForFrontend::from)
-        .collect::<Vec<_>>();
+        .unwrap();
     let resp = WSResponse::FilteredAS((filters.clone(), ases));
     let serialized = bincode::serialize(&resp).unwrap();
     debug!("successfuly encoded ases filtered by {filters:?} ");

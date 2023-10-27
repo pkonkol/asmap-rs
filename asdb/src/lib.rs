@@ -1,13 +1,14 @@
-use futures::stream::TryStreamExt;
+use futures::{stream::{TryStreamExt, StreamExt}, future};
 use itertools::Itertools;
 use mongodb::{
     bson::{doc, Document},
     options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
-    Client, IndexModel,
+    Client, IndexModel
 };
 
-use asdb_models::{As, AsFilters, IPNetDBAsn, StanfordASdbCategory, AsForFrontendFromDB};
+use asdb_models::{As, AsFilters, IPNetDBAsn, StanfordASdbCategory, AsForFrontendFromDB, AsForFrontend};
 pub use error::{Error, Result};
+use tracing::debug;
 
 mod error;
 
@@ -71,7 +72,7 @@ impl Asdb {
     // TODO consider merging get_ases and get_as_filtered, just do filters: Option<AsFilters>
     /// returns result with found ases and total count of ases in the DB
     #[tracing::instrument]
-    pub async fn get_ases_page(&self, limit: i64, skip: u64) -> Result<(Vec<AsForFrontendFromDB>, u64)> {
+    pub async fn get_ases_page(&self, limit: i64, skip: u64) -> Result<(Vec<AsForFrontend>, u64)> {
         let collection = self
             .client
             .database(&self.database)
@@ -79,13 +80,24 @@ impl Asdb {
         let opts = FindOptions::builder()
             .skip(skip)
             .limit(limit)
+            .projection(doc! {
+                "asn": 1,
+                "asrank_data.name": 1,
+                "asrank_data.rank": 1,
+                "asrank_data.country_iso": 1,
+                "asrank_data.prefixes": 1,
+                "asrank_data.addresses": 1,
+                "asrank_data.coordinates": 1,
+                "asrank_data.organization": 1,
+            })
             .sort(doc! { "asn": 1 })
             .build();
         let res = collection.find(doc! {}, opts).await?;
         let count = collection.count_documents(doc! {}, None).await?;
-        let ases: Vec<AsForFrontendFromDB> = res.try_collect().await?;
-        //let x = res.into_stream();
-        //res.into_async_read()
+        let ases: Vec<AsForFrontend>= res.map_ok(
+            AsForFrontend::from
+        ).try_collect().await?;
+
         Ok((ases, count))
     }
 
@@ -160,7 +172,7 @@ impl Asdb {
     }
 
     #[tracing::instrument]
-    pub async fn get_ases_filtered(&self, filters: &AsFilters) -> Result<Vec<AsForFrontendFromDB>> {
+    pub async fn get_ases_filtered(&self, filters: &AsFilters) -> Result<Vec<AsForFrontend>> {
         let collection = self
             .client
             .database(&self.database)
@@ -168,9 +180,27 @@ impl Asdb {
         let db_filter = Self::create_db_filter(filters);
 
         // let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
-        let opts = FindOptions::builder().build();
+        let opts = FindOptions::builder()
+        .projection(doc! {
+            "asn": 1,
+            "asrank_data.name": 1,
+            "asrank_data.rank": 1,
+            "asrank_data.country_iso": 1,
+            "asrank_data.prefixes": 1,
+            "asrank_data.addresses": 1,
+            "asrank_data.coordinates": 1,
+            "asrank_data.organization": 1,
+        })
+        .build();
+        // TODO add projection ^ and verify if it speeds up the retrieval 
         let res = collection.find(db_filter, opts).await?;
-        let ases: Vec<AsForFrontendFromDB> = res.try_collect().await?;
+        debug!("cursor retrieved, starting collect");
+        // let ases: Vec<AsForFrontendFromDB> = res.try_collect().await?;
+        // res.for_each(|x| {x.unwrap(); future::ready(())}).await;
+        let ases: Vec<AsForFrontend>= res.map_ok(
+            AsForFrontend::from
+        ).try_collect().await?;
+        debug!("collected entries into Vec<>");
         Ok(ases)
     }
 

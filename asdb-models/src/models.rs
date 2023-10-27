@@ -237,3 +237,43 @@ pub struct AsForFrontendFromDBAsrank {
     pub addresses: u64,
     pub coordinates: Coord,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AsForFrontend {
+    pub asn: u32,
+    pub rank: u32,
+    pub name: String,
+    pub country_code: String,
+    pub organization: Option<String>,
+    pub prefixes: u16,
+    pub addresses: u32,
+    pub coordinates: Coord,
+}
+
+
+// prob 1000 times easier
+impl From<AsForFrontendFromDB> for AsForFrontend {
+    fn from(value: AsForFrontendFromDB) -> Self {
+        Self { asn: value.asn, rank: value.asrank.rank as u32, name: value.asrank.name, country_code: value.asrank.country_iso, organization: value.asrank.organization , prefixes: value.asrank.prefixes as u16, addresses: value.asrank.addresses as u32, coordinates: value.asrank.coordinates }
+        
+    }
+}
+
+impl From<As> for AsForFrontend {
+    fn from(value: As) -> Self {
+        let asrank_data = value.asrank_data.unwrap();
+        Self {
+            asn: value.asn,
+            rank: asrank_data.rank as u32,
+            name: asrank_data.name,
+            country_code: asrank_data.country_iso,
+            organization: asrank_data.organization,
+            prefixes: asrank_data.prefixes as u16,
+            addresses: asrank_data.addresses as u32,
+            coordinates: Coord {
+                lat: asrank_data.coordinates.lat,
+                lon: asrank_data.coordinates.lon,
+            },
+        }
+    }
+}
