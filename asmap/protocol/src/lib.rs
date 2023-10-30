@@ -4,14 +4,10 @@ use asdb_models::{As, Bound};
 // TODO remove pub and switch references to asdb_models
 pub use asdb_models::AsForFrontend;
 
-type Page = u32;
-type TotalPages = u32;
 type Asn = u32;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WSRequest {
-    /// requests a single page of ases without filters
-    AllAs(Page),
     /// requests all ases that match given filter
     FilteredAS(AsFilters),
     /// details for single As
@@ -20,8 +16,6 @@ pub enum WSRequest {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WSResponse {
-    /// returns requested vec of ases along with total number of pages and requested page number
-    AllAs((Page, TotalPages, Vec<AsForFrontend>)),
     /// returnes vec of ases matching the filters along the original filters requested
     FilteredAS((AsFilters, Vec<AsForFrontend>)),
     /// details for single As

@@ -1,4 +1,4 @@
-use futures::{stream::{TryStreamExt, StreamExt}, future};
+use futures::stream::TryStreamExt;
 use itertools::Itertools;
 use mongodb::{
     bson::{doc, Document},

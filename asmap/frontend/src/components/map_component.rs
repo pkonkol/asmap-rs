@@ -15,7 +15,7 @@ use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlCollection, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
-use super::api::{get_all_as, get_all_as_filtered, get_as_details};
+use super::api::{get_all_as_filtered, get_as_details};
 use crate::models::{self, CsvAs, CsvAsDetailed, DownloadableCsvInput};
 use asdb_models::{As, Bound, Coord};
 use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
@@ -25,7 +25,6 @@ const POLAND_LON: f64 = 19.423672;
 const MARKER_ICON_URL: &str = "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png";
 
 pub enum Msg {
-    LoadAllAs,
     LoadAsBounded,
     LoadAsFiltered,
     GetDetails(u32, u64),
@@ -74,13 +73,6 @@ pub struct Props {}
 
 // interface components
 impl MapComponent {
-    fn load_all_as_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::LoadAllAs);
-        html! {
-            <button onclick={cb}>{"Load all ASes"}</button>
-        }
-    }
-
     fn load_as_bounded_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::LoadAsBounded);
         html! {
@@ -377,21 +369,6 @@ impl Component for MapComponent {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::LoadAllAs => {
-                log!("load ASes initiatied");
-                let bounds = self.map.getBounds();
-
-                log!(format!("bounds: {:?}", bounds));
-                let x: models::LatLngBounds =
-                    serde_wasm_bindgen::from_value(bounds.into()).unwrap();
-                log!(format!("bounds parsed to rust: {:?}", x));
-                ctx.link().send_future(async {
-                    match get_all_as().await {
-                        Ok(ases) => Msg::DrawAs(ases),
-                        Err(e) => Msg::Error(e),
-                    }
-                });
-            }
             Msg::LoadAsBounded => {
                 let bounds: models::LatLngBounds =
                     serde_wasm_bindgen::from_value(self.map.getBounds().into()).unwrap();
@@ -699,7 +676,6 @@ impl Component for MapComponent {
             </div>
             <div class="control component-container">
                 <div style="display: flex; flex-flow: column wrap;">
-                    {Self::load_all_as_button(self, ctx)}
                     {Self::load_as_bounded_button(self, ctx)}
                     {Self::download_button(self, ctx)}
                     {Self::clear_button(self, ctx)}

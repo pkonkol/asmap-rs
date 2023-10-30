@@ -1,6 +1,5 @@
 use std::{net::SocketAddr, num::NonZeroU32};
 
-use anyhow::{anyhow, Result};
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -12,9 +11,7 @@ use nonzero_ext::nonzero;
 use tracing::{debug, info, trace};
 
 use crate::state::ServerState;
-use protocol::{AsFilters, AsForFrontend, WSRequest, WSResponse};
-
-const PAGE_SIZE: i64 = 10000;
+use protocol::{AsFilters, WSRequest, WSResponse};
 
 pub async fn as_handler(
     ws: WebSocketUpgrade,
@@ -37,20 +34,6 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
             Message::Binary(b) => {
                 let req: WSRequest = bincode::deserialize(&b).unwrap();
                 match req {
-                    WSRequest::AllAs(page) => {
-                        info!(
-                            "reveived WSRequest::AllAs for page {page} from {}",
-                            addr.ip()
-                        );
-                        if let Ok(v) = all_as(page, addr, &state).await {
-                            socket.send(Message::Binary(v)).await.unwrap();
-                        } else {
-                            info!(
-                                "Creating a response with as page {page} failed due to rate limit"
-                            );
-                            socket.send(Message::Close(None)).await.unwrap();
-                        }
-                    }
                     WSRequest::FilteredAS(filters) => {
                         info!(
                             "reveived WSRequest::FilteredAs with filters {filters:?} from {}",
@@ -87,25 +70,6 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
             }
         };
     }
-}
-
-/// returns WsResponse containing requested page of ases encoded using bincode
-#[tracing::instrument(skip(state))]
-async fn all_as(page: u32, addr: SocketAddr, state: &ServerState) -> Result<Vec<u8>> {
-    state
-        .simple_limiter
-        .check_key_n(&addr.ip(), nonzero!(PAGE_SIZE as u32))?
-        .map_err(|_x| anyhow!("rate limit exceeded"))?;
-
-    let skip = page as u64 * PAGE_SIZE as u64;
-    let (ases, total_count) = state.asdb.get_ases_page(PAGE_SIZE, skip).await.unwrap();
-
-    let total_pages = total_count as u32 / PAGE_SIZE as u32;
-
-    let resp = WSResponse::AllAs((page, total_pages, ases));
-    let serialized = bincode::serialize(&resp).unwrap();
-    debug!("successfuly encoded page {page} of ases");
-    Ok(serialized)
 }
 
 /// returns WsResponse containing ases that match certain filters encoded using bincode

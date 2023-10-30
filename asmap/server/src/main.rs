@@ -55,8 +55,8 @@ async fn main() {
 
     let governor_conf = Box::new(
         GovernorConfigBuilder::default()
-            .per_second(1)
-            .burst_size(2)
+            .per_second(10)
+            .burst_size(50)
             .key_extractor(SmartIpKeyExtractor)
             .finish()
             .unwrap(),
