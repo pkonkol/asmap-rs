@@ -32,10 +32,7 @@ pub enum Msg {
     ClearMarkers,
     DrawAs(Vec<AsForFrontend>),
     UpdateDetails(As, u64),
-    ShowAllCached,
-    ShowFilteredCached,
     DownloadFiltered,
-    DownloadAllCached,
     DownloadDetailed,
     Error(anyhow::Error),
 }
@@ -57,12 +54,15 @@ pub struct MapComponent {
     map: Map,
     container: HtmlElement,
     marker_cluster: MarkerClusterGroup,
-    as_cache: HashMap<u32, AsForFrontend>,
-    as_details_cache: HashMap<u32, As>,
+    // as_cache: HashMap<u32, AsForFrontend>,
+    /// Cached ASes which were manually opened and their detail downloaded
+    detailed_ases: HashMap<u32, As>,
     /// these are actually just last drawn ases and serve as a proxy for the last filter use
-    drawn_filtered_ases: HashSet<u32>,
-    filters: AsFilters,
-    _last_executed_filters: AsFilters,
+    drawn_ases: HashMap<u32, AsForFrontend>,
+    /// Filters that will be used when pressing load button
+    next_filters: AsFilters,
+    /// Filters executed during previous load
+    prev_filters: AsFilters,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -76,35 +76,14 @@ impl MapComponent {
     fn load_as_bounded_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::LoadAsBounded);
         html! {
-            <button onclick={cb}>{"Load all ASes in bounds"}</button>
+            <button onclick={cb}>{"Load all ASes in visible range"}</button>
         }
     }
 
     fn load_as_filtered_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
         html! {
-            <button onclick={cb}>{"Load filtered ASes"}</button>
-        }
-    }
-
-    fn show_cached_filtered_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::ShowFilteredCached);
-        html! {
-            <button onclick={cb}>{"show filtered cached ASes"}</button>
-        }
-    }
-
-    fn show_cached_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::ShowAllCached);
-        html! {
-            <button onclick={cb}>{"show all cached ASes"}</button>
-        }
-    }
-
-    fn download_cached_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::DownloadAllCached);
-        html! {
-            <button onclick={cb}>{"download all cached ASes"}</button>
+            <button onclick={cb}>{"Load ASes by filters"}</button>
         }
     }
 
@@ -113,14 +92,14 @@ impl MapComponent {
             <div>
                 <div >
                     <div style="display:inline-block;">{"min addr"}<br/>
-                        <input title="test" type="number" id="minAddresses" value={self.filters.addresses.unwrap().0.to_string()} min="0" max="99999999" style="width: 5em;"
+                        <input title="test" type="number" id="minAddresses" value={self.next_filters.addresses.unwrap().0.to_string()} min="0" max="99999999" style="width: 5em;"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MinAddresses(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
                         <br/>{"max addr"}<br/>
-                        <input type="number" id="maxAddresses" value={self.filters.addresses.unwrap().1.to_string()} min="0" max="99999999" style="width: 5em;"
+                        <input type="number" id="maxAddresses" value={self.next_filters.addresses.unwrap().1.to_string()} min="0" max="99999999" style="width: 5em;"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MaxAddresses(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
@@ -128,7 +107,7 @@ impl MapComponent {
                         />
                     </div>
                     <div style="display:inline-block;">{"country"}<br/>
-                        <input type="text" id="countryCode" value={self.filters.country.clone()} size="2"
+                        <input type="text" id="countryCode" value={self.next_filters.country.clone()} size="2"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::CountryCode(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
@@ -136,21 +115,21 @@ impl MapComponent {
                         />
                         <br/>
                         {"exclude"}<br/>
-                        <input type="checkbox" id="excludeCountry" checked={self.filters.exclude_country}
+                        <input type="checkbox" id="excludeCountry" checked={self.next_filters.exclude_country}
                             oninput={ctx.link().callback(|_e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::ExcludeCountry)
                             })}
                         />
                     </div>
                     <div style="display:inline-block;">{"min rank"}<br/>
-                        <input type="number" id="minRank" value={self.filters.rank.unwrap().0.to_string()} min="0" max="999999" style="width: 4em;"
+                        <input type="number" id="minRank" value={self.next_filters.rank.unwrap().0.to_string()} min="0" max="999999" style="width: 4em;"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MinRank(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
                         <br/>{"max rank"}<br/>
-                            <input type="number" id="maxRank" value={self.filters.rank.unwrap().1.to_string()} min="0" max="999999" style="width: 4em;"
+                            <input type="number" id="maxRank" value={self.next_filters.rank.unwrap().1.to_string()} min="0" max="999999" style="width: 4em;"
                                 oninput={ctx.link().callback(|e: InputEvent| {
                                     Msg::UpdateFilters(FilterForm::MaxRank(
                                         e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
@@ -169,7 +148,7 @@ impl MapComponent {
                             <option value="both">{"both"}</option>
                         </select>
                         <br/>{"isBounded"}<br/>
-                        <input type="checkbox" id="isBounded" checked={self.filters.bounds.is_some()}
+                        <input type="checkbox" id="isBounded" checked={self.next_filters.bounds.is_some()}
                             oninput={ctx.link().callback(|_e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::IsBounded)
                             })}
@@ -206,7 +185,7 @@ impl MapComponent {
     fn download_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::DownloadFiltered);
         html! {
-            <button onclick={cb}>{"Download filtered"}</button>
+            <button onclick={cb}>{"Download"}</button>
         }
     }
 
@@ -220,16 +199,15 @@ impl MapComponent {
     fn clear_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::ClearMarkers);
         html! {
-            <button onclick={cb}>{"Clear"}</button>
+            <button onclick={cb}>{"Clear map"}</button>
         }
     }
 
-    fn counter(&self, _ctx: &Context<Self>) -> Html {
+    fn debug_counter(&self, _ctx: &Context<Self>) -> Html {
         html! {
             <>
-            <b>{"drawn:"}</b>{self.drawn_filtered_ases.len()}<br/>
-            <b>{"cached:"}</b>{ self.as_cache.len() }<br/>
-            <b>{"detailed:"}</b>{ self.as_details_cache.len() }<br/>
+            <b>{"drawn:"}</b>{self.drawn_ases.len()}<br/>
+            <b>{"detailed:"}</b>{ self.detailed_ases.len() }<br/>
             </>
         }
     }
@@ -352,11 +330,11 @@ impl Component for MapComponent {
             map: leaflet_map,
             container,
             marker_cluster,
-            as_cache: HashMap::new(),
-            as_details_cache: HashMap::new(),
-            drawn_filtered_ases: HashSet::new(),
-            filters: initial_filters.clone(),
-            _last_executed_filters: initial_filters,
+            // as_cache: HashMap::new(),
+            detailed_ases: HashMap::new(),
+            drawn_ases: HashMap::new(),
+            next_filters: initial_filters.clone(),
+            prev_filters: initial_filters,
         }
     }
 
@@ -397,10 +375,10 @@ impl Component for MapComponent {
             Msg::LoadAsFiltered => {
                 log!("load ASes initiatied");
                 // Bounds must be dynamically updated at the time of button press if checkbox is on
-                if self.filters.bounds.is_some() {
+                if self.next_filters.bounds.is_some() {
                     let bounds: models::LatLngBounds =
                         serde_wasm_bindgen::from_value(self.map.getBounds().into()).unwrap();
-                    self.filters.bounds = Some(Bound {
+                    self.next_filters.bounds = Some(Bound {
                         north_east: Coord {
                             lat: bounds._north_east.lat,
                             lon: bounds._north_east.lng,
@@ -411,7 +389,7 @@ impl Component for MapComponent {
                         },
                     })
                 };
-                let filters = self.filters.clone();
+                let filters = self.next_filters.clone();
                 ctx.link().send_future(async {
                     match get_all_as_filtered(filters).await {
                         Ok(ases) => Msg::DrawAs(ases),
@@ -420,7 +398,7 @@ impl Component for MapComponent {
                 });
             }
             Msg::GetDetails(asn, marker_id) => {
-                if !self.as_details_cache.contains_key(&asn) {
+                if !self.detailed_ases.contains_key(&asn) {
                     log!(format!(
                         "sending get details request for asn {asn} which has marker {marker_id}"
                     ));
@@ -438,30 +416,30 @@ impl Component for MapComponent {
                 log!(format!("got filter update request for {filter:?}"));
                 match filter {
                     FilterForm::MinAddresses(n) => {
-                        self.filters.addresses = Some((n as i64, self.filters.addresses.unwrap().1))
+                        self.next_filters.addresses = Some((n as i64, self.next_filters.addresses.unwrap().1))
                     }
                     FilterForm::MaxAddresses(n) => {
-                        self.filters.addresses = Some((self.filters.addresses.unwrap().0, n as i64))
+                        self.next_filters.addresses = Some((self.next_filters.addresses.unwrap().0, n as i64))
                     }
                     FilterForm::MinRank(n) => {
-                        self.filters.rank = Some((n as i64, self.filters.rank.unwrap().1))
+                        self.next_filters.rank = Some((n as i64, self.next_filters.rank.unwrap().1))
                     }
                     FilterForm::MaxRank(n) => {
-                        self.filters.rank = Some((self.filters.rank.unwrap().0, n as i64))
+                        self.next_filters.rank = Some((self.next_filters.rank.unwrap().0, n as i64))
                     }
                     FilterForm::CountryCode(code) => {
                         if code.is_empty() {
-                            self.filters.country = None
+                            self.next_filters.country = None
                         } else {
-                            self.filters.country = Some(code.to_uppercase())
+                            self.next_filters.country = Some(code.to_uppercase())
                         }
                     }
                     FilterForm::ExcludeCountry => {
-                        self.filters.exclude_country = !self.filters.exclude_country;
+                        self.next_filters.exclude_country = !self.next_filters.exclude_country;
                     }
                     FilterForm::IsBounded => {
                         // The value just needs to be some, it will be udated on load filtered button press
-                        self.filters.bounds = if self.filters.bounds.is_none() {
+                        self.next_filters.bounds = if self.next_filters.bounds.is_none() {
                             Some(Bound {
                                 north_east: Coord { lat: 0., lon: 0. },
                                 south_west: Coord { lat: 0., lon: 0. },
@@ -471,14 +449,14 @@ impl Component for MapComponent {
                         };
                     }
                     FilterForm::HasOrg(s) => {
-                        self.filters.has_org = match s.as_str() {
+                        self.next_filters.has_org = match s.as_str() {
                             "yes" => AsFiltersHasOrg::Yes,
                             "no" => AsFiltersHasOrg::No,
                             _ => AsFiltersHasOrg::Both,
                         };
                     }
                     FilterForm::Category(s) => {
-                        self.filters.category = s;
+                        self.next_filters.category = s;
                     }
                 }
             }
@@ -488,59 +466,60 @@ impl Component for MapComponent {
                     ases.len()
                 ));
                 let mut markers = Vec::new();
-                for a in ases.into_iter() {
-                    let asn = a.asn;
-                    self.as_cache.insert(asn, a);
-                    if self.drawn_filtered_ases.insert(asn) {
-                        let as_ = self.as_cache.get(&asn).unwrap();
-                        let marker_size = scale_as_marker(as_);
-                        let country = celes::Country::from_alpha2(&as_.country_code);
+                for as_ in ases.into_iter() {
+                    let asn = as_.asn;
+                    // self.as_cache.insert(asn, a);
+                    if self.drawn_ases.contains_key(&asn) {
+                        continue;
+                    }
+                    self.drawn_ases.insert(asn, as_.clone());
+                    let marker_size = scale_as_marker(&as_);
+                    let country = celes::Country::from_alpha2(&as_.country_code);
 
-                        let m = create_marker(
-                            &format!(
-                                "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}
-                                <b>links</b>:<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>, <a href=\"https://bgpview.io/asn/{asn}\" target=\"_blank\">bgpview</a>, shodan<br>
-                                <b>name</b>:{}<br>
-                                <b>org</b>:{}<br>
-                                <b>country</b>:{}",
-                                as_.asn,
-                                as_.rank,
-                                as_.prefixes,
-                                as_.addresses,
-                                as_.name,
-                                as_.organization.as_deref().unwrap_or("none"),
-                                country.map(|c| c.long_name).unwrap_or(""),
-                            ),
-                            &format!("AS{}:{}:{:.20}",as_.asn, as_.name, as_.organization.as_deref().unwrap_or("")),
-                            &Point(
-                                as_.coordinates.lat,
-                                as_.coordinates.lon,
-                            ),
-                            marker_size,
-                        );
-                        let details_cb = ctx
-                            .link()
-                            .callback(move |marker_id: u64| Msg::GetDetails(asn, marker_id));
-                        let detail_update_closure = Closure::wrap(Box::new(move |e: JsValue| {
-                            let x: Object = e.unchecked_into();
-                            #[derive(Deserialize, Debug)]
-                            struct Target {
-                                _leaflet_id: u64,
-                            }
-                            #[derive(Deserialize, Debug)]
-                            struct LeafletId {
-                                target: Target,
-                            }
-                            let m = serde_wasm_bindgen::from_value::<LeafletId>(x.into()).unwrap();
-                            let id = m.target._leaflet_id;
-                            log!(format!("marker id: {id}"));
-                            details_cb.emit(id);
-                        })
-                            as Box<dyn Fn(JsValue)>);
-                        let js = detail_update_closure.into_js_value();
-                        m.on("popupopen", &js);
-                        markers.push(m);
-                    };
+                    let m = create_marker(
+                        &format!(
+                            "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}
+                            <b>links</b>:<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>, <a href=\"https://bgpview.io/asn/{asn}\" target=\"_blank\">bgpview</a>, shodan<br>
+                            <b>name</b>:{}<br>
+                            <b>org</b>:{}<br>
+                            <b>country</b>:{}",
+                            as_.asn,
+                            as_.rank,
+                            as_.prefixes,
+                            as_.addresses,
+                            as_.name,
+                            as_.organization.as_deref().unwrap_or("none"),
+                            country.map(|c| c.long_name).unwrap_or(""),
+                        ),
+                        &format!("AS{}:{}:{:.20}",as_.asn, as_.name, as_.organization.as_deref().unwrap_or("")),
+                        &Point(
+                            as_.coordinates.lat,
+                            as_.coordinates.lon,
+                        ),
+                        marker_size,
+                    );
+                    let details_cb = ctx
+                        .link()
+                        .callback(move |marker_id: u64| Msg::GetDetails(asn, marker_id));
+                    let detail_update_closure = Closure::wrap(Box::new(move |e: JsValue| {
+                        let x: Object = e.unchecked_into();
+                        #[derive(Deserialize, Debug)]
+                        struct Target {
+                            _leaflet_id: u64,
+                        }
+                        #[derive(Deserialize, Debug)]
+                        struct LeafletId {
+                            target: Target,
+                        }
+                        let m = serde_wasm_bindgen::from_value::<LeafletId>(x.into()).unwrap();
+                        let id = m.target._leaflet_id;
+                        log!(format!("marker id: {id}"));
+                        details_cb.emit(id);
+                    })
+                        as Box<dyn Fn(JsValue)>);
+                    let js = detail_update_closure.into_js_value();
+                    m.on("popupopen", &js);
+                    markers.push(m);
                 }
                 self.marker_cluster.addLayers(markers);
             }
@@ -601,61 +580,24 @@ impl Component for MapComponent {
                 ));
 
                 marker.setPopupContent(&JsValue::from_str(&format!("{old_str}<br>{details}")));
-                self.as_details_cache.insert(as_.asn, as_);
+                self.detailed_ases.insert(as_.asn, as_);
                 log!("marker updated");
             }
             Msg::ClearMarkers => {
-                self.drawn_filtered_ases.clear();
+                self.drawn_ases.clear();
                 self.marker_cluster.clearLayers();
             }
             Msg::DownloadFiltered => {
                 let ases = self
-                    .as_cache
+                    .drawn_ases
                     .iter()
-                    .filter(|(asn, _)| self.drawn_filtered_ases.contains(asn))
                     .map(|(_, as_t)| as_t);
-                self.create_downloadable_csv(DownloadableCsvInput::Simple(Box::new(ases)));
-            }
-            Msg::DownloadAllCached => {
-                let ases = self.as_cache.values();
+                    // .filter(|(asn, _)| self.drawn_ases.contains(asn))
                 self.create_downloadable_csv(DownloadableCsvInput::Simple(Box::new(ases)));
             }
             Msg::DownloadDetailed => {
-                let ases = self.as_details_cache.values();
+                let ases = self.detailed_ases.values();
                 self.create_downloadable_csv(DownloadableCsvInput::Detailed(Box::new(ases)));
-            }
-            Msg::ShowAllCached => {
-                self.drawn_filtered_ases.clear();
-                self.marker_cluster.clearLayers();
-                let ases = self.as_cache.values().cloned().collect();
-                ctx.link().send_future(async { Msg::DrawAs(ases) });
-            }
-            Msg::ShowFilteredCached => {
-                self.drawn_filtered_ases.clear();
-                self.marker_cluster.clearLayers();
-
-                let bounds: models::LatLngBounds =
-                    serde_wasm_bindgen::from_value(self.map.getBounds().into()).unwrap();
-                let ases = self.as_cache.iter()
-                .filter(|(_asn, a)|
-                    a.addresses >= self.filters.addresses.as_ref().unwrap().0 as u32
-                    && a.addresses <= self.filters.addresses.as_ref().unwrap().1 as u32
-                    && a.rank >= self.filters.rank.as_ref().unwrap().0 as u32
-                    && a.rank <= self.filters.rank.as_ref().unwrap().1 as u32
-                    // TODO pass country code instead of name so the comparison works
-                    && &a.country_code == self.filters.country.as_ref().unwrap()
-                    // && a.organization.is_some() == if let AsFiltersHasOrg::Both|AsFiltersHasOrg::Yes = self.filters.has_org {true} else {false}
-                    && a.organization.is_some() == matches!(self.filters.has_org, AsFiltersHasOrg::Both|AsFiltersHasOrg::Yes)
-                    // TODO take the bounds, pull the most up to date ones, compare if needed
-                    && ((self.filters.bounds.is_some()
-                        && (a.coordinates.lat <= bounds._north_east.lat && a.coordinates.lat >= bounds._south_west.lat)
-                        && (a.coordinates.lon <= bounds._north_east.lng && a.coordinates.lon >= bounds._south_west.lng)
-                        )
-                    || self.filters.bounds.is_none()
-                    )
-                )
-                .map(|(_, v)| v.clone()).collect();
-                ctx.link().send_future(async { Msg::DrawAs(ases) });
             }
             Msg::Error(e) => {
                 log!(format!("error fetching ases, received error '{e:?}'"));
@@ -677,21 +619,18 @@ impl Component for MapComponent {
             <div class="control component-container">
                 <div style="display: flex; flex-flow: column wrap;">
                     {Self::load_as_bounded_button(self, ctx)}
+                    {Self::load_as_filtered_button(self, ctx)}
                     {Self::download_button(self, ctx)}
+                    {Self::download_detailed_button(self, ctx)}
                     {Self::clear_button(self, ctx)}
                 </div>
-                <div>
+                <div style="display: normal; padding-right: 20px;" >
                     {Self::filter_menu(self, ctx)}
-                    {Self::load_as_filtered_button(self, ctx)}
                 </div>
-                <div style="display: flex; flex-flow: column wrap;">
-                    {Self::show_cached_button(self, ctx)}
-                    {Self::show_cached_filtered_button(self, ctx)}
-                    {Self::download_cached_button(self, ctx)}
-                    {Self::download_detailed_button(self, ctx)}
-                </div>
+                // <div style="display: flex; flex-flow: column wrap;">
+                // </div>
                 <div>
-                    {Self::counter(self, ctx)}
+                    {Self::debug_counter(self, ctx)}
                 </div>
             </div>
             </>
