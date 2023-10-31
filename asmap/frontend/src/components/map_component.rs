@@ -252,9 +252,32 @@ impl MapComponent {
         let document = web_sys::window().unwrap().document().unwrap();
         let body = document.body().expect("document should have a body");
 
-        let (wtr, ases_len) = match input {
-            DownloadableCsvInput::Simple(x) => self.get_simple_csv_writer(x),
-            DownloadableCsvInput::Detailed(x) => self.get_detailed_csv_writer(x),
+        let (wtr, filename) = match input {
+            DownloadableCsvInput::Simple(x) => {
+                let (wtr, ases_len) = self.get_simple_csv_writer(x);
+                let filename = format!(
+                    "asmap-{}-{}-{}.csv",
+                    ases_len,
+                    self.prev_filters,
+                    SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
+                );
+                (wtr, filename)
+            },
+            DownloadableCsvInput::Detailed(x) => {
+                let (wtr, ases_len) = self.get_detailed_csv_writer(x);
+                let filename = format!(
+                    "asmap-detailed-{}-{}.csv",
+                    ases_len,
+                    SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                );
+                (wtr, filename)
+            },
         };
 
         let blob = Blob::new_with_options(wtr.into_inner().unwrap().as_slice(), Some("text/plain"));
@@ -267,14 +290,7 @@ impl MapComponent {
         tmp_download_link
             .set_attribute(
                 "download",
-                &format!(
-                    "filtered-as-{}-{}.csv",
-                    ases_len,
-                    SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs()
-                ),
+                &filename,
             )
             .unwrap();
 
@@ -390,6 +406,7 @@ impl Component for MapComponent {
                     })
                 };
                 let filters = self.next_filters.clone();
+                self.prev_filters = filters.clone();
                 ctx.link().send_future(async {
                     match get_all_as_filtered(filters).await {
                         Ok(ases) => Msg::DrawAs(ases),
@@ -466,6 +483,7 @@ impl Component for MapComponent {
                     ases.len()
                 ));
                 let mut markers = Vec::new();
+                log!("generating markers");
                 for as_ in ases.into_iter() {
                     let asn = as_.asn;
                     // self.as_cache.insert(asn, a);
@@ -521,7 +539,9 @@ impl Component for MapComponent {
                     m.on("popupopen", &js);
                     markers.push(m);
                 }
+                log!("adding marker Layers to map");
                 self.marker_cluster.addLayers(markers);
+                log!("done");
             }
             Msg::UpdateDetails(as_, marker_id) => {
                 log!(format!(

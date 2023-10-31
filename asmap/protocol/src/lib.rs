@@ -1,3 +1,5 @@
+use std::fmt::{Display, write};
+
 use serde::{Deserialize, Serialize};
 
 use asdb_models::{As, Bound};
@@ -28,6 +30,16 @@ pub enum AsFiltersHasOrg {
     Yes,
     No,
     Both,
+}
+
+impl Display for AsFiltersHasOrg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Both =>  write!(f, "both"),
+            Self::Yes => write!(f, "yes"),
+            Self::No => write!(f, "no"),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -79,5 +91,30 @@ impl Default for AsFilters {
             has_org: AsFiltersHasOrg::Both,
             category: vec![],
         }
+    }
+}
+
+impl Display for AsFilters {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let bound_str = if let Some(b) = self.bounds.as_ref() {
+            format!("b{:.4$}:{:.4$}-{:.4$}:{:.4$}", 
+                b.south_west.lat, b.south_west.lon,
+                b.north_east.lat, b.north_east.lon,
+                4,
+            )
+        } else {
+            String::new()
+        };
+        let a = self.addresses.as_ref().unwrap_or(&(0, 0));
+        let r = self.rank.as_ref().unwrap_or(&(0, 0));
+        write!(f, "c{}-exc{}-{}-a{}-{}-r{}-{}-org{}-ncat{}",
+            self.country.as_deref().unwrap_or(""),
+            self.exclude_country, 
+            bound_str,
+            a.0, a.1,
+            r.0, r.1,
+            self.has_org,
+            self.category.len(),
+        )
     }
 }
