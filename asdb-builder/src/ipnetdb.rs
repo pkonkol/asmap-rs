@@ -59,8 +59,8 @@ async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
                 prefix_reader.lookup::<read_models::IPNetDBPrefix>(i.range.network());
             if prefix_model.is_err() {
                 let serde_raw_prefix = prefix_reader.lookup::<serde_json::Value>(i.range.network());
-                println!("raw serde value: {:#?}", serde_raw_prefix);
-                println!("parsed value {:#?}\n\n", prefix_model);
+                println!("\nraw serde value: {:#?}", serde_raw_prefix);
+                println!("parsed value {:#?}", prefix_model);
                 println!("omitting prefix details {:-<100}", "x");
                 continue;
             }

@@ -28,7 +28,7 @@ impl<'a> From<&'a AsForFrontend> for CsvAs<'a> {
 #[derive(Serialize)]
 pub struct CsvAsDetailed<'a> {
     pub asn: &'a u32,
-    pub rank: &'a u64,
+    pub rank: &'a u32,
     pub name: &'a str,
     pub organization: &'a str,
 }

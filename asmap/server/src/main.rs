@@ -4,6 +4,7 @@ use std::{
     net::{IpAddr, Ipv6Addr, SocketAddr},
     str::FromStr,
 };
+use tokio::{task::yield_now, time::interval};
 use tower::ServiceBuilder;
 use tower_governor::{
     errors::display_error, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
@@ -68,6 +69,7 @@ async fn main() {
         &cfg.db_name
     );
     let state = ServerState::new(&cfg.mongo_conn_str, &cfg.db_name).await;
+    tokio::spawn(governor_cleanup(state.clone()));
     let app = Router::new()
         .route("/as", get(as_handler))
         .fallback_service(ServeDir::new(opt.static_dir))
@@ -95,4 +97,17 @@ async fn main() {
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())
         .await
         .expect("Unable to start server");
+}
+
+async fn governor_cleanup(state: ServerState) {
+    let interval_duration = tokio::time::Duration::from_secs(60);
+    let mut interval = interval(interval_duration);
+
+    loop {
+        interval.tick().await;
+        info!("initiating periodic governor cleanup");
+        state.detailed_limiter.retain_recent();
+        yield_now().await;
+        state.simple_limiter.retain_recent();
+    }
 }

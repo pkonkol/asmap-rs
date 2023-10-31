@@ -54,14 +54,14 @@ pub struct As {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AsrankAsn {
-    pub rank: u64,
+    pub rank: u32,
     pub organization: Option<String>,
     pub country_iso: String,
     pub country_name: String,
     pub coordinates: Coord,
     pub degree: AsrankDegree,
-    pub prefixes: u64,
-    pub addresses: u64,
+    pub prefixes: u32,
+    pub addresses: u32,
     pub name: String,
 }
 
@@ -219,22 +219,22 @@ pub struct AsFilters {
     pub category: Vec<String>,
 }
 
-// TODO use if manual impl wont work 
+// TODO use if manual impl wont work
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AsForFrontendFromDB {
     pub asn: u32,
-    #[serde(alias="asrank_data")]
+    #[serde(alias = "asrank_data")]
     pub asrank: AsForFrontendFromDBAsrank,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AsForFrontendFromDBAsrank {
-    pub rank: u64,
+    pub rank: u32,
     pub name: String,
     pub country_iso: String,
     pub organization: Option<String>,
-    pub prefixes: u64,
-    pub addresses: u64,
+    pub prefixes: u32,
+    pub addresses: u32,
     pub coordinates: Coord,
 }
 
@@ -245,17 +245,24 @@ pub struct AsForFrontend {
     pub name: String,
     pub country_code: String,
     pub organization: Option<String>,
-    pub prefixes: u16,
+    pub prefixes: u32,
     pub addresses: u32,
     pub coordinates: Coord,
 }
 
-
 // prob 1000 times easier
 impl From<AsForFrontendFromDB> for AsForFrontend {
     fn from(value: AsForFrontendFromDB) -> Self {
-        Self { asn: value.asn, rank: value.asrank.rank as u32, name: value.asrank.name, country_code: value.asrank.country_iso, organization: value.asrank.organization , prefixes: value.asrank.prefixes as u16, addresses: value.asrank.addresses as u32, coordinates: value.asrank.coordinates }
-        
+        Self {
+            asn: value.asn,
+            rank: value.asrank.rank,
+            name: value.asrank.name,
+            country_code: value.asrank.country_iso,
+            organization: value.asrank.organization,
+            prefixes: value.asrank.prefixes,
+            addresses: value.asrank.addresses,
+            coordinates: value.asrank.coordinates,
+        }
     }
 }
 
@@ -264,12 +271,12 @@ impl From<As> for AsForFrontend {
         let asrank_data = value.asrank_data.unwrap();
         Self {
             asn: value.asn,
-            rank: asrank_data.rank as u32,
+            rank: asrank_data.rank,
             name: asrank_data.name,
             country_code: asrank_data.country_iso,
             organization: asrank_data.organization,
-            prefixes: asrank_data.prefixes as u16,
-            addresses: asrank_data.addresses as u32,
+            prefixes: asrank_data.prefixes,
+            addresses: asrank_data.addresses,
             coordinates: Coord {
                 lat: asrank_data.coordinates.lat,
                 lon: asrank_data.coordinates.lon,

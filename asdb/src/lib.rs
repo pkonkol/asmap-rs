@@ -3,10 +3,12 @@ use itertools::Itertools;
 use mongodb::{
     bson::{doc, Document},
     options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
-    Client, IndexModel
+    Client, IndexModel,
 };
 
-use asdb_models::{As, AsFilters, IPNetDBAsn, StanfordASdbCategory, AsForFrontendFromDB, AsForFrontend};
+use asdb_models::{
+    As, AsFilters, AsForFrontend, AsForFrontendFromDB, IPNetDBAsn, StanfordASdbCategory,
+};
 pub use error::{Error, Result};
 use tracing::debug;
 
@@ -94,9 +96,7 @@ impl Asdb {
             .build();
         let res = collection.find(doc! {}, opts).await?;
         let count = collection.count_documents(doc! {}, None).await?;
-        let ases: Vec<AsForFrontend>= res.map_ok(
-            AsForFrontend::from
-        ).try_collect().await?;
+        let ases: Vec<AsForFrontend> = res.map_ok(AsForFrontend::from).try_collect().await?;
 
         Ok((ases, count))
     }
@@ -181,25 +181,23 @@ impl Asdb {
 
         // let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
         let opts = FindOptions::builder()
-        .projection(doc! {
-            "asn": 1,
-            "asrank_data.name": 1,
-            "asrank_data.rank": 1,
-            "asrank_data.country_iso": 1,
-            "asrank_data.prefixes": 1,
-            "asrank_data.addresses": 1,
-            "asrank_data.coordinates": 1,
-            "asrank_data.organization": 1,
-        })
-        .build();
-        // TODO add projection ^ and verify if it speeds up the retrieval 
+            .projection(doc! {
+                "asn": 1,
+                "asrank_data.name": 1,
+                "asrank_data.rank": 1,
+                "asrank_data.country_iso": 1,
+                "asrank_data.prefixes": 1,
+                "asrank_data.addresses": 1,
+                "asrank_data.coordinates": 1,
+                "asrank_data.organization": 1,
+            })
+            .build();
+        // TODO add projection ^ and verify if it speeds up the retrieval
         let res = collection.find(db_filter, opts).await?;
         debug!("cursor retrieved, starting collect");
         // let ases: Vec<AsForFrontendFromDB> = res.try_collect().await?;
         // res.for_each(|x| {x.unwrap(); future::ready(())}).await;
-        let ases: Vec<AsForFrontend>= res.map_ok(
-            AsForFrontend::from
-        ).try_collect().await?;
+        let ases: Vec<AsForFrontend> = res.map_ok(AsForFrontend::from).try_collect().await?;
         debug!("collected entries into Vec<>");
         Ok(ases)
     }

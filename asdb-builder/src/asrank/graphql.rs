@@ -20,7 +20,7 @@ impl From<asns_query::AsnsQueryAsnsEdges> for asdb_models::As {
         Self {
             asn: node.asn.parse().unwrap(),
             asrank_data: Some(AsrankAsn {
-                rank: node.rank.unwrap() as u64,
+                rank: node.rank.unwrap() as u32,
                 organization: node.organization.and_then(|x| x.org_name),
                 country_iso: country.iso.unwrap(),
                 country_name: country.name.unwrap(),
@@ -29,8 +29,8 @@ impl From<asns_query::AsnsQueryAsnsEdges> for asdb_models::As {
                     lon: node.longitude.unwrap(),
                 },
                 degree: node.asn_degree.unwrap().into(),
-                prefixes: announcing.number_prefixes.unwrap() as u64,
-                addresses: announcing.number_addresses.unwrap() as u64,
+                prefixes: announcing.number_prefixes.unwrap() as u32,
+                addresses: announcing.number_addresses.unwrap() as u32,
                 name: node.asn_name.unwrap(),
             }),
             ..Default::default()

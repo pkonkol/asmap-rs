@@ -43,7 +43,7 @@ pub async fn import_asns(file: impl AsRef<Path>) -> Result<Vec<As>> {
             As {
                 asn: line["asn"].as_str().unwrap().parse::<u32>().unwrap(),
                 asrank_data: Some(AsrankAsn {
-                    rank: line["rank"].as_u64().unwrap(),
+                    rank: line["rank"].as_u64().unwrap() as u32,
                     organization: line["organization"]["orgName"]
                         .as_str()
                         .map(|x| x.to_string()),
@@ -61,8 +61,8 @@ pub async fn import_asns(file: impl AsRef<Path>) -> Result<Vec<As>> {
                         transit: line["asnDegree"]["transit"].as_u64().unwrap() as u32,
                         sibling: line["asnDegree"]["sibling"].as_u64().unwrap() as u32,
                     },
-                    prefixes: line["announcing"]["numberPrefixes"].as_u64().unwrap(),
-                    addresses: line["announcing"]["numberAddresses"].as_u64().unwrap(),
+                    prefixes: line["announcing"]["numberPrefixes"].as_u64().unwrap() as u32,
+                    addresses: line["announcing"]["numberAddresses"].as_u64().unwrap() as u32,
                     name: line["asnName"].as_str().unwrap().to_string(),
                 }),
                 ..Default::default()

@@ -83,7 +83,7 @@ impl MapComponent {
     fn load_as_filtered_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
         html! {
-            <button onclick={cb}>{"Load ASes by filters"}</button>
+            <button onclick={cb}>{"Load ASes by filters ->"}</button>
         }
     }
 
@@ -185,14 +185,14 @@ impl MapComponent {
     fn download_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::DownloadFiltered);
         html! {
-            <button onclick={cb}>{"Download"}</button>
+            <button onclick={cb}>{"Download currently loaded"}</button>
         }
     }
 
     fn download_detailed_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::DownloadDetailed);
         html! {
-            <button onclick={cb}>{"Download detailed"}</button>
+            <button onclick={cb}>{"Download previously opened"}</button>
         }
     }
 
@@ -265,7 +265,7 @@ impl MapComponent {
                         .as_secs(),
                 );
                 (wtr, filename)
-            },
+            }
             DownloadableCsvInput::Detailed(x) => {
                 let (wtr, ases_len) = self.get_detailed_csv_writer(x);
                 let filename = format!(
@@ -277,7 +277,7 @@ impl MapComponent {
                         .as_secs()
                 );
                 (wtr, filename)
-            },
+            }
         };
 
         let blob = Blob::new_with_options(wtr.into_inner().unwrap().as_slice(), Some("text/plain"));
@@ -288,10 +288,7 @@ impl MapComponent {
             .set_attribute("href", &object_url)
             .unwrap();
         tmp_download_link
-            .set_attribute(
-                "download",
-                &filename,
-            )
+            .set_attribute("download", &filename)
             .unwrap();
 
         let tmp_node = body.append_child(&tmp_download_link).unwrap();
@@ -433,10 +430,12 @@ impl Component for MapComponent {
                 log!(format!("got filter update request for {filter:?}"));
                 match filter {
                     FilterForm::MinAddresses(n) => {
-                        self.next_filters.addresses = Some((n as i64, self.next_filters.addresses.unwrap().1))
+                        self.next_filters.addresses =
+                            Some((n as i64, self.next_filters.addresses.unwrap().1))
                     }
                     FilterForm::MaxAddresses(n) => {
-                        self.next_filters.addresses = Some((self.next_filters.addresses.unwrap().0, n as i64))
+                        self.next_filters.addresses =
+                            Some((self.next_filters.addresses.unwrap().0, n as i64))
                     }
                     FilterForm::MinRank(n) => {
                         self.next_filters.rank = Some((n as i64, self.next_filters.rank.unwrap().1))
@@ -608,11 +607,8 @@ impl Component for MapComponent {
                 self.marker_cluster.clearLayers();
             }
             Msg::DownloadFiltered => {
-                let ases = self
-                    .drawn_ases
-                    .iter()
-                    .map(|(_, as_t)| as_t);
-                    // .filter(|(asn, _)| self.drawn_ases.contains(asn))
+                let ases = self.drawn_ases.iter().map(|(_, as_t)| as_t);
+                // .filter(|(asn, _)| self.drawn_ases.contains(asn))
                 self.create_downloadable_csv(DownloadableCsvInput::Simple(Box::new(ases)));
             }
             Msg::DownloadDetailed => {
