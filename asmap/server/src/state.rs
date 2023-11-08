@@ -6,8 +6,8 @@ use nonzero_ext::*;
 use tracing::Level;
 
 // TODO move this to external config
-const SIMPLE_PER_MIN: u32 = 20_000;
-const SIMPLE_MAX_BURST: u32 = 250_000;
+const SIMPLE_PER_MIN: u32 = 20_0000000;
+const SIMPLE_MAX_BURST: u32 = 250_0000000;
 const DETAILED_PER_SEC: u32 = 2;
 
 type LimiterKey = IpAddr;

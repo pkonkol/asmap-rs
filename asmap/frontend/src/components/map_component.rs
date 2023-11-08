@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Write,
+    sync::{Arc, Mutex, RwLock},
 };
 
 use gloo_console::log;
@@ -17,6 +18,7 @@ use yew::prelude::*;
 
 use super::api::{get_all_as_filtered, get_as_details};
 use crate::models::{self, CsvAs, CsvAsDetailed, DownloadableCsvInput};
+use crate::worker::greet;
 use asdb_models::{As, Bound, Coord};
 use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
 
@@ -477,22 +479,78 @@ impl Component for MapComponent {
                 }
             }
             Msg::DrawAs(ases) => {
+                // use rand::prelude::*;
+                //use rand::
                 log!(format!(
                     "{} ASes received to be drawn, drawing them signal at map_component.rs",
                     ases.len()
                 ));
-                let mut markers = Vec::new();
+                // let pool = rayon::ThreadPoolBuilder::new().num_threads(22).build().unwrap();
+                // let thread_pool = rayon_wasm::ThreadPoolBuilder::new()
+                // .num_threads(24)
+                // .spawn_handler(|thread| {
+                //     pool.run(|| thread.run()).unwrap();
+                //     Ok(())
+                // })
+                // .build()
+                // .unwrap();
+
+                // greet("dupa");
+
+                // use gloo_worker::oneshot::oneshot;
+                // use gloo_worker::Spawnable;
+                // log!("b4 oneshot");
+                // #[oneshot]
+                // async fn Squared(input: u32) -> u32 {
+                //     input.pow(2)
+                // }
+                // this shit looks for  http:[...]/huj123 file to execute
+                // let mut sb = Squared::spawner().spawn("huj123");
+                // wasm_bindgen_futures::spawn_local(async move {
+                //     let xd = sb.run(2).await;
+                //     log!(xd);
+                //     assert_eq!(xd, 4);
+                // });
+                // log!("after spwan");
+
+                let test = (1..1).collect::<Vec<_>>();
+                test.into_iter().for_each(|x| {
+                    let huj = x.clone();
+                    let ms = rand::random::<u32>() % 1000;
+                    // gloo_timers::future::TimeoutFuture::new(ms).await;
+                    let mut huj2 = 0;
+                    for i in 0..(ms * 10000) {
+                        huj2 += 1;
+                    }
+                    log!(format!("parallel x: {huj}, slept {ms}"));
+                    // wasm_bindgen_futures::spawn_local(async move {
+                    //     let ms = rand::random::<u32>() % 1000;
+                    //     gloo_timers::future::TimeoutFuture::new(ms).await;
+                    //     log!(format!("parallel x: {huj}, slept {ms}"));
+                    // });
+                });
+                let start = js_sys::Date::now();
                 log!("generating markers");
-                for as_ in ases.into_iter() {
+                // for as_ in ases.into_iter() {
+                let markers = Arc::new(Mutex::new(Vec::new()));
+                let ctx2 = Arc::new(Mutex::new(ctx));
+                let mut drawn_ases2 = Arc::new(Mutex::new(self.drawn_ases.clone()));
+                ases.iter().for_each(|as_| {
+                    let drawn_ases = Arc::clone(&mut drawn_ases2);
                     let asn = as_.asn;
                     // self.as_cache.insert(asn, a);
-                    if self.drawn_ases.contains_key(&asn) {
-                        continue;
+                    if drawn_ases.lock().unwrap().contains_key(&asn) {
+                        return ();
                     }
-                    self.drawn_ases.insert(asn, as_.clone());
+                    {
+                        let mut xd = drawn_ases.lock().unwrap();
+                        xd.insert(asn, as_.clone());
+                    }
+
+                    // TODO parallelize this block of code
                     let marker_size = scale_as_marker(&as_);
                     let country = celes::Country::from_alpha2(&as_.country_code);
-
+                    // let m = create_marker("huj", "dupa", &Point(0.0, 0.0), (1, 1));
                     let m = create_marker(
                         &format!(
                             "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}
@@ -515,7 +573,8 @@ impl Component for MapComponent {
                         ),
                         marker_size,
                     );
-                    let details_cb = ctx
+                    // TODO can i parallelize this shite too?
+                    let details_cb = ctx2.lock().unwrap()
                         .link()
                         .callback(move |marker_id: u64| Msg::GetDetails(asn, marker_id));
                     let detail_update_closure = Closure::wrap(Box::new(move |e: JsValue| {
@@ -536,10 +595,15 @@ impl Component for MapComponent {
                         as Box<dyn Fn(JsValue)>);
                     let js = detail_update_closure.into_js_value();
                     m.on("popupopen", &js);
-                    markers.push(m);
-                }
+
+
+                    markers.lock().unwrap().push(m);
+                });
+                log!((js_sys::Date::now() - start));
                 log!("adding marker Layers to map");
-                self.marker_cluster.addLayers(markers);
+                // TODO move normally instead of lcone
+                let mk = markers.lock().unwrap().clone();
+                self.marker_cluster.addLayers(mk);
                 log!("done");
             }
             Msg::UpdateDetails(as_, marker_id) => {

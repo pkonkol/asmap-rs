@@ -921,12 +921,15 @@ dependencies = [
  "gloo-console 0.3.0",
  "gloo-file 0.3.0",
  "gloo-net 0.4.0",
+ "gloo-timers 0.3.0",
  "gloo-utils 0.2.0",
+ "gloo-worker 0.5.0",
  "js-sys",
  "leaflet",
  "leaflet-markercluster",
  "log",
  "protocol",
+ "rand",
  "serde",
  "serde-wasm-bindgen 0.6.0",
  "serde_json",
@@ -1427,6 +1430,25 @@ name = "gloo-worker"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2cbd4c35cc3a2b1fb792318acc06bd514193f6d058173da5cdbcdabe6514303"
+dependencies = [
+ "bincode",
+ "futures",
+ "gloo-utils 0.2.0",
+ "gloo-worker-macros",
+ "js-sys",
+ "pinned",
+ "serde",
+ "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "gloo-worker"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "085f262d7604911c8150162529cefab3782e91adb20202e8658f7275d2aefe5d"
 dependencies = [
  "bincode",
  "futures",

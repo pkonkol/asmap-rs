@@ -1,5 +1,6 @@
 mod components;
 mod models;
+mod worker;
 
 use components::MapContainer;
 
