@@ -18,7 +18,6 @@ use yew::prelude::*;
 
 use super::api::{get_all_as_filtered, get_as_details};
 use crate::models::{self, CsvAs, CsvAsDetailed, DownloadableCsvInput};
-use crate::worker::greet;
 use asdb_models::{As, Bound, Coord};
 use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
 
@@ -495,8 +494,6 @@ impl Component for MapComponent {
                 // .build()
                 // .unwrap();
 
-                // greet("dupa");
-
                 // use gloo_worker::oneshot::oneshot;
                 // use gloo_worker::Spawnable;
                 // log!("b4 oneshot");
@@ -578,7 +575,6 @@ impl Component for MapComponent {
                         .link()
                         .callback(move |marker_id: u64| Msg::GetDetails(asn, marker_id));
                     let detail_update_closure = Closure::wrap(Box::new(move |e: JsValue| {
-                        let x: Object = e.unchecked_into();
                         #[derive(Deserialize, Debug)]
                         struct Target {
                             _leaflet_id: u64,
@@ -587,6 +583,8 @@ impl Component for MapComponent {
                         struct LeafletId {
                             target: Target,
                         }
+
+                        let x: Object = e.unchecked_into();
                         let m = serde_wasm_bindgen::from_value::<LeafletId>(x.into()).unwrap();
                         let id = m.target._leaflet_id;
                         log!(format!("marker id: {id}"));

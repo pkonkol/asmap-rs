@@ -32,6 +32,7 @@ wasm-timer = "0.2"
 js-sys = "0.3"
 celes = "2.4"
 serde_json.workspace = true
-rand = "0.8.5"
-gloo-timers = "0.3.0"
-gloo-worker = { version = "0.5.0", features = ["futures"] }
+rand = "0.8"
+gloo-timers = "0.3"
+gloo-worker = { version = "0.5", features = ["futures"] }
+yew-agent = "0.3.0" # 0.3.0 doesn't build
