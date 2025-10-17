@@ -1,7 +1,7 @@
 version: '3'
 services:
   asmap-db:
-    image: "docker.io/bitnami/mongodb:4.4"
+    image: "docker.io/bitnami/mongodb:latest"
     ports:
       - "27017:27017"
     volumes:
@@ -16,4 +16,3 @@ volumes:
   data-volume:
   asmap-data:
     driver: local
-

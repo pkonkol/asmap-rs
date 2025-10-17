@@ -30,7 +30,7 @@ impl From<asns_query::AsnsQueryAsnsEdges> for asdb_models::As {
                 },
                 degree: node.asn_degree.unwrap().into(),
                 prefixes: announcing.number_prefixes.unwrap() as u32,
-                addresses: announcing.number_addresses.unwrap() as u32,
+                addresses: announcing.number_addresses.unwrap_or(0) as u32,
                 name: node.asn_name.unwrap(),
             }),
             ..Default::default()

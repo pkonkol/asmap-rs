@@ -31,3 +31,8 @@ To initialize the database with all available datasources at once
 
 `cd asmap && ./dev.sh` This will automatically rebuild the app when code changes are detected.
 
+## additionals
+
+Run this in asdb-builder/src/asrank if the schema gets outdated
+`cargo install graphql_client_cli --force`
+`graphql-client introspect-schema https://api.asrank.caida.org/v2/graphql > schema.json`
