@@ -22,4 +22,5 @@ target-trunk/
 dist/
 /.log/
 .env
+.DS_Store
 
