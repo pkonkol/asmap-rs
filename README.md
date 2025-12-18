@@ -4,7 +4,7 @@
 - `rustup target add wasm32-unknown-unknown`
 
 ## clearing up the database
-Either run `cargo run -- clear-db` or 
+Either run `cargo run -- clear-db` or
 run `./cleanup.sh --database --generated --downloaded` and then `docker-compose up`
 
 ## fill DB with data
