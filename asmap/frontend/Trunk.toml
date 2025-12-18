@@ -4,3 +4,11 @@ dist = "../dist"
 
 [[proxy]]
 backend = "http://[::1]:8081/api/"
+
+[[hooks]]
+stage = "pre_build"
+command = "npm"
+command_arguments = ["run", "build:css"]
+
+[watch]
+ignore = ["css/output.css"]

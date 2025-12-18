@@ -11,7 +11,7 @@ use js_sys::Object;
 use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
 use protocol::{AsFilters, AsFiltersHasOrg, AsForFrontend};
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::{JsCast, prelude::*};
 use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlCollection, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
@@ -19,7 +19,7 @@ use yew::prelude::*;
 use super::api::{get_all_as_filtered, get_as_details};
 use crate::models::{self, CsvAs, CsvAsDetailed, DownloadableCsvInput};
 use asdb_models::{As, Bound, Coord};
-use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
+use leaflet_markercluster::{MarkerClusterGroup, markerClusterGroup};
 
 const POLAND_LAT: f64 = 52.11431;
 const POLAND_LON: f64 = 19.423672;
@@ -305,7 +305,12 @@ impl Component for MapComponent {
     fn create(_ctx: &Context<Self>) -> Self {
         let container: Element = document().create_element("div").unwrap();
         let container: HtmlElement = container.dyn_into().unwrap();
-        container.set_class_name("map");
+        container.set_class_name("map w-full h-full");
+        // let style = container.style();
+        // style.set_property("width", "100%").ok();
+        // style.set_property("height", "100%").ok();
+        // style.set_property("display", "block").ok();
+        // style.set_property("position", "relative").ok();
 
         let leaflet_map = Map::new_with_element(&container, &JsValue::NULL);
         leaflet_map.setMaxZoom(18.0);
@@ -690,28 +695,31 @@ impl Component for MapComponent {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <>
-            <div class="map-container component-container">
-                {self.render_map()}
+            <div class="min-h-screen bg-slate-50 text-slate-100 flex flex-col md:flex-row gap-4 p-4">
+                <div class="flex-1 min-h-[60vh] rounded-xl border border-slate-800 shadow-lg overflow-hidden">
+                    <div class="h-full">{ self.render_map() }</div>
+                </div>
+
+                <div class="w-full md:w-96 space-y-4">
+                    <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow">
+                        <div class="flex flex-col gap-2">
+                            { Self::load_as_bounded_button(self, ctx) }
+                            { Self::load_as_filtered_button(self, ctx) }
+                            { Self::download_button(self, ctx) }
+                            { Self::download_detailed_button(self, ctx) }
+                            { Self::clear_button(self, ctx) }
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow">
+                        { Self::filter_menu(self, ctx) }
+                    </div>
+
+                    <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/60 text-sm">
+                        { Self::debug_counter(self, ctx) }
+                    </div>
+                </div>
             </div>
-            <div class="control component-container">
-                <div style="display: flex; flex-flow: column wrap;">
-                    {Self::load_as_bounded_button(self, ctx)}
-                    {Self::load_as_filtered_button(self, ctx)}
-                    {Self::download_button(self, ctx)}
-                    {Self::download_detailed_button(self, ctx)}
-                    {Self::clear_button(self, ctx)}
-                </div>
-                <div style="display: normal; padding-right: 20px;" >
-                    {Self::filter_menu(self, ctx)}
-                </div>
-                // <div style="display: flex; flex-flow: column wrap;">
-                // </div>
-                <div>
-                    {Self::debug_counter(self, ctx)}
-                </div>
-            </div>
-            </>
         }
     }
 }
@@ -766,7 +774,7 @@ fn create_marker(description: &str, tooltip: &str, coord: &Point, size: (u64, u6
 /// both may be used, 1 as color other as marker size
 fn scale_as_marker(a: &AsForFrontend) -> (u64, u64) {
     const RANK_RANGE: (u64, u64) = (0, 115000); // 0 not needed likely
-                                                // const ADDRESS_RANGE: (u64, u64) = (0, 20017664);
+    // const ADDRESS_RANGE: (u64, u64) = (0, 20017664);
     const AVG_PIXELS: (u64, u64) = (15, 24); //original is 25,41
     const MIN_PIXELS: (u64, u64) = (5, 8);
     let rank = a.rank;
