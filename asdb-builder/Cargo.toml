@@ -15,7 +15,7 @@ asdb-models = { path = "../asdb-models" }
 test-context = { path = "../test-context" }
 isocountry = "0.3"
 thiserror = { workspace = true }
-trauma = "2.2"
+trauma = "2.3"
 csv = { workspace = true }
 reqwest = { version = "0.11", features = ["json"] }
 itertools = { workspace = true }

@@ -30,7 +30,7 @@ gloo-file = "0.3"
 csv = { workspace = true }
 wasm-timer = "0.2"
 js-sys = { workspace = true }
-celes = "2.4"
+celes = "2.6"
 serde_json = { workspace = true }
 rand = { workspace = true }
 gloo-timers = "0.3"
