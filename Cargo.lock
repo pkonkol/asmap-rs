@@ -173,19 +173,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "asmap-rs"
+name = "asmap-cli"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "asdb",
  "asdb-builder",
  "asdb-models",
  "clap",
  "config 0.1.0",
  "csv",
- "indicatif",
+ "serde",
  "serde_json",
  "tokio",
 ]
+
+[[package]]
+name = "asmap-rs"
+version = "0.1.0"
 
 [[package]]
 name = "async-compression"

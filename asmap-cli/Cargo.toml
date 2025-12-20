@@ -1,0 +1,20 @@
+[package]
+name = "asmap-cli"
+version = "0.1.0"
+edition.workspace = true
+
+[[bin]]
+name = "asmap"
+path = "src/main.rs"
+
+[dependencies]
+asdb = { path = "../asdb" }
+asdb-builder = { path = "../asdb-builder" }
+asdb-models = { path = "../asdb-models" }
+config = { path = "../config" }
+tokio = { workspace = true, features = ["full"] }
+clap = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+csv = { workspace = true }
+anyhow = { workspace = true }

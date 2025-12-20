@@ -1,4 +1,4 @@
-use geocoding::{Forward, Opencage, Openstreetmap, Point};
+use geocoding_crate::{Forward, Opencage, Openstreetmap, Point};
 
 pub fn georesolve(address: &str) -> Vec<Point<f64>> {
     let osm = Openstreetmap::new();
