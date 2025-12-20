@@ -54,7 +54,7 @@ impl AsdbBuilder {
 #[cfg(test)]
 mod tests {
     use futures::stream::TryStreamExt;
-    use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
+    use mongodb::{Client, Collection, bson::doc, options::ClientOptions};
 
     use super::*;
     use asdb_models::As;
@@ -141,7 +141,7 @@ mod tests {
         client_options.default_database = Some(db_name.to_string());
         let client = Client::with_options(client_options).unwrap();
         let c: Collection<As> = client.database(db_name).collection(ASNS_COLLECTION);
-        c.count_documents(None, None).await.unwrap()
+        c.count_documents(doc! {}).await.unwrap()
     }
 
     async fn get_asn_entries(asn: u32, db_name: &str) -> Vec<As> {
@@ -149,7 +149,7 @@ mod tests {
         client_options.default_database = Some(db_name.to_string());
         let client = Client::with_options(client_options).unwrap();
         let c: Collection<As> = client.database(db_name).collection(ASNS_COLLECTION);
-        let cur = c.find(doc! {"asn": asn}, None).await.unwrap();
+        let cur = c.find(doc! {"asn": asn}).await.unwrap();
         cur.try_collect().await.unwrap()
     }
 }

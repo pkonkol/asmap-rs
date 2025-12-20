@@ -7,7 +7,7 @@ pub enum Error {
     #[error("request failed (which?)")]
     RequestError,
     #[error("problem with MMDB file")]
-    DbReadError(#[from] maxminddb::MaxMindDBError),
+    DbReadError(#[from] maxminddb::MaxMindDbError),
 }
 // impl Display for Error {
 //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -8,17 +8,16 @@ asdb = { path = "../../asdb" }
 asdb-models = { path = "../../asdb-models" }
 config = { path = "../../config" }
 protocol = { path = "../protocol" }
-axum = { version = "0.6", features = ["ws"] }
-axum-extra = { version = "0.6", features = ["spa"] }
+axum = { version = "0.8", features = ["ws"] }
 clap = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-tower = "0.4"
-tower-http = { version = "0.4", features = ["full", "cors", "trace"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["full", "cors", "trace"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 anyhow = { workspace = true }
 bincode = { workspace = true }
-tower_governor = { version = "0.1.0", features = ["tracing"] }
-governor = "0.6.3"
+tower_governor = { version = "0.8", features = ["tracing"] }
+governor = "0.10.4"
 nonzero_ext = "0.3.0"

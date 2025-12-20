@@ -2,8 +2,8 @@ use std::{net::SocketAddr, num::NonZeroU32};
 
 use axum::{
     extract::{
-        ws::{Message, WebSocket},
         ConnectInfo, State, WebSocketUpgrade,
+        ws::{Message, WebSocket},
     },
     response::IntoResponse,
 };
@@ -40,7 +40,7 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
                             addr.ip()
                         );
                         let resp = filtered_as(filters, addr, &state).await;
-                        socket.send(Message::Binary(resp)).await.unwrap();
+                        socket.send(Message::Binary(resp.into())).await.unwrap();
                         socket.send(Message::Close(None)).await.unwrap();
                         break;
                     }
@@ -50,7 +50,7 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
                             addr.ip()
                         );
                         let resp = as_details(asn, addr, &state).await;
-                        socket.send(Message::Binary(resp)).await.unwrap();
+                        socket.send(Message::Binary(resp.into())).await.unwrap();
                         socket.send(Message::Close(None)).await.unwrap();
                         break;
                     }
@@ -115,3 +115,6 @@ async fn as_details(asn: u32, addr: SocketAddr, state: &ServerState) -> Vec<u8> 
     debug!("successfuly encoded AS{asn} details");
     serialized
 }
+
+// TODO GIS handler for WHOIS update request
+// TODO GIS (optional) handler for adding comments on the selected AS's popup

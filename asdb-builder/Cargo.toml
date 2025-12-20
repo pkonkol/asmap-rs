@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-maxminddb = "0.23"
+maxminddb = "0.27"
 mongodb = { workspace = true }
 ipnetwork = { workspace = true }
 serde = { workspace = true }
@@ -17,11 +17,11 @@ isocountry = "0.3"
 thiserror = { workspace = true }
 trauma = "2.3"
 csv = { workspace = true }
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"] }
 itertools = { workspace = true }
 indicatif = { workspace = true }
-graphql_client = "0.13"
+graphql_client = "0.15"
 
 [dev-dependencies]
-ctor = "0.2"
+ctor = "0.6"
 futures = { workspace = true }

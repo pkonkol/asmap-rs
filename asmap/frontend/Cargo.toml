@@ -11,16 +11,21 @@ protocol = { path = "../protocol" }
 leaflet-markercluster = { path = "../../leaflet-markercluster" }
 console_error_panic_hook = "0.1"
 gloo-console = "0.3"
-gloo-net = { version = "0.4", features = ["json", "websocket"] }
+gloo-net = { version = "0.6", features = ["json", "websocket"] }
 gloo-utils = "0.2"
 leaflet = { workspace = true }
 log = { workspace = true }
 wasm-bindgen = { workspace = true, features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
 wasm-logger = "0.2"
-web-sys = { workspace = true, features = ["HtmlAnchorElement", "console", "Window", "Document"] }
-yew = { version = "0.21", features = ["csr"] }
-yew-router = "0.18"
+web-sys = { workspace = true, features = [
+    "HtmlAnchorElement",
+    "console",
+    "Window",
+    "Document",
+] }
+yew = { version = "0.22", features = ["csr"] }
+yew-router = "0.19"
 futures = { workspace = true }
 bincode = { workspace = true }
 anyhow = { workspace = true }
@@ -35,4 +40,4 @@ serde_json = { workspace = true }
 rand = { workspace = true }
 gloo-timers = "0.3"
 gloo-worker = { version = "0.5", features = ["futures"] }
-yew-agent = "0.3.0" # 0.3.0 doesn't build
+yew-agent = "0.4.0" # 0.3.0 doesn't build

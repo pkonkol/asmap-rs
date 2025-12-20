@@ -40,34 +40,66 @@ async fn read_asns(mmdb: &impl AsRef<Path>, asdb: &Asdb) -> Result<()> {
     println!("importing ipnetdb asns from mmdb file to the database");
     let reader = maxminddb::Reader::open_readfile(mmdb)?;
     let every_ip = IpNetwork::V4("0.0.0.0/0".parse().unwrap());
-    let iter: Within<read_models::IPNetDBAsn, _> = reader.within(every_ip).unwrap();
+    // let iter: Within<read_models::IPNetDBAsn> =
+    let iter = reader.within(every_ip, Default::default()).unwrap();
     let prefix_reader = maxminddb::Reader::open_readfile("inputs/ipnetdb_prefix_latest.mmdb")?;
 
-    let bar = indicatif::ProgressBar::new(reader.within::<()>(every_ip).unwrap().count() as u64);
+    let bar = indicatif::ProgressBar::new(
+        reader.within(every_ip, Default::default()).unwrap().count() as u64,
+    );
     for next in iter {
         let item = next.unwrap();
-        let asn = item.info.as_;
-        let asn_model: std::result::Result<asdb_models::IPNetDBAsn, _> =
-            item.info.clone().try_into();
+        let decoded = item.decode::<read_models::IPNetDBAsn>()?;
+        if decoded.is_none() {
+            println!(
+                "\ncouldn't parse asn read model into db model from read model {:#?} \nwith err {decoded:#?}",
+                item
+            );
+            return Err(Error::RequestError);
+            // cotiniue; (?) // TODO
+        }
+        let decoded = decoded.expect("checked for none before");
+
+        // CLN
+        // if let Some(d) = item.decode::<read_models::IPNetDBAsn>()? {
+        //     println!("sheeit decoded");
+        //     d.as_;
+        // }
+
+        let asn = decoded.as_;
+        let asn_model: std::result::Result<asdb_models::IPNetDBAsn, _> = decoded.clone().try_into();
         if asn_model.is_err() {
-            println!("\ncouldn't parse asn read model into db model from read model {:#?} \nwith err {asn_model:#?}", item.info);
+            println!(
+                "\ncouldn't parse asn read model into db model from read model {:#?} \nwith err {asn_model:#?}",
+                decoded
+            );
             return Err(Error::RequestError);
         }
         let mut asn_model = asn_model.expect("checked for err before");
+
         for i in asn_model.ipv4_prefixes.iter_mut() {
-            let prefix_model =
-                prefix_reader.lookup::<read_models::IPNetDBPrefix>(i.range.network());
-            if prefix_model.is_err() {
-                let serde_raw_prefix = prefix_reader.lookup::<serde_json::Value>(i.range.network());
+            let prefix_model_lookup =
+                // prefix_reader.lookup::<read_models::IPNetDBPrefix>(i.range.network());
+                prefix_reader.lookup(i.range.network());
+            if prefix_model_lookup.is_err() {
+                let prefix_lookup = prefix_reader.lookup(i.range.network())?;
+                let serde_raw_prefix = prefix_lookup.decode::<serde_json::Value>()?;
                 println!("\nraw serde value: {:#?}", serde_raw_prefix);
-                println!("parsed value {:#?}", prefix_model);
+                println!("parsed value {:#?}", prefix_model_lookup);
                 println!("omitting prefix details {:-<100}", "x");
                 continue;
             }
+            let prefix_model_decoded = prefix_model_lookup.unwrap();
+            let prefix_model = prefix_model_decoded
+                .decode::<read_models::IPNetDBPrefix>()
+                .unwrap();
             let details = asdb_models::IPNetDBPrefixDetails::try_from(prefix_model.unwrap());
             if details.is_err() {
-                let serde_raw_prefix = prefix_reader.lookup::<serde_json::Value>(i.range.network());
-                println!("couldn't cast read prefix model {serde_raw_prefix:#?} with error : {details:?}");
+                let prefix_lookup = prefix_reader.lookup(i.range.network())?;
+                let serde_raw_prefix = prefix_lookup.decode::<serde_json::Value>()?;
+                println!(
+                    "couldn't cast read prefix model {serde_raw_prefix:#?} with error : {details:?}"
+                );
                 continue;
             }
             i.details = Some(details.unwrap());

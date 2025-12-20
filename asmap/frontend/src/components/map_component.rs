@@ -1,14 +1,17 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Write,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex},
 };
 
 use gloo_console::log;
 use gloo_file::{Blob, ObjectUrl};
 use gloo_utils::document;
 use js_sys::Object;
-use leaflet::{Icon, LatLng, Map, Marker, TileLayer};
+use leaflet::{
+    Icon, IconOptions, LatLng, Map, MapOptions, Marker, MarkerOptions, Popup, PopupOptions,
+    TileLayer, Tooltip, TooltipOptions,
+};
 use protocol::{AsFilters, AsFiltersHasOrg, AsForFrontend};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{JsCast, prelude::*};
@@ -89,6 +92,8 @@ impl MapComponent {
     }
 
     fn filter_menu(&self, ctx: &Context<Self>) -> Html {
+        // TODO GIS style tailwindowe
+        // TODO GIS
         html! {
             <div>
                 <div >
@@ -174,7 +179,7 @@ impl MapComponent {
                         })}>
                             <option value="Any">{"Any"}</option>
                             { asdb_models::categories::CATEGORIES.iter().map(|(category, _subcategories)| {
-                                html!{<option value={ *category }>{ category }</option>}
+                                html!{<option value={ *category }>{ *category }</option>}
                             }).collect::<Html>() }
                         </select>
                     </div>
@@ -306,14 +311,17 @@ impl Component for MapComponent {
         let container: Element = document().create_element("div").unwrap();
         let container: HtmlElement = container.dyn_into().unwrap();
         container.set_class_name("map w-full h-full");
+        // TODO GIS tailwind dla mapy
+
         // let style = container.style();
         // style.set_property("width", "100%").ok();
         // style.set_property("height", "100%").ok();
         // style.set_property("display", "block").ok();
         // style.set_property("position", "relative").ok();
 
-        let leaflet_map = Map::new_with_element(&container, &JsValue::NULL);
-        leaflet_map.setMaxZoom(18.0);
+        let x: MapOptions = MapOptions::new();
+        let leaflet_map = Map::new_with_element(&container, &x).unwrap();
+        leaflet_map.set_max_zoom(18.0);
 
         let marker_cluster_opts = js_sys::Object::new();
         let cluster_radius_func =
@@ -335,7 +343,7 @@ impl Component for MapComponent {
 
         let marker_cluster = markerClusterGroup(&marker_cluster_opts.into());
 
-        marker_cluster.addTo(&leaflet_map);
+        marker_cluster.add_to(&leaflet_map);
         let initial_filters = AsFilters {
             country: Some("PL".to_string()),
             exclude_country: false,
@@ -359,7 +367,7 @@ impl Component for MapComponent {
 
     fn rendered(&mut self, _ctx: &Context<Self>, first_render: bool) {
         if first_render {
-            self.map.setView(&LatLng::new(POLAND_LAT, POLAND_LON), 5.0);
+            self.map.set_view(&LatLng::new(POLAND_LAT, POLAND_LON), 5.0);
             add_tile_layer(&self.map);
         }
     }
@@ -368,7 +376,7 @@ impl Component for MapComponent {
         match msg {
             Msg::LoadAsBounded => {
                 let bounds: models::LatLngBounds =
-                    serde_wasm_bindgen::from_value(self.map.getBounds().into()).unwrap();
+                    serde_wasm_bindgen::from_value(self.map.get_bounds().into()).unwrap();
                 log!(format!("load AS bounded initiatied, bounds: {bounds:?}"));
 
                 let filters = AsFilters {
@@ -396,7 +404,7 @@ impl Component for MapComponent {
                 // Bounds must be dynamically updated at the time of button press if checkbox is on
                 if self.next_filters.bounds.is_some() {
                     let bounds: models::LatLngBounds =
-                        serde_wasm_bindgen::from_value(self.map.getBounds().into()).unwrap();
+                        serde_wasm_bindgen::from_value(self.map.get_bounds().into()).unwrap();
                     self.next_filters.bounds = Some(Bound {
                         north_east: Coord {
                             lat: bounds._north_east.lat,
@@ -602,7 +610,7 @@ impl Component for MapComponent {
 
                     markers.lock().unwrap().push(m);
                 });
-                log!((js_sys::Date::now() - start));
+                log!(js_sys::Date::now() - start);
                 log!("adding marker Layers to map");
                 // TODO move normally instead of lcone
                 let mk = markers.lock().unwrap().clone();
@@ -615,7 +623,7 @@ impl Component for MapComponent {
                     as_.asn
                 ));
                 let marker = self.marker_cluster.getLayer(marker_id);
-                let mut old_str = marker.getPopup().getContent().as_string().unwrap();
+                let mut old_str = marker.get_popup().get_content().as_string().unwrap();
 
                 let mut details = String::new();
                 details.push_str(&format!(
@@ -665,7 +673,7 @@ impl Component for MapComponent {
                     })
                 ));
 
-                marker.setPopupContent(&JsValue::from_str(&format!("{old_str}<br>{details}")));
+                marker.set_popup_content(&JsValue::from_str(&format!("{old_str}<br>{details}")));
                 self.detailed_ases.insert(as_.asn, as_);
                 log!("marker updated");
             }
@@ -725,11 +733,7 @@ impl Component for MapComponent {
 }
 
 fn add_tile_layer(map: &Map) {
-    TileLayer::new(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        &JsValue::NULL,
-    )
-    .addTo(map);
+    TileLayer::new("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").add_to(map);
 }
 
 #[derive(Serialize)]
@@ -740,32 +744,28 @@ struct IconOpts {
     pub class_name: String,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct PopupOpts {
-    pub max_width: i64,
-}
-
 fn create_marker(description: &str, tooltip: &str, coord: &Point, size: (u64, u64)) -> Marker {
-    let opts = JsValue::from_str(r#"{"opacity": "0.5"}"#);
+    let opts = MarkerOptions::new();
+    opts.set_opacity(0.5);
     let latlng = LatLng::new(coord.0, coord.1);
     let m = Marker::new_with_options(&latlng, &opts);
 
-    m.bindPopup(
-        &JsValue::from_str(description),
-        &serde_wasm_bindgen::to_value(&PopupOpts { max_width: 600 }).unwrap(),
-    );
-    m.bindTooltip(&JsValue::from_str(tooltip), &JsValue::NULL);
+    let popts = PopupOptions::new();
+    popts.set_max_width(600.0);
+    let p = Popup::new(&popts, None);
+    p.set_content(&JsValue::from_str(description));
+    m.bind_popup(&p);
+    let t = Tooltip::new(&TooltipOptions::new(), None);
+    t.set_content(&JsValue::from_str(tooltip));
+    m.bind_tooltip(&t);
 
-    let i = Icon::new(
-        &serde_wasm_bindgen::to_value(&IconOpts {
-            icon_url: MARKER_ICON_URL.to_string(),
-            icon_size: vec![size.0, size.1],
-            class_name: "test-classname".to_string(),
-        })
-        .unwrap(),
-    );
-    m.setIcon(&i);
+    let iopts = IconOptions::new();
+    iopts.set_class_name("test-classname".to_string());
+    iopts.set_icon_size(leaflet::Point::new(size.0 as f64, size.1 as f64));
+    iopts.set_icon_url(MARKER_ICON_URL.to_string());
+    let i = Icon::new(&iopts);
+    //&serde_wasm_bindgen::to_value(&IconOpts { icon_url: MARKER_ICON_URL.to_string(), icon_size: vec![size.0, size.1], class_name: "test-classname".to_string(), }) .unwrap(),
+    m.set_icon(&i);
     m
 }
 

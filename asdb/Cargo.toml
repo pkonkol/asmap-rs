@@ -23,8 +23,8 @@ itertools = { workspace = true }
 wasm-bindgen = { workspace = true }
 js-sys = { workspace = true }
 web-sys = { workspace = true }
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [dev-dependencies]
-ctor = "0.2"
+ctor = "0.6"
 itertools = { workspace = true }

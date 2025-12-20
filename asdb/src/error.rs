@@ -18,7 +18,9 @@ impl From<mongodb::error::Error> for Error {
     fn from(value: mongodb::error::Error) -> Self {
         match value.kind.as_ref() {
             mongodb::error::ErrorKind::BulkWrite(e) => {
-                let v = e.write_errors.as_deref().unwrap();
+                let tmp_werrs = &e.write_errors; //.as_ref().unwrap();
+                let v = tmp_werrs.values();
+
                 let mut count = 0;
                 for x in v {
                     if x.code != DUPLICATES_CODE_ERROR {

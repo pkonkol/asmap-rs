@@ -1,5 +1,5 @@
-use mongodb::{options::ClientOptions, Client};
-use rand::distributions::{Alphanumeric, DistString};
+use mongodb::{Client, options::ClientOptions};
+use rand::distr::{Alphabetic, SampleString};
 use thiserror::Error;
 
 /// Returns a guard handle to the database with randomly created alphanumeric string as a name
@@ -33,14 +33,14 @@ impl TestContext {
     }
 
     async fn create_random_database(conn_str: &str) -> Result<String, TestContextError> {
-        let new_database = Alphanumeric.sample_string(&mut rand::thread_rng(), 63);
+        let new_database = Alphabetic.sample_string(&mut rand::rng(), 63);
 
         let client_options = ClientOptions::parse(conn_str).await?;
         let client = Client::with_options(client_options)?;
 
         let db = client.database(&new_database);
 
-        db.list_collection_names(None).await?;
+        db.list_collection_names().await?;
 
         Ok(new_database)
     }
@@ -50,7 +50,7 @@ impl TestContext {
         let client = Client::with_options(client_options).unwrap();
 
         let db = client.database(name);
-        let t = db.drop(None).await;
+        let t = db.drop().await;
 
         t.unwrap();
     }
@@ -92,17 +92,17 @@ mod tests {
 
         client
             .database(&context.db_name)
-            .create_collection("test", None)
+            .create_collection("test")
             .await
             .unwrap();
 
-        let names = client.list_database_names(None, None).await.unwrap();
+        let names = client.list_database_names().await.unwrap();
         assert!(names.contains(&context_db_name));
         println!("{names:?}");
 
         drop(context);
 
-        let names = client.list_database_names(None, None).await.unwrap();
+        let names = client.list_database_names().await.unwrap();
         println!("{names:?}");
         assert!(!names.contains(&context_db_name));
     }
