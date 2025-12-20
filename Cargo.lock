@@ -189,10 +189,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "asmap-rs"
-version = "0.1.0"
-
-[[package]]
 name = "async-compression"
 version = "0.4.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1066,6 +1062,13 @@ dependencies = [
 
 [[package]]
 name = "geocoding"
+version = "0.1.0"
+dependencies = [
+ "geocoding 0.4.0",
+]
+
+[[package]]
+name = "geocoding"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa5cbcc647209c5e0526a0ce3503e57413e1f17dca846b36c402587b2959a719"
@@ -1078,13 +1081,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "georesolve"
-version = "0.1.0"
-dependencies = [
- "geocoding",
 ]
 
 [[package]]

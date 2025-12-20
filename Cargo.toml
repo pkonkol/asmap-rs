@@ -1,9 +1,3 @@
-[package]
-name = "asmap-rs"
-version = "0.1.0"
-description = "Interactive map of internet autonomous systems, organisations and persons"
-edition = "2024"
-
 [workspace]
 members = [
     "asdb",
