@@ -41,3 +41,4 @@ rand = { workspace = true }
 gloo-timers = "0.3"
 gloo-worker = { version = "0.5", features = ["futures"] }
 yew-agent = "0.4.0" # 0.3.0 doesn't build
+getrandom = { version = "0.3", features = ["wasm_js"] }

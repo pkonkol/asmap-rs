@@ -27,3 +27,4 @@ dist/
 .env
 .DS_Store
 asmap/frontend/css/output.css
+notes.md

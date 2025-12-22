@@ -7,8 +7,8 @@ backend = "http://[::1]:8081/api/"
 
 [[hooks]]
 stage = "pre_build"
-command = "npm"
-command_arguments = ["run", "build:css"]
+command = "sh"
+command_arguments = ["-c", "npm install @tailwindcss/cli && npm run build:css"]
 
 [watch]
 ignore = ["css/output.css"]

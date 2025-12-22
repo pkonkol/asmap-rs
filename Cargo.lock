@@ -1015,6 +1015,7 @@ dependencies = [
  "console_error_panic_hook",
  "csv",
  "futures",
+ "getrandom 0.3.4",
  "gloo-console",
  "gloo-file",
  "gloo-net 0.6.0",
