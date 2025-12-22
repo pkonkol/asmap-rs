@@ -13,6 +13,10 @@ pub struct As {
     pub stanford_asdb: Vec<StanfordASdbCategory>,
 }
 
+// TODO GIS dodac tutaj nowe modele danych dla tego co wczytamy z whoisa
+// zapisac w bazie sam raw output z whoisa i przeparsowane co trzeba
+// zakomentowane tez jakies moje eksperymenty, na wzor
+
 // Based on ipnetdb data? or merge ipnetdb with asrank?
 // details from whois, currently only for RIPE
 // TODO this too was supposed to not be attached to 1 data source. Needed?
@@ -106,17 +110,15 @@ pub struct IPNetDBAsn {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct IPNetDBIX {
     pub exchange: String,
-    // These 2 shoud have proper types but there is some bug with deserialization from mongo
-    // thread 'tests::insert_then_get_ipnetdb_as' panicked at 'called `Result::unwrap()` on an `Err` value: Connection("Kind: invalid type: string \"1:2:3:4:5:6:7:8\", expected an array of length 16, labels: {}")
-    pub ipv4: Option<[u8; 4]>,  //Ipv4Addr,
-    pub ipv6: Option<[u8; 16]>, //Ipv6Addr,
+    pub ipv4: Option<[u8; 4]>,
+    pub ipv6: Option<[u8; 16]>,
     pub name: Option<String>,
     pub speed: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct IPNetDBPrefix {
-    pub range: IpNetwork, // Would it be any better to store it as IpNetwork object?
+    pub range: IpNetwork,
     pub details: Option<IPNetDBPrefixDetails>,
 }
 
@@ -160,8 +162,6 @@ pub enum InternetRegistry {
 }
 
 impl From<&str> for InternetRegistry {
-    //type Error = String;
-
     fn from(value: &str) -> Self {
         let value = value.trim();
         if value.eq_ignore_ascii_case("ripe") {
@@ -219,7 +219,6 @@ pub struct AsFilters {
     pub category: Vec<String>,
 }
 
-// TODO use if manual impl wont work
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AsForFrontendFromDB {
     pub asn: u32,
@@ -250,7 +249,6 @@ pub struct AsForFrontend {
     pub coordinates: Coord,
 }
 
-// prob 1000 times easier
 impl From<AsForFrontendFromDB> for AsForFrontend {
     fn from(value: AsForFrontendFromDB) -> Self {
         Self {

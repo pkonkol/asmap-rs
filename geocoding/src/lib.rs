@@ -1,3 +1,6 @@
+// TODO GIS dopisac tutaj dzialajace funkcje obslugujace zamiane adresow z whoisa na koordynaty lat/lon przez jakies api
+// to co tutaj mam to jakies eksperymenty, mozna zaorac jesli trzeba
+
 use geocoding_crate::{Forward, Opencage, Openstreetmap, Point};
 
 pub fn georesolve(address: &str) -> Vec<Point<f64>> {

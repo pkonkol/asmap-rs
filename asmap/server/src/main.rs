@@ -110,11 +110,6 @@ async fn main() {
     axum::serve(listener, a)
         .await
         .expect("Unable to start server");
-    // axum::Server::bind(&sock_addr)
-    //     //.serve(app.into_make_service_with_connect_info::<SocketAddr>())
-    //     .serve(a)
-    //     .await
-    //     .expect("Unable to start server");
 }
 
 async fn governor_cleanup(state: ServerState) {

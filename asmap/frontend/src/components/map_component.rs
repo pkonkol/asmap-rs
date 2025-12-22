@@ -701,6 +701,8 @@ impl Component for MapComponent {
         true
     }
 
+    // TODO GIS style tailwindowe
+    // TODO GIS obsluga zapytania o skan whoisa w popupie i na stronie z detalami
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="min-h-screen bg-slate-50 text-slate-100 flex flex-col md:flex-row gap-4 p-4">

@@ -1,5 +1,8 @@
 //! module responsible for retrieving as locations from API
 //!
+//!
+
+// TODO GIS obsluga komunikacji na temat whoisa z backendem
 
 use asdb_models::As;
 use protocol::{AsFilters, AsForFrontend, WSRequest, WSResponse};

@@ -1,3 +1,5 @@
+// TODO GIS nowe wiadomosci websocketowe do wyslania zapytania o sprawdzenie whoisa i odczytania detali z whoisem
+
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};

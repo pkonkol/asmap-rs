@@ -1,21 +1,33 @@
+//! Builds and populates an AS database from multiple data sources.
+//!
+//! Downloads and imports data from ASRank, IPNetDB, and Stanford ASDB into MongoDB.
+
 mod asrank;
 mod error;
 mod ipnetdb;
 mod stanford_asdb;
-// mod whois;
 
 use std::path::{Path, PathBuf};
 
 use asdb::Asdb;
 use error::Result;
 
-// TODO manage asdb object better
+/// Main builder for populating the AS database.
+///
+/// Interfaces with MongoDB through the `asdb` crate to import AS data
+/// from ASRank API, IPNetDB MaxMind files, and Stanford classifications.
 pub struct AsdbBuilder {
     a: Asdb,
     inputs: PathBuf,
 }
 
 impl AsdbBuilder {
+    /// Creates a new builder connected to MongoDB.
+    ///
+    /// # Arguments
+    /// * `conn_str` - MongoDB connection string
+    /// * `database` - Database name
+    /// * `inputs_path` - Directory for downloaded files
     pub async fn new(conn_str: &str, database: &str, inputs_path: &str) -> Result<Self> {
         let a = Asdb::new(conn_str, database).await?;
         Ok(Self {
@@ -24,27 +36,34 @@ impl AsdbBuilder {
         })
     }
 
+    /// Drops all collections and recreates indexes.
     pub async fn clear_database(&self) -> Result<()> {
         self.a.clear_database().await?;
         self.a.prepare_database().await?;
         Ok(())
     }
 
+    /// Downloads ASRank data via GraphQL and imports to MongoDB.
+    ///
+    /// If `asns_jsonl` is provided, reads from that file instead of downloading.
     pub async fn load_asrank_asns(&self, asns_jsonl: Option<impl AsRef<Path>>) -> Result<()> {
         asrank::load(&self.a, asns_jsonl.map(|x| self.inputs.join(x))).await?;
         Ok(())
     }
 
+    /// Downloads IPNetDB MaxMind databases and imports IP prefix data.
     pub async fn load_ipnetdb(&self) -> Result<()> {
         ipnetdb::load(&self.a).await?;
         Ok(())
     }
 
+    /// Downloads Stanford ASDB classifications and imports AS categories.
     pub async fn load_stanford_asdb(&self) -> Result<()> {
         stanford_asdb::load(&self.a).await?;
         Ok(())
     }
 
+    /// Generates normalized AS categories from imported data.
     pub async fn generate_categories(&self) -> Result<()> {
         stanford_asdb::categories::generate().await;
         Ok(())
@@ -65,7 +84,7 @@ mod tests {
     const ASNS_COLLECTION: &str = "asns";
     const ASNS: &str = "asns.jsonl";
     const ASNS2: &str = "asns2.jsonl";
-    const INPUTS_PATH: &str = "inputs/test-data";
+    const INPUTS_PATH: &str = "test-data";
 
     #[tokio::test(flavor = "multi_thread")]
     async fn import_asrank_asns_fills_asdb() {

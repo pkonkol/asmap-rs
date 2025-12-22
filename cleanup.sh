@@ -1,24 +1,20 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 # remove database, files generated, files downloaded, cargo artifacts, node_modules, and dist
 # flags: --all --generated --downloaded --database --cargo --frontend
-
-OPTS=`getopt -o agdbc -l all,generated,downloaded,database,cargo,frontend -- "$@"`
-if [[ $? -ne 0 ]]; then
-    exit 1;
-fi
-eval set -- "$OPTS"
 
 clean_cargo=false
 clean_frontend=false
 clean_database=false
 clean_downloaded=false
 
-while true; do
+# Parse arguments manually (getopt behaves differently on macOS vs Linux)
+while [[ $# -gt 0 ]]; do
     case "$1" in 
         -a|--all)
             clean_cargo=true
             clean_frontend=true
             clean_database=true
+            clean_downloaded=true
             shift ;;
         -g|--generated)
             clean_cargo=true
@@ -35,12 +31,15 @@ while true; do
         -f|--frontend)
             clean_frontend=true
             shift ;;
-        --) shift; break ;;
-        *) echo "Error"; exit 1 ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [-a|--all] [-g|--generated] [-d|--downloaded] [-b|--database] [-c|--cargo] [-f|--frontend]"
+            exit 1 ;;
     esac
 done
 
 if [ "$clean_downloaded" = true ]; then
+    echo "Cleaning downloaded"
     # Safety check: verify we're in the correct repository
     if [ ! -f "Cargo.toml" ] || [ ! -d "asmap/frontend" ]; then
         echo "Error: Not in asmap-gis repository root. Aborting inputs/ deletion."
@@ -63,6 +62,7 @@ if [ "$clean_downloaded" = true ]; then
 fi
 
 if [ "$clean_database" = true ]; then
+    echo "Cleaning database..."
     docker-compose down -v
 fi
 

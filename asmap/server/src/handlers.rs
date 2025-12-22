@@ -21,6 +21,8 @@ pub async fn as_handler(
     ws.on_upgrade(move |socket| handle_as_socket(socket, addr, state))
 }
 
+// TODO GIS obsluga zapytan o pobranie detali z whoisa i o zwrocenie detali z whoisem
+// Logka albo tutaj jako dodatkowe funkcje albo raczej w asdb_builder::whois, z ktorego sie je zaladuje tylko
 #[tracing::instrument(skip(state, socket))]
 pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: ServerState) {
     loop {

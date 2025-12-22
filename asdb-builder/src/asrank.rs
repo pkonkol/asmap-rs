@@ -8,8 +8,8 @@ pub use error::{Error, Result};
 
 use indicatif::ProgressIterator;
 use serde_json::Value;
-use std::io::prelude::*;
 use std::io::BufReader;
+use std::io::prelude::*;
 use std::{fs::File, path::Path};
 
 use crate::asrank::graphql::asns_query;
@@ -110,7 +110,7 @@ pub async fn download_asns() -> Result<Vec<As>> {
             .total_count as u64,
     );
     let mut out = vec![];
-    bar.inc(1);
+    bar.inc(0);
     let mut page: i64 = 0;
     loop {
         let variables = asns_query::Variables {
@@ -118,7 +118,11 @@ pub async fn download_asns() -> Result<Vec<As>> {
             offset: PAGE_SIZE * page,
         };
         let request_body = AsnsQuery::build_query(variables);
+
+        println!("starting request");
         let res = client.post(API_URL).json(&request_body).send().await?;
+        println!("got response, parsing and inserting data");
+
         let response_body: Response<asns_query::ResponseData> = res.json().await?;
         let data = response_body
             .data

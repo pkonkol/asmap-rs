@@ -71,8 +71,10 @@ impl Asdb {
         Ok(())
     }
 
-    // TODO consider merging get_ases and get_as_filtered, just do filters: Option<AsFilters>
-    /// returns result with found ases and total count of ases in the DB
+    // TODO GIS
+    // dodac funkcje do obslugi samych detali z whoisa
+    // rozszerzyc obecne zgodnie z tym czeog moze potrzebowac backend/frontend
+
     #[tracing::instrument]
     pub async fn get_ases_page(&self, limit: i64, skip: u64) -> Result<(Vec<AsForFrontend>, u64)> {
         let collection = self

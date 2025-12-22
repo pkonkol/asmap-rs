@@ -22,6 +22,7 @@ impl Component for MapContainer {
         false
     }
 
+    // TODO GIS dodatkowa podstrona z detalami
     fn view(&self, _ctx: &Context<Self>) -> Html {
         html! {
             <>
