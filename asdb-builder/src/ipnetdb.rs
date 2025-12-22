@@ -1,7 +1,6 @@
 use asdb::Asdb;
 
 use ipnetwork::IpNetwork;
-use maxminddb::Within;
 
 use std::{ffi::OsStr, path::Path};
 use trauma::{download::Download, downloader::DownloaderBuilder};

@@ -13,7 +13,7 @@ use leaflet::{
     TileLayer, Tooltip, TooltipOptions,
 };
 use protocol::{AsFilters, AsFiltersHasOrg, AsForFrontend};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use wasm_bindgen::{JsCast, prelude::*};
 use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlCollection, HtmlElement, HtmlInputElement, Node};
@@ -528,9 +528,9 @@ impl Component for MapComponent {
                     let huj = x.clone();
                     let ms = rand::random::<u32>() % 1000;
                     // gloo_timers::future::TimeoutFuture::new(ms).await;
-                    let mut huj2 = 0;
-                    for i in 0..(ms * 10000) {
-                        huj2 += 1;
+                    let mut _huj2 = 0;
+                    for _i in 0..(ms * 10000) {
+                        _huj2 += 1;
                     }
                     log!(format!("parallel x: {huj}, slept {ms}"));
                     // wasm_bindgen_futures::spawn_local(async move {
@@ -734,14 +734,6 @@ impl Component for MapComponent {
 
 fn add_tile_layer(map: &Map) {
     TileLayer::new("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").add_to(map);
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct IconOpts {
-    pub icon_url: String,
-    pub icon_size: Vec<u64>,
-    pub class_name: String,
 }
 
 fn create_marker(description: &str, tooltip: &str, coord: &Point, size: (u64, u64)) -> Marker {

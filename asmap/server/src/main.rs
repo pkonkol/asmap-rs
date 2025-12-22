@@ -1,4 +1,4 @@
-use axum::{BoxError, Router, error_handling::HandleErrorLayer, http, routing::get};
+use axum::{Router, http, routing::get};
 use clap::Parser;
 use std::{
     net::{IpAddr, Ipv6Addr, SocketAddr},
