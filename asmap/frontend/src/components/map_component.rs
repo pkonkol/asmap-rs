@@ -75,151 +75,261 @@ pub struct Point(pub f64, pub f64);
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {}
 
-// interface components
+// ============================================================================
+// UI COMPONENTS - Render filter menu, buttons, and debug info
+// ============================================================================
 impl MapComponent {
-    fn load_as_bounded_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::LoadAsBounded);
-        html! {
-            <button onclick={cb}>{"Load all ASes in visible range"}</button>
-        }
-    }
-
-    fn load_as_filtered_button(&self, ctx: &Context<Self>) -> Html {
-        let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
-        html! {
-            <button onclick={cb}>{"Load ASes by filters ->"}</button>
-        }
-    }
-
     fn filter_menu(&self, ctx: &Context<Self>) -> Html {
         // TODO GIS style tailwindowe
         // TODO GIS
         html! {
-            <div>
-                <div >
-                    <div style="display:inline-block;">{"min addr"}<br/>
-                        <input title="test" type="number" id="minAddresses" value={self.next_filters.addresses.unwrap().0.to_string()} min="0" max="99999999" style="width: 5em;"
+            <div class="space-y-4">
+                // Bounded Checkbox
+                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div class="flex items-center gap-2 pt-1">
+                    <input
+                        type="checkbox"
+                        id="isBounded"
+                        checked={self.next_filters.bounds.is_some()}
+                        class="w-4 h-4 bg-slate-900 border-slate-600 rounded focus:ring-2 focus:ring-blue-500"
+                        oninput={ctx.link().callback(|_e: InputEvent| {
+                            Msg::UpdateFilters(FilterForm::IsBounded)
+                        })}
+                    />
+                    <label for="isBounded" class="text-xs text-slate-400 cursor-pointer">{"Bound to visible area"}</label>
+                </div>
+                </div>
+                // Address Range Filter
+                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <div class="space-y-2">
+                        <label class="block text-xs font-medium text-slate-400">{"Min Addresses"}</label>
+                        <input
+                            type="number"
+                            id="minAddresses"
+                            value={self.next_filters.addresses.unwrap().0.to_string()}
+                            min="0"
+                            max="99999999"
+                            class="w-full px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MinAddresses(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
-                        <br/>{"max addr"}<br/>
-                        <input type="number" id="maxAddresses" value={self.next_filters.addresses.unwrap().1.to_string()} min="0" max="99999999" style="width: 5em;"
+
+                        <label class="block text-xs font-medium text-slate-400 mt-3">{"Max Addresses"}</label>
+                        <input
+                            type="number"
+                            id="maxAddresses"
+                            value={self.next_filters.addresses.unwrap().1.to_string()}
+                            min="0"
+                            max="99999999"
+                            class="w-full px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MaxAddresses(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
                     </div>
-                    <div style="display:inline-block;">{"country"}<br/>
-                        <input type="text" id="countryCode" value={self.next_filters.country.clone()} size="2"
+                </div>
+
+                // Country Filter
+                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <div class="space-y-2">
+                        <label class="block text-xs font-medium text-slate-400">{"Country Code"}</label>
+                        <input
+                            type="text"
+                            id="countryCode"
+                            value={self.next_filters.country.clone()}
+                            maxlength="2"
+                            placeholder="PL"
+                            class="w-20 px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::CountryCode(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
-                        <br/>
-                        {"exclude"}<br/>
-                        <input type="checkbox" id="excludeCountry" checked={self.next_filters.exclude_country}
-                            oninput={ctx.link().callback(|_e: InputEvent| {
-                                Msg::UpdateFilters(FilterForm::ExcludeCountry)
-                            })}
-                        />
+
+                        <div class="flex items-center gap-2 mt-2">
+                            <input
+                                type="checkbox"
+                                id="excludeCountry"
+                                checked={self.next_filters.exclude_country}
+                                class="w-4 h-4 bg-slate-900 border-slate-600 rounded focus:ring-2 focus:ring-blue-500"
+                                oninput={ctx.link().callback(|_e: InputEvent| {
+                                    Msg::UpdateFilters(FilterForm::ExcludeCountry)
+                                })}
+                            />
+                            <label for="excludeCountry" class="text-xs text-slate-400 cursor-pointer">{"Exclude country"}</label>
+                        </div>
                     </div>
-                    <div style="display:inline-block;">{"min rank"}<br/>
-                        <input type="number" id="minRank" value={self.next_filters.rank.unwrap().0.to_string()} min="0" max="999999" style="width: 4em;"
+                </div>
+
+                // Rank Range Filter
+                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <div class="space-y-2">
+                        <label class="block text-xs font-medium text-slate-400">{"Min Rank"}</label>
+                        <input
+                            type="number"
+                            id="minRank"
+                            value={self.next_filters.rank.unwrap().0.to_string()}
+                            min="0"
+                            max="999999"
+                            class="w-24 px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::MinRank(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
-                        <br/>{"max rank"}<br/>
-                            <input type="number" id="maxRank" value={self.next_filters.rank.unwrap().1.to_string()} min="0" max="999999" style="width: 4em;"
-                                oninput={ctx.link().callback(|e: InputEvent| {
-                                    Msg::UpdateFilters(FilterForm::MaxRank(
-                                        e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
-                                })}
-                            />
-                    </div>
-                    <div style="display:inline-block;">
-                        {"hasOrg\u{00a0}"}<br/>
-                        <select id="hasOrg" name="hasOrgSel"
-                            onchange={ctx.link().callback(|e: Event| {
-                                let selected = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("value")).unwrap().as_string().unwrap();
-                                Msg::UpdateFilters(FilterForm::HasOrg(selected))
-                        })}>
-                            <option value="yes">{"yes"}</option>
-                            <option value="no">{"no"}</option>
-                            <option value="both">{"both"}</option>
-                        </select>
-                        <br/>{"isBounded"}<br/>
-                        <input type="checkbox" id="isBounded" checked={self.next_filters.bounds.is_some()}
-                            oninput={ctx.link().callback(|_e: InputEvent| {
-                                Msg::UpdateFilters(FilterForm::IsBounded)
+
+                        <label class="block text-xs font-medium text-slate-400 mt-3">{"Max Rank"}</label>
+                        <input
+                            type="number"
+                            id="maxRank"
+                            value={self.next_filters.rank.unwrap().1.to_string()}
+                            min="0"
+                            max="999999"
+                            class="w-24 px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                Msg::UpdateFilters(FilterForm::MaxRank(
+                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
                     </div>
-                    <div style="display:inline-block;">
-                        {"category\u{00a0}"}<br/>
-                        <select id="category" name="category" multiple=true style="width: 20em;"
-                            onchange={ctx.link().callback(|e: Event| {
-                                let selected_options = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("selectedOptions"))
-                                    .unwrap()
-                                    .dyn_into::<HtmlCollection>()
-                                    .unwrap();
+                </div>
 
-                                let mut selected = vec![];
-                                for i in 0..selected_options.length() {
-                                    let item = selected_options.item(i).unwrap();
-                                    let category = js_sys::Reflect::get(&item, &JsValue::from_str("text")).unwrap().as_string().unwrap();
-                                    selected.push(category);
-                                };
-                                Msg::UpdateFilters(FilterForm::Category(selected))
-                        })}>
-                            <option value="Any">{"Any"}</option>
-                            { asdb_models::categories::CATEGORIES.iter().map(|(category, _subcategories)| {
-                                html!{<option value={ *category }>{ *category }</option>}
-                            }).collect::<Html>() }
-                        </select>
+                // Organization & Bounds Filter
+                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-2">{"Has Organization"}</label>
+                            <select
+                                id="hasOrg"
+                                name="hasOrgSel"
+                                class="w-full px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onchange={ctx.link().callback(|e: Event| {
+                                    let selected = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("value")).unwrap().as_string().unwrap();
+                                    Msg::UpdateFilters(FilterForm::HasOrg(selected))
+                            })}>
+                                <option value="yes">{"Yes"}</option>
+                                <option value="no">{"No"}</option>
+                                <option value="both">{"Both"}</option>
+                            </select>
+                        </div>
+
                     </div>
                 </div>
+
+                // Category Filter
+                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <label class="block text-xs font-medium text-slate-400 mb-2">{"Category"}</label>
+                    <select
+                        id="category"
+                        name="category"
+                        multiple=true
+                        class="w-full h-40 px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onchange={ctx.link().callback(|e: Event| {
+                            let selected_options = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("selectedOptions"))
+                                .unwrap()
+                                .dyn_into::<HtmlCollection>()
+                                .unwrap();
+
+                            let mut selected = vec![];
+                            for i in 0..selected_options.length() {
+                                let item = selected_options.item(i).unwrap();
+                                let category = js_sys::Reflect::get(&item, &JsValue::from_str("text")).unwrap().as_string().unwrap();
+                                selected.push(category);
+                            };
+                            Msg::UpdateFilters(FilterForm::Category(selected))
+                    })}>
+                        <option value="Any">{"Any"}</option>
+                        { asdb_models::categories::CATEGORIES.iter().map(|(category, _subcategories)| {
+                            html!{<option value={ *category }>{ *category }</option>}
+                        }).collect::<Html>() }
+                    </select>
+                </div>
             </div>
+        }
+    }
+
+    fn load_as_bounded_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::LoadAsBounded);
+        html! {
+            <button
+                onclick={cb}
+                class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg transition-colors duration-150"
+            >
+                {"Load visible range"}
+            </button>
+        }
+    }
+
+    fn load_as_filtered_button(&self, ctx: &Context<Self>) -> Html {
+        let cb = ctx.link().callback(move |_| Msg::LoadAsFiltered);
+        html! {
+            <button
+                onclick={cb}
+                class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium rounded-lg transition-colors duration-150"
+            >
+                {"Apply filters →"}
+            </button>
         }
     }
 
     fn download_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::DownloadFiltered);
         html! {
-            <button onclick={cb}>{"Download currently loaded"}</button>
+            <button
+                onclick={cb}
+                class="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 text-sm font-medium rounded-lg transition-colors duration-150"
+            >
+                {"Download loaded"}
+            </button>
         }
     }
 
     fn download_detailed_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::DownloadDetailed);
         html! {
-            <button onclick={cb}>{"Download previously opened"}</button>
+            <button
+                onclick={cb}
+                class="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 text-sm font-medium rounded-lg transition-colors duration-150"
+            >
+                {"Download detailed"}
+            </button>
         }
     }
 
     fn clear_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::ClearMarkers);
         html! {
-            <button onclick={cb}>{"Clear map"}</button>
+            <button
+                onclick={cb}
+                class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-sm font-medium rounded-lg transition-colors duration-150"
+            >
+                {"Clear map"}
+            </button>
         }
     }
 
     fn debug_counter(&self, _ctx: &Context<Self>) -> Html {
         html! {
-            <>
-            <b>{"drawn:"}</b>{self.drawn_ases.len()}<br/>
-            <b>{"detailed:"}</b>{ self.detailed_ases.len() }<br/>
-            </>
+            <div class="space-y-1">
+                <div class="flex justify-between">
+                    <span class="font-semibold text-slate-400">{"Drawn:"}</span>
+                    <span class="text-slate-200">{self.drawn_ases.len()}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-semibold text-slate-400">{"Detailed:"}</span>
+                    <span class="text-slate-200">{self.detailed_ases.len()}</span>
+                </div>
+            </div>
         }
     }
 }
 
-// utils
+// ============================================================================
+// UTILITY METHODS - CSV generation, downloads, and map rendering
+// ============================================================================
 impl MapComponent {
     fn render_map(&self) -> Html {
         let node: &Node = &self.container.clone().into();
@@ -303,6 +413,9 @@ impl MapComponent {
     }
 }
 
+// ============================================================================
+// COMPONENT LIFECYCLE - Create, render, update message handling
+// ============================================================================
 impl Component for MapComponent {
     type Message = Msg;
     type Properties = Props;
@@ -313,16 +426,11 @@ impl Component for MapComponent {
         container.set_class_name("map w-full h-full");
         // TODO GIS tailwind dla mapy
 
-        // let style = container.style();
-        // style.set_property("width", "100%").ok();
-        // style.set_property("height", "100%").ok();
-        // style.set_property("display", "block").ok();
-        // style.set_property("position", "relative").ok();
-
         let x: MapOptions = MapOptions::new();
         let leaflet_map = Map::new_with_element(&container, &x).unwrap();
         leaflet_map.set_max_zoom(18.0);
 
+        // Configure marker clustering with dynamic radius based on zoom
         let marker_cluster_opts = js_sys::Object::new();
         let cluster_radius_func =
             Closure::wrap(Box::new(|zoom: f64| if zoom < 9. { 80f64 } else { 1f64 })
@@ -342,8 +450,8 @@ impl Component for MapComponent {
         .unwrap();
 
         let marker_cluster = markerClusterGroup(&marker_cluster_opts.into());
-
         marker_cluster.add_to(&leaflet_map);
+
         let initial_filters = AsFilters {
             country: Some("PL".to_string()),
             exclude_country: false,
@@ -353,11 +461,11 @@ impl Component for MapComponent {
             has_org: AsFiltersHasOrg::Both,
             category: vec![],
         };
+
         Self {
             map: leaflet_map,
             container,
             marker_cluster,
-            // as_cache: HashMap::new(),
             detailed_ases: HashMap::new(),
             drawn_ases: HashMap::new(),
             next_filters: initial_filters.clone(),
@@ -401,7 +509,7 @@ impl Component for MapComponent {
             }
             Msg::LoadAsFiltered => {
                 log!("load ASes initiatied");
-                // Bounds must be dynamically updated at the time of button press if checkbox is on
+                // Update bounds dynamically if bounded filter is enabled
                 if self.next_filters.bounds.is_some() {
                     let bounds: models::LatLngBounds =
                         serde_wasm_bindgen::from_value(self.map.get_bounds().into()).unwrap();
@@ -468,7 +576,7 @@ impl Component for MapComponent {
                         self.next_filters.exclude_country = !self.next_filters.exclude_country;
                     }
                     FilterForm::IsBounded => {
-                        // The value just needs to be some, it will be udated on load filtered button press
+                        // Toggle bounded filter (actual bounds set on load)
                         self.next_filters.bounds = if self.next_filters.bounds.is_none() {
                             Some(Bound {
                                 north_east: Coord { lat: 0., lon: 0. },
@@ -491,64 +599,24 @@ impl Component for MapComponent {
                 }
             }
             Msg::DrawAs(ases) => {
-                // use rand::prelude::*;
-                //use rand::
                 log!(format!(
                     "{} ASes received to be drawn, drawing them signal at map_component.rs",
                     ases.len()
                 ));
-                // let pool = rayon::ThreadPoolBuilder::new().num_threads(22).build().unwrap();
-                // let thread_pool = rayon_wasm::ThreadPoolBuilder::new()
-                // .num_threads(24)
-                // .spawn_handler(|thread| {
-                //     pool.run(|| thread.run()).unwrap();
-                //     Ok(())
-                // })
-                // .build()
-                // .unwrap();
 
-                // use gloo_worker::oneshot::oneshot;
-                // use gloo_worker::Spawnable;
-                // log!("b4 oneshot");
-                // #[oneshot]
-                // async fn Squared(input: u32) -> u32 {
-                //     input.pow(2)
-                // }
-                // this shit looks for  http:[...]/huj123 file to execute
-                // let mut sb = Squared::spawner().spawn("huj123");
-                // wasm_bindgen_futures::spawn_local(async move {
-                //     let xd = sb.run(2).await;
-                //     log!(xd);
-                //     assert_eq!(xd, 4);
-                // });
-                // log!("after spwan");
-
-                let test = (1..1).collect::<Vec<_>>();
-                test.into_iter().for_each(|x| {
-                    let huj = x.clone();
-                    let ms = rand::random::<u32>() % 1000;
-                    // gloo_timers::future::TimeoutFuture::new(ms).await;
-                    let mut _huj2 = 0;
-                    for _i in 0..(ms * 10000) {
-                        _huj2 += 1;
-                    }
-                    log!(format!("parallel x: {huj}, slept {ms}"));
-                    // wasm_bindgen_futures::spawn_local(async move {
-                    //     let ms = rand::random::<u32>() % 1000;
-                    //     gloo_timers::future::TimeoutFuture::new(ms).await;
-                    //     log!(format!("parallel x: {huj}, slept {ms}"));
-                    // });
-                });
                 let start = js_sys::Date::now();
                 log!("generating markers");
-                // for as_ in ases.into_iter() {
+
                 let markers = Arc::new(Mutex::new(Vec::new()));
                 let ctx2 = Arc::new(Mutex::new(ctx));
                 let mut drawn_ases2 = Arc::new(Mutex::new(self.drawn_ases.clone()));
+
+                // Create markers for each AS
                 ases.iter().for_each(|as_| {
                     let drawn_ases = Arc::clone(&mut drawn_ases2);
                     let asn = as_.asn;
-                    // self.as_cache.insert(asn, a);
+
+                    // Skip if already drawn
                     if drawn_ases.lock().unwrap().contains_key(&asn) {
                         return ();
                     }
@@ -557,14 +625,13 @@ impl Component for MapComponent {
                         xd.insert(asn, as_.clone());
                     }
 
-                    // TODO parallelize this block of code
                     let marker_size = scale_as_marker(&as_);
                     let country = celes::Country::from_alpha2(&as_.country_code);
-                    // let m = create_marker("huj", "dupa", &Point(0.0, 0.0), (1, 1));
+
                     let m = create_marker(
                         &format!(
-                            "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}
-                            <b>links</b>:<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>, <a href=\"https://bgpview.io/asn/{asn}\" target=\"_blank\">bgpview</a>, shodan<br>
+                            "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}<br>
+                            <b>links</b>:<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>, shodan<br>
                             <b>name</b>:{}<br>
                             <b>org</b>:{}<br>
                             <b>country</b>:{}",
@@ -577,13 +644,11 @@ impl Component for MapComponent {
                             country.map(|c| c.long_name).unwrap_or(""),
                         ),
                         &format!("AS{}:{}:{:.20}",as_.asn, as_.name, as_.organization.as_deref().unwrap_or("")),
-                        &Point(
-                            as_.coordinates.lat,
-                            as_.coordinates.lon,
-                        ),
+                        &Point(as_.coordinates.lat, as_.coordinates.lon),
                         marker_size,
                     );
-                    // TODO can i parallelize this shite too?
+
+                    // Add popup open handler to fetch details
                     let details_cb = ctx2.lock().unwrap()
                         .link()
                         .callback(move |marker_id: u64| Msg::GetDetails(asn, marker_id));
@@ -607,12 +672,11 @@ impl Component for MapComponent {
                     let js = detail_update_closure.into_js_value();
                     m.on("popupopen", &js);
 
-
                     markers.lock().unwrap().push(m);
                 });
+
                 log!(js_sys::Date::now() - start);
                 log!("adding marker Layers to map");
-                // TODO move normally instead of lcone
                 let mk = markers.lock().unwrap().clone();
                 self.marker_cluster.addLayers(mk);
                 log!("done");
@@ -631,6 +695,7 @@ impl Component for MapComponent {
                     as_.asrank_data.as_ref().unwrap().degree
                 ));
 
+                // Add prefix details with Shodan links
                 let prefixes = if let Some(ipnetdb) = as_.ipnetdb_data.as_ref() {
                     old_str = old_str.replace("shodan", &format!("<a href=\"https://www.shodan.io/search?query=net:{}\" target=\"_blank\">shodan</a>", ipnetdb
                         .ipv4_prefixes
@@ -660,9 +725,9 @@ impl Component for MapComponent {
                 };
                 details.push_str(&prefixes);
 
+                // Add Stanford ASDB categories
                 let mut stanford = HashSet::new();
                 for c in as_.stanford_asdb.iter() {
-                    //log!(format!("found category {:?}", c));
                     stanford.insert(c.layer1.as_str());
                 }
                 details.push_str(&format!(
@@ -683,7 +748,6 @@ impl Component for MapComponent {
             }
             Msg::DownloadFiltered => {
                 let ases = self.drawn_ases.iter().map(|(_, as_t)| as_t);
-                // .filter(|(asn, _)| self.drawn_ases.contains(asn))
                 self.create_downloadable_csv(DownloadableCsvInput::Simple(Box::new(ases)));
             }
             Msg::DownloadDetailed => {
@@ -721,7 +785,7 @@ impl Component for MapComponent {
                         </div>
                     </div>
 
-                    <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow">
+                    <div class="p-4 rounded-xl text-sm border border-slate-800 bg-slate-900/60 shadow">
                         { Self::filter_menu(self, ctx) }
                     </div>
 
@@ -734,47 +798,58 @@ impl Component for MapComponent {
     }
 }
 
+// ============================================================================
+// LEAFLET HELPERS - Map initialization and marker creation
+// ============================================================================
+
 fn add_tile_layer(map: &Map) {
     TileLayer::new("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").add_to(map);
 }
 
+/// Creates a Leaflet marker with popup and tooltip
 fn create_marker(description: &str, tooltip: &str, coord: &Point, size: (u64, u64)) -> Marker {
-    let opts = MarkerOptions::new();
-    opts.set_opacity(0.5);
-    let latlng = LatLng::new(coord.0, coord.1);
-    let m = Marker::new_with_options(&latlng, &opts);
+    // Create marker at coordinates
+    let marker = Marker::new_with_options(&LatLng::new(coord.0, coord.1), &MarkerOptions::new());
 
-    let popts = PopupOptions::new();
-    popts.set_max_width(600.0);
-    let p = Popup::new(&popts, None);
-    p.set_content(&JsValue::from_str(description));
-    m.bind_popup(&p);
-    let t = Tooltip::new(&TooltipOptions::new(), None);
-    t.set_content(&JsValue::from_str(tooltip));
-    m.bind_tooltip(&t);
+    // Configure and bind popup (max width 600px)
+    let popup = Popup::new(
+        &{
+            let opts = PopupOptions::new();
+            opts.set_max_width(600.0);
+            opts
+        },
+        None,
+    );
+    popup.set_content(&JsValue::from_str(description));
+    marker.bind_popup(&popup);
 
-    let iopts = IconOptions::new();
-    iopts.set_class_name("test-classname".to_string());
-    iopts.set_icon_size(leaflet::Point::new(size.0 as f64, size.1 as f64));
-    iopts.set_icon_url(MARKER_ICON_URL.to_string());
-    let i = Icon::new(&iopts);
-    //&serde_wasm_bindgen::to_value(&IconOpts { icon_url: MARKER_ICON_URL.to_string(), icon_size: vec![size.0, size.1], class_name: "test-classname".to_string(), }) .unwrap(),
-    m.set_icon(&i);
-    m
+    // Configure and bind tooltip
+    let tooltip_elem = Tooltip::new(&TooltipOptions::new(), None);
+    tooltip_elem.set_content(&JsValue::from_str(tooltip));
+    marker.bind_tooltip(&tooltip_elem);
+
+    // Set custom icon with size
+    let icon = Icon::new(&{
+        let opts = IconOptions::new();
+        opts.set_class_name("test-classname".to_string());
+        opts.set_icon_size(leaflet::Point::new(size.0 as f64, size.1 as f64));
+        opts.set_icon_url(MARKER_ICON_URL.to_string());
+        opts
+    });
+    marker.set_icon(&icon);
+
+    marker
 }
 
-/// returns (width, height) in pixels based on
-/// by rank or by addresses amount? both would suit
-/// both may be used, 1 as color other as marker size
+/// Scales marker size based on AS rank (lower rank = larger marker)
+/// Returns (width, height) in pixels
 fn scale_as_marker(a: &AsForFrontend) -> (u64, u64) {
-    const RANK_RANGE: (u64, u64) = (0, 115000); // 0 not needed likely
-    // const ADDRESS_RANGE: (u64, u64) = (0, 20017664);
-    const AVG_PIXELS: (u64, u64) = (15, 24); //original is 25,41
+    const RANK_RANGE: (u64, u64) = (0, 115000);
+    const AVG_PIXELS: (u64, u64) = (15, 24);
     const MIN_PIXELS: (u64, u64) = (5, 8);
+
     let rank = a.rank;
     let scale = (rank as f64 / RANK_RANGE.1 as f64).clamp(0., 1.);
-    // let addresses = a.asrank_data.as_ref().unwrap().addresses;
-    // let scale = (addresses as f64 / ADDRESS_RANGE.1 as f64).clamp(0., 1.);
     let width = MIN_PIXELS.0 + AVG_PIXELS.0 - (AVG_PIXELS.0 as f64 * scale) as u64;
     let height = MIN_PIXELS.1 + AVG_PIXELS.1 - (AVG_PIXELS.1 as f64 * scale) as u64;
 

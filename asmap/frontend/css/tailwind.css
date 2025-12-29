@@ -1,3 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Specify source files to scan */
+@source "../src/**/*.rs";
+@source "../index.html";
