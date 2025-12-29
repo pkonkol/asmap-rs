@@ -1,9 +1,9 @@
 use futures::stream::TryStreamExt;
 use itertools::Itertools;
 use mongodb::{
-    bson::{doc, Document},
-    options::{ClientOptions, FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
     Client, IndexModel,
+    bson::{Document, doc},
+    options::{ClientOptions, IndexOptions},
 };
 
 use asdb_models::{
@@ -41,7 +41,7 @@ impl Asdb {
     async fn _ping(&self) -> Result<()> {
         self.client
             .database(&self.database)
-            .run_command(doc! {"ping": 1}, None)
+            .run_command(doc! {"ping": 1})
             .await?;
         Ok(())
     }
@@ -52,7 +52,7 @@ impl Asdb {
             self.client
                 .database(&self.database)
                 .collection::<T>(c)
-                .drop(None)
+                .drop()
                 .await?;
         }
         Ok(())
@@ -67,19 +67,22 @@ impl Asdb {
             .keys(doc! {"asn": 1})
             .options(index_options)
             .build();
-        collection.create_index(index, None).await?;
+        collection.create_index(index).await?;
         Ok(())
     }
 
-    // TODO consider merging get_ases and get_as_filtered, just do filters: Option<AsFilters>
-    /// returns result with found ases and total count of ases in the DB
+    // TODO GIS
+    // dodac funkcje do obslugi samych detali z whoisa
+    // rozszerzyc obecne zgodnie z tym czeog moze potrzebowac backend/frontend
+
     #[tracing::instrument]
     pub async fn get_ases_page(&self, limit: i64, skip: u64) -> Result<(Vec<AsForFrontend>, u64)> {
         let collection = self
             .client
             .database(&self.database)
             .collection::<AsForFrontendFromDB>("asns");
-        let opts = FindOptions::builder()
+        let res = collection
+            .find(doc! {})
             .skip(skip)
             .limit(limit)
             .projection(doc! {
@@ -92,10 +95,9 @@ impl Asdb {
                 "asrank_data.coordinates": 1,
                 "asrank_data.organization": 1,
             })
-            .sort(doc! { "asn": 1 })
-            .build();
-        let res = collection.find(doc! {}, opts).await?;
-        let count = collection.count_documents(doc! {}, None).await?;
+            .sort(doc! {"asn": 1})
+            .await?;
+        let count = collection.count_documents(doc! {}).await?;
         let ases: Vec<AsForFrontend> = res.map_ok(AsForFrontend::from).try_collect().await?;
 
         Ok((ases, count))
@@ -109,10 +111,8 @@ impl Asdb {
             .collection::<As>("asns");
         // let opts = FindOptions::builder().build();
 
-        let res = collection
-            .find(doc! {"asn": doc! { "$in": asns}}, None)
-            .await?;
-        let count = collection.count_documents(doc! {}, None).await?;
+        let res = collection.find(doc! {"asn": doc! { "$in": asns}}).await?;
+        let count = collection.count_documents(doc! {}).await?;
         let ases: Vec<As> = res.try_collect().await?;
         Ok((ases, count))
     }
@@ -167,7 +167,7 @@ impl Asdb {
             .collection::<As>("asns");
         let db_filter = Self::create_db_filter(filters);
 
-        let res = collection.count_documents(db_filter, None).await?;
+        let res = collection.count_documents(db_filter).await?;
         Ok(res)
     }
 
@@ -179,8 +179,9 @@ impl Asdb {
             .collection::<AsForFrontendFromDB>("asns");
         let db_filter = Self::create_db_filter(filters);
 
-        // let opts = FindOptions::builder().sort(doc! { "asn": 1 }).build();
-        let opts = FindOptions::builder()
+        // TODO add projection ^ and verify if it speeds up the retrieval
+        let res = collection
+            .find(db_filter)
             .projection(doc! {
                 "asn": 1,
                 "asrank_data.name": 1,
@@ -191,9 +192,7 @@ impl Asdb {
                 "asrank_data.coordinates": 1,
                 "asrank_data.organization": 1,
             })
-            .build();
-        // TODO add projection ^ and verify if it speeds up the retrieval
-        let res = collection.find(db_filter, opts).await?;
+            .await?;
         debug!("cursor retrieved, starting collect");
         // let ases: Vec<AsForFrontendFromDB> = res.try_collect().await?;
         // res.for_each(|x| {x.unwrap(); future::ready(())}).await;
@@ -208,7 +207,7 @@ impl Asdb {
             .client
             .database(&self.database)
             .collection::<As>("asns");
-        let res = collection.find_one(doc! {"asn": asn }, None).await?;
+        let res = collection.find_one(doc! {"asn": asn }).await?;
         res.ok_or(Error::AsNotFound)
     }
 
@@ -218,7 +217,7 @@ impl Asdb {
             .client
             .database(&self.database)
             .collection::<As>("asns");
-        collection.insert_one(a, None).await?;
+        collection.insert_one(a).await?;
         Ok(())
     }
 
@@ -228,8 +227,7 @@ impl Asdb {
             .client
             .database(&self.database)
             .collection::<As>("asns");
-        let opts = InsertManyOptions::builder().ordered(false).build();
-        collection.insert_many(a, opts).await?;
+        collection.insert_many(a).ordered(true).await?;
         Ok(())
     }
 
@@ -240,15 +238,12 @@ impl Asdb {
             .client
             .database(&self.database)
             .collection::<As>("asns");
-        let opts = UpdateOptions::builder().build();
         let update = doc! {
             "$set": {
                 "ipnetdb_data": mongodb::bson::to_bson(a).expect("IPNetDBAsn should always be serializable to bson")
             }
         };
-        collection
-            .update_one(doc! {"asn": asn}, update, opts)
-            .await?;
+        collection.update_one(doc! {"asn": asn}, update).await?;
         Ok(())
     }
 
@@ -263,15 +258,12 @@ impl Asdb {
             .client
             .database(&self.database)
             .collection::<As>("asns");
-        let opts = UpdateOptions::builder().build();
         let update = doc! {
             "$set": {
                 "stanford_asdb": mongodb::bson::to_bson(categories).expect("StandordAsdbCategory should always be serializable to bson")
             }
         };
-        collection
-            .update_one(doc! {"asn": asn}, update, opts)
-            .await?;
+        collection.update_one(doc! {"asn": asn}, update).await?;
         Ok(())
     }
 }

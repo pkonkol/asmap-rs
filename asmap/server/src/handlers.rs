@@ -2,8 +2,8 @@ use std::{net::SocketAddr, num::NonZeroU32};
 
 use axum::{
     extract::{
-        ws::{Message, WebSocket},
         ConnectInfo, State, WebSocketUpgrade,
+        ws::{Message, WebSocket},
     },
     response::IntoResponse,
 };
@@ -21,6 +21,8 @@ pub async fn as_handler(
     ws.on_upgrade(move |socket| handle_as_socket(socket, addr, state))
 }
 
+// TODO GIS obsluga zapytan o pobranie detali z whoisa i o zwrocenie detali z whoisem
+// Logka albo tutaj jako dodatkowe funkcje albo raczej w asdb_builder::whois, z ktorego sie je zaladuje tylko
 #[tracing::instrument(skip(state, socket))]
 pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: ServerState) {
     loop {
@@ -40,7 +42,7 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
                             addr.ip()
                         );
                         let resp = filtered_as(filters, addr, &state).await;
-                        socket.send(Message::Binary(resp)).await.unwrap();
+                        socket.send(Message::Binary(resp.into())).await.unwrap();
                         socket.send(Message::Close(None)).await.unwrap();
                         break;
                     }
@@ -50,7 +52,7 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
                             addr.ip()
                         );
                         let resp = as_details(asn, addr, &state).await;
-                        socket.send(Message::Binary(resp)).await.unwrap();
+                        socket.send(Message::Binary(resp.into())).await.unwrap();
                         socket.send(Message::Close(None)).await.unwrap();
                         break;
                     }
@@ -115,3 +117,6 @@ async fn as_details(asn: u32, addr: SocketAddr, state: &ServerState) -> Vec<u8> 
     debug!("successfuly encoded AS{asn} details");
     serialized
 }
+
+// TODO GIS handler for WHOIS update request
+// TODO GIS (optional) handler for adding comments on the selected AS's popup

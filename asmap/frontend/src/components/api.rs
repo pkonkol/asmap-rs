@@ -1,5 +1,8 @@
 //! module responsible for retrieving as locations from API
 //!
+//!
+
+// TODO GIS obsluga komunikacji na temat whoisa z backendem
 
 use asdb_models::As;
 use protocol::{AsFilters, AsForFrontend, WSRequest, WSResponse};
@@ -7,7 +10,7 @@ use protocol::{AsFilters, AsForFrontend, WSRequest, WSResponse};
 use anyhow::{anyhow, bail};
 use futures::{SinkExt, StreamExt};
 use gloo_console::log;
-use gloo_net::websocket::{futures::WebSocket, Message};
+use gloo_net::websocket::{Message, futures::WebSocket};
 use std::vec;
 
 const API_URL: &str = "[::1]:8080";

@@ -1,17 +1,16 @@
-use axum::{error_handling::HandleErrorLayer, routing::get, BoxError, Router};
+use axum::{Router, http, routing::get};
 use clap::Parser;
 use std::{
     net::{IpAddr, Ipv6Addr, SocketAddr},
     str::FromStr,
 };
-use tokio::{task::yield_now, time::interval};
+use tokio::{net::TcpListener, task::yield_now, time::interval};
 use tower::ServiceBuilder;
 use tower_governor::{
-    errors::display_error, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
-    GovernorLayer,
+    GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
 };
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
-use tracing::{info, Level};
+use tracing::{Level, info};
 use tracing_subscriber::fmt::format::FmtSpan;
 
 use handlers::as_handler;
@@ -54,14 +53,20 @@ async fn main() {
         .with_max_level(Level::DEBUG)
         .init();
 
-    let governor_conf = Box::new(
-        GovernorConfigBuilder::default()
-            .per_second(1000)
-            .burst_size(50000)
-            .key_extractor(SmartIpKeyExtractor)
-            .finish()
-            .unwrap(),
-    );
+    // let governor_conf = Box::new(
+    //     GovernorConfigBuilder::default()
+    //         .per_second(1000)
+    //         .burst_size(50000)
+    //         .key_extractor(SmartIpKeyExtractor)
+    //         .finish()
+    //         .unwrap(),
+    // );
+    let governor_conf = GovernorConfigBuilder::default()
+        .per_second(1000)
+        .burst_size(50000)
+        .key_extractor(SmartIpKeyExtractor)
+        .finish()
+        .unwrap();
     // let governor_conf = Box::new(GovernorConfigBuilder::default().finish().unwrap());
 
     info!(
@@ -75,12 +80,17 @@ async fn main() {
         .fallback_service(ServeDir::new(opt.static_dir))
         .layer(
             ServiceBuilder::new()
-                .layer(HandleErrorLayer::new(|e: BoxError| async move {
-                    display_error(e)
-                }))
-                .layer(GovernorLayer {
-                    config: Box::leak(governor_conf),
-                }),
+                // .layer(HandleErrorLayer::new(|e: BoxError| async move {
+                //     display_error(e)
+                // }))
+                .layer(
+                    GovernorLayer::new(governor_conf).error_handler(|e| {
+                        axum::http::Response::builder()
+                            .status(http::StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(axum::body::Body::from(e.to_string()))
+                            .unwrap()
+                    }), //{ config: Box::leak(governor_conf), }
+                ),
         )
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .layer(CorsLayer::permissive())
@@ -93,8 +103,11 @@ async fn main() {
 
     info!("Starting server on http://{}", sock_addr);
 
-    axum::Server::bind(&sock_addr)
-        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+    let listener = TcpListener::bind(sock_addr)
+        .await
+        .expect("Cant't bind tcp listener");
+    let a = app.into_make_service_with_connect_info::<SocketAddr>();
+    axum::serve(listener, a)
         .await
         .expect("Unable to start server");
 }

@@ -1,3 +1,10 @@
+// TODO GIS
+// tutaj probowalem sie cos bawic z wywolywaniem whois jako komendy ale duzo nie zrobilem
+// mozna uzyc na wzor, mozna wywalic
+// asdb-builder to biblioteka wiec mysle, ze najlepiej zrobic tutaj jakies funkcje a potem to zaimportowac na backendzie zeby handler je wywolywal
+// whoisa mozna poza komenda wywolywac przez API ale nie wiem jak ze zwracaniem osob powiazanych i organizacji, sam numer AS i prefixy IP malo dadza
+// sa tez pelne bazy danych dla RIPE is APNIC ale nie ma w nich znowu tych osob z adresami wiec tez nieprzydatne
+
 use std::{fmt::Display, process::Command, string::FromUtf8Error};
 
 #[derive(Debug)]
@@ -24,12 +31,6 @@ impl From<FromUtf8Error> for Error {
         Error::FailedUTF8Parse
     }
 }
-
-// impl From<tokio::task::JoinError> for Error {
-//     fn from(e: tokio::task::JoinError) -> Self  {
-//         Error::FailedSpawnBlocking
-//     }
-// }
 
 pub type Result<T> = std::result::Result<T, Error>;
 

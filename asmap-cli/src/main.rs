@@ -179,7 +179,7 @@ async fn main() {
                 "build",
                 "--public-url",
                 "/",
-            ]; //, "index.html", "--public-url", "/", "--dist", "../dist"];
+            ];
             if !release_flag.is_empty() {
                 trunk_args.push(release_flag)
             };

@@ -7,7 +7,11 @@ pub enum Error {
     #[error("request failed (which?)")]
     RequestError,
     #[error("problem with MMDB file")]
-    DbReadError(#[from] maxminddb::MaxMindDBError),
+    DbReadError(#[from] maxminddb::MaxMindDbError),
+    #[error("asdb internal problem")]
+    AsdbError(#[from] asdb::Error),
+    #[error("Problem with ip network handling")]
+    IpNetworkError(#[from] ipnetwork::IpNetworkError),
 }
 // impl Display for Error {
 //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

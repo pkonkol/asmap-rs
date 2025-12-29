@@ -8,5 +8,5 @@ license.workspace = true
 
 
 [dependencies]
-config = { version = "0.13", default-features = false, features = ["yaml"] }
+config = { version = "0.15", default-features = false, features = ["yaml"] }
 serde = { workspace = true }
