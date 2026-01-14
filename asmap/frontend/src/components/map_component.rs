@@ -19,7 +19,7 @@ use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlCollection, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
-use super::api::{get_all_as_filtered, get_as_details, get_as_whois};
+use super::api::{get_all_as_filtered, get_as_details, fetch_as_whois_data};
 use crate::models::{self, CsvAs, CsvAsDetailed, DownloadableCsvInput};
 use asdb_models::{As, Bound, Coord};
 use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
@@ -619,8 +619,41 @@ impl Component for MapComponent {
                 self.whois_loading.insert(asn);
 
                 ctx.link().send_future(async move {
-                    match get_as_whois(asn).await {
-                        Ok(whois) => Msg::UpdateWhois(asn, marker_id, whois),
+                    match fetch_as_whois_data(asn).await {
+                        Ok(Some(whois)) => {
+                            // Format WhoIsAsn as string for display
+                            let mut text = String::new();
+                            if let Some(name) = &whois.as_name {
+                                text.push_str(&format!("AS Name: {}\n", name));
+                            }
+                            if !whois.descr.is_empty() {
+                                text.push_str(&format!("Description: {}\n", whois.descr.join(", ")));
+                            }
+                            if let Some(country) = &whois.country {
+                                text.push_str(&format!("Country: {}\n", country));
+                            }
+                            if let Some(org) = &whois.organisation {
+                                text.push_str(&format!("\nOrganisation: {}\n", org.org_name));
+                                if !org.address.is_empty() {
+                                    text.push_str(&format!("Address: {}\n", org.address.join(", ")));
+                                }
+                                if let Some(email) = &org.email {
+                                    text.push_str(&format!("Email: {}\n", email));
+                                }
+                            }
+                            if !whois.contacts.is_empty() {
+                                text.push_str(&format!("\nContacts ({}):\n", whois.contacts.len()));
+                                for c in &whois.contacts {
+                                    text.push_str(&format!("  - {} ({})\n", c.name, c.nic_hdl));
+                                }
+                            }
+                            log!(format!("WHOIS data for AS{}: {:?}", asn, whois));
+                            Msg::UpdateWhois(asn, marker_id, text)
+                        }
+                        Ok(None) => {
+                            log!(format!("No WHOIS data found for AS{}", asn));
+                            Msg::UpdateWhois(asn, marker_id, "No WHOIS data available".to_string())
+                        }
                         Err(e) => Msg::Error(e),
                     }
                 });

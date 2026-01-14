@@ -121,6 +121,36 @@ pub async fn get_as_details(asn: u32) -> anyhow::Result<As> {
     Ok(as_)
 }
 
+/// Fetch WHOIS data from backend (calls RIPE API and caches result)
+pub async fn fetch_as_whois_data(asn: u32) -> anyhow::Result<Option<asdb_models::WhoIsAsn>> {
+    let mut ws = WebSocket::open(&format!("ws://{API_URL}/as"))?;
+
+    let req = WSRequest::FetchWhois(asn);
+    ws.send(Message::Bytes(bincode::serialize(&req)?)).await?;
+    log!(format!("sent FetchWhois request for AS{}", asn));
+
+    let resp = ws
+        .next()
+        .await
+        .ok_or(anyhow!("didn't receive the message"))??;
+
+    let resp: WSResponse = if let Message::Bytes(b) = resp {
+        log!("deserializing WHOIS response");
+        bincode::deserialize(&b)?
+    } else {
+        bail!("Received message is not of Bytes type");
+    };
+
+    let whois_data = match resp {
+        WSResponse::WhoisData(data) => data,
+        WSResponse::Error(e) => bail!("Server error: {}", e),
+        _ => bail!("Unexpected response type"),
+    };
+
+    ws.close(None, None)?;
+    Ok(whois_data)
+}
+
 // GET /api/as/{asn}/whois -> plain text
 pub async fn get_as_whois(asn: u32) -> anyhow::Result<String> {
     let url = format!("/api/as/{asn}/whois");
