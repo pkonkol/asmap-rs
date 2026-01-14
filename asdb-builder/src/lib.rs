@@ -6,6 +6,7 @@ mod asrank;
 mod error;
 mod ipnetdb;
 mod stanford_asdb;
+pub mod whois;
 
 use std::path::{Path, PathBuf};
 
