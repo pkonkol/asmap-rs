@@ -12,6 +12,8 @@ use futures::{SinkExt, StreamExt};
 use gloo_console::log;
 use gloo_net::websocket::{Message, futures::WebSocket};
 use std::vec;
+use gloo_net::http::Request;
+
 
 const API_URL: &str = "[::1]:8080";
 
@@ -117,4 +119,11 @@ pub async fn get_as_details(asn: u32) -> anyhow::Result<As> {
 
     ws.close(None, None)?;
     Ok(as_)
+}
+
+// GET /api/as/{asn}/whois -> plain text
+pub async fn get_as_whois(asn: u32) -> anyhow::Result<String> {
+    let url = format!("/api/as/{asn}/whois");
+    let resp = Request::get(&url).send().await?;
+    Ok(resp.text().await?)
 }

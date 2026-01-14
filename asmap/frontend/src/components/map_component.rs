@@ -14,15 +14,15 @@ use leaflet::{
 };
 use protocol::{AsFilters, AsFiltersHasOrg, AsForFrontend};
 use serde::Deserialize;
-use wasm_bindgen::{JsCast, prelude::*};
+use wasm_bindgen::{prelude::*, JsCast};
 use wasm_timer::SystemTime;
 use web_sys::{Element, HtmlCollection, HtmlElement, HtmlInputElement, Node};
 use yew::prelude::*;
 
-use super::api::{get_all_as_filtered, get_as_details};
+use super::api::{get_all_as_filtered, get_as_details, get_as_whois};
 use crate::models::{self, CsvAs, CsvAsDetailed, DownloadableCsvInput};
 use asdb_models::{As, Bound, Coord};
-use leaflet_markercluster::{MarkerClusterGroup, markerClusterGroup};
+use leaflet_markercluster::{markerClusterGroup, MarkerClusterGroup};
 
 const POLAND_LAT: f64 = 52.11431;
 const POLAND_LON: f64 = 19.423672;
@@ -38,6 +38,13 @@ pub enum Msg {
     UpdateDetails(As, u64),
     DownloadFiltered,
     DownloadDetailed,
+
+    // WHOIS - NEW
+    SetActive(u32, u64),               // asn, marker_id (on popup open)
+    CheckWhois(u32, u64),              // asn, marker_id (button click)
+    UpdateWhois(u32, u64, String),     // asn, marker_id, whois text
+    Noop,
+
     Error(anyhow::Error),
 }
 
@@ -58,7 +65,6 @@ pub struct MapComponent {
     map: Map,
     container: HtmlElement,
     marker_cluster: MarkerClusterGroup,
-    // as_cache: HashMap<u32, AsForFrontend>,
     /// Cached ASes which were manually opened and their detail downloaded
     detailed_ases: HashMap<u32, As>,
     /// these are actually just last drawn ases and serve as a proxy for the last filter use
@@ -67,6 +73,12 @@ pub struct MapComponent {
     next_filters: AsFilters,
     /// Filters executed during previous load
     prev_filters: AsFilters,
+
+    // WHOIS - NEW
+    active_asn: Option<u32>,
+    active_marker_id: Option<u64>,
+    whois_cache: HashMap<u32, String>,
+    whois_loading: HashSet<u32>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -299,6 +311,41 @@ impl MapComponent {
         }
     }
 
+    fn whois_button(&self, ctx: &Context<Self>) -> Html {
+        let (disabled, label) = match (self.active_asn, self.active_marker_id) {
+            (Some(asn), Some(_)) => {
+                let loading = self.whois_loading.contains(&asn);
+                (false, if loading { "Checking WHOIS..." } else { "Check WHOIS" })
+            }
+            _ => (true, "Check WHOIS"),
+        };
+
+        let active = (self.active_asn, self.active_marker_id);
+        let cb = ctx.link().callback(move |_| {
+            if let (Some(asn), Some(mid)) = active {
+                Msg::CheckWhois(asn, mid)
+            } else {
+                Msg::Noop
+            }
+        });
+
+        html! {
+            <button
+                disabled={disabled}
+                onclick={cb}
+                class={classes!("w-full","px-4","py-2","text-sm", "font-medium", "rounded-lg", "transition-colors", "duration-150",
+                                if disabled {
+                                    "bg-slate-700 text-slate-400 cursor-not-allowed"
+                                } else {
+                                    "bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white"
+                                }
+                            )}
+            >
+                { label }
+            </button>
+        }
+    }
+
     fn clear_button(&self, ctx: &Context<Self>) -> Html {
         let cb = ctx.link().callback(move |_| Msg::ClearMarkers);
         html! {
@@ -325,6 +372,20 @@ impl MapComponent {
             </div>
         }
     }
+
+    fn whois_panel(&self) -> Html {
+        if let Some(asn) = self.active_asn {
+            if let Some(w) = self.whois_cache.get(&asn) {
+                return html! {
+                    <div class="p-3 rounded-lg border border-slate-800 bg-slate-950/60 text-sm">
+                        <div class="text-xs text-slate-400 mb-2">{ format!("WHOIS (AS{})", asn) }</div>
+                        <pre class="text-xs whitespace-pre-wrap max-h-64 overflow-auto">{ w.clone() }</pre>
+                    </div>
+                };
+            }
+        }
+        html! {}
+    }
 }
 
 // ============================================================================
@@ -350,10 +411,7 @@ impl MapComponent {
         (wtr, ases_len)
     }
 
-    fn get_detailed_csv_writer<'a>(
-        &self,
-        ases: impl Iterator<Item = &'a As>,
-    ) -> (csv::Writer<Vec<u8>>, u64) {
+    fn get_detailed_csv_writer<'a>(&self, ases: impl Iterator<Item = &'a As>) -> (csv::Writer<Vec<u8>>, u64) {
         let mut wtr = csv::Writer::from_writer(Vec::new());
         let mut ases_len = 0u64;
         for a in ases {
@@ -400,12 +458,8 @@ impl MapComponent {
         let object_url = ObjectUrl::from(blob);
 
         let tmp_download_link = document.create_element("a").unwrap();
-        tmp_download_link
-            .set_attribute("href", &object_url)
-            .unwrap();
-        tmp_download_link
-            .set_attribute("download", &filename)
-            .unwrap();
+        tmp_download_link.set_attribute("href", &object_url).unwrap();
+        tmp_download_link.set_attribute("download", &filename).unwrap();
 
         let tmp_node = body.append_child(&tmp_download_link).unwrap();
         tmp_node.clone().dyn_into::<HtmlElement>().unwrap().click();
@@ -435,7 +489,7 @@ impl Component for MapComponent {
         let cluster_radius_func =
             Closure::wrap(Box::new(|zoom: f64| if zoom < 9. { 80f64 } else { 1f64 })
                 as Box<dyn Fn(f64) -> f64>)
-            .into_js_value();
+                .into_js_value();
         js_sys::Reflect::set(
             &marker_cluster_opts,
             &JsValue::from_str("maxClusterRadius"),
@@ -470,6 +524,12 @@ impl Component for MapComponent {
             drawn_ases: HashMap::new(),
             next_filters: initial_filters.clone(),
             prev_filters: initial_filters,
+
+            // WHOIS - NEW
+            active_asn: None,
+            active_marker_id: None,
+            whois_cache: HashMap::new(),
+            whois_loading: HashSet::new(),
         }
     }
 
@@ -547,6 +607,47 @@ impl Component for MapComponent {
                 } else {
                     log!("as details are already in cache");
                 }
+            }
+            Msg::SetActive(asn, marker_id) => {
+                self.active_asn = Some(asn);
+                self.active_marker_id = Some(marker_id);
+            }
+            Msg::CheckWhois(asn, marker_id) => {
+                if self.whois_cache.contains_key(&asn) || self.whois_loading.contains(&asn) {
+                    return true;
+                }
+                self.whois_loading.insert(asn);
+
+                ctx.link().send_future(async move {
+                    match get_as_whois(asn).await {
+                        Ok(whois) => Msg::UpdateWhois(asn, marker_id, whois),
+                        Err(e) => Msg::Error(e),
+                    }
+                });
+            }
+            Msg::UpdateWhois(asn, marker_id, whois) => {
+                self.whois_loading.remove(&asn);
+                self.whois_cache.insert(asn, whois.clone());
+
+                // update popup content
+                let marker = self.marker_cluster.getLayer(marker_id);
+                let old_str = marker
+                    .get_popup()
+                    .get_content()
+                    .as_string()
+                    .unwrap_or_default();
+
+                // minimal escape to avoid breaking HTML
+                let safe = whois
+                    .replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;");
+
+                let appended = format!(
+                    r#"{old}<br><b>whois</b>:<pre style="white-space:pre-wrap;max-height:250px;overflow:auto;">{safe}</pre>"#,
+                    old = old_str
+                );
+                marker.set_popup_content(&JsValue::from_str(&appended));
             }
             Msg::UpdateFilters(filter) => {
                 log!(format!("got filter update request for {filter:?}"));
@@ -648,10 +749,19 @@ impl Component for MapComponent {
                         marker_size,
                     );
 
-                    // Add popup open handler to fetch details
-                    let details_cb = ctx2.lock().unwrap()
+                    // popup open handler: set active + fetch details
+                    let set_active_cb = ctx2
+                        .lock()
+                        .unwrap()
+                        .link()
+                        .callback(move |marker_id: u64| Msg::SetActive(asn, marker_id));
+
+                    let details_cb = ctx2
+                        .lock()
+                        .unwrap()
                         .link()
                         .callback(move |marker_id: u64| Msg::GetDetails(asn, marker_id));
+
                     let detail_update_closure = Closure::wrap(Box::new(move |e: JsValue| {
                         #[derive(Deserialize, Debug)]
                         struct Target {
@@ -666,9 +776,11 @@ impl Component for MapComponent {
                         let m = serde_wasm_bindgen::from_value::<LeafletId>(x.into()).unwrap();
                         let id = m.target._leaflet_id;
                         log!(format!("marker id: {id}"));
+
+                        set_active_cb.emit(id);
                         details_cb.emit(id);
-                    })
-                        as Box<dyn Fn(JsValue)>);
+                    }) as Box<dyn Fn(JsValue)>);
+
                     let js = detail_update_closure.into_js_value();
                     m.on("popupopen", &js);
 
@@ -680,6 +792,7 @@ impl Component for MapComponent {
                 let mk = markers.lock().unwrap().clone();
                 self.marker_cluster.addLayers(mk);
                 log!("done");
+                self.drawn_ases = drawn_ases2.lock().unwrap().clone();
             }
             Msg::UpdateDetails(as_, marker_id) => {
                 log!(format!(
@@ -687,7 +800,7 @@ impl Component for MapComponent {
                     as_.asn
                 ));
                 let marker = self.marker_cluster.getLayer(marker_id);
-                let mut old_str = marker.get_popup().get_content().as_string().unwrap();
+                let mut old_str = marker.get_popup().get_content().as_string().unwrap_or_default();
 
                 let mut details = String::new();
                 details.push_str(&format!(
@@ -697,27 +810,32 @@ impl Component for MapComponent {
 
                 // Add prefix details with Shodan links
                 let prefixes = if let Some(ipnetdb) = as_.ipnetdb_data.as_ref() {
-                    old_str = old_str.replace("shodan", &format!("<a href=\"https://www.shodan.io/search?query=net:{}\" target=\"_blank\">shodan</a>", ipnetdb
-                        .ipv4_prefixes
-                        .iter()
-                        .map(|x| x.range.to_string())
-                        .map(|mut x| {
-                            x.push(',');
-                            x
-                        })
-                        .collect::<String>()));
+                    old_str = old_str.replace(
+                        "shodan",
+                        &format!(
+                            "<a href=\"https://www.shodan.io/search?query=net:{}\" target=\"_blank\">shodan</a>",
+                            ipnetdb
+                                .ipv4_prefixes
+                                .iter()
+                                .map(|x| x.range.to_string())
+                                .map(|mut x| {
+                                    x.push(',');
+                                    x
+                                })
+                                .collect::<String>()
+                        ),
+                    );
                     format!(
                         "<br><b>prefixes</b>: {}",
-                        ipnetdb
-                            .ipv4_prefixes
-                            .iter()
-                            .fold(String::new(),  |mut output, x| {
-                                let cidr = x.range.to_string();
-                                let _ = write!(output, "{cidr}:<b><a href=\"https://www.shodan.io/search?query=net%3A{cidr}\" target=\"_blank\">s</a>\
+                        ipnetdb.ipv4_prefixes.iter().fold(String::new(), |mut output, x| {
+                            let cidr = x.range.to_string();
+                            let _ = write!(
+                                output,
+                                "{cidr}:<b><a href=\"https://www.shodan.io/search?query=net%3A{cidr}\" target=\"_blank\">s</a>\
                                 </b>|<b><a href=\"https://www.zoomeye.org/searchResult?q=cidr%3A{cidr}\" target=\"_blank\">z</a>\
                                 </b>|<b><a href=\"https://search.censys.io/search?resource=hosts&sort=RELEVANCE&per_page=25&virtual_hosts=EXCLUDE&q=ip%3A{cidr}\" target=\"_blank\">c</a></b> ",
-                                );
-                                output
+                            );
+                            output
                         })
                     )
                 } else {
@@ -744,7 +862,14 @@ impl Component for MapComponent {
             }
             Msg::ClearMarkers => {
                 self.drawn_ases.clear();
+                self.detailed_ases.clear();
                 self.marker_cluster.clearLayers();
+
+                // reset whois + selection
+                self.active_asn = None;
+                self.active_marker_id = None;
+                self.whois_cache.clear();
+                self.whois_loading.clear();
             }
             Msg::DownloadFiltered => {
                 let ases = self.drawn_ases.iter().map(|(_, as_t)| as_t);
@@ -754,6 +879,7 @@ impl Component for MapComponent {
                 let ases = self.detailed_ases.values();
                 self.create_downloadable_csv(DownloadableCsvInput::Detailed(Box::new(ases)));
             }
+            Msg::Noop => {}
             Msg::Error(e) => {
                 log!(format!("error fetching ases, received error '{e:?}'"));
             }
@@ -777,20 +903,26 @@ impl Component for MapComponent {
                 <div class="w-full md:w-96 space-y-4">
                     <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow">
                         <div class="flex flex-col gap-2">
-                            { Self::load_as_bounded_button(self, ctx) }
-                            { Self::load_as_filtered_button(self, ctx) }
-                            { Self::download_button(self, ctx) }
-                            { Self::download_detailed_button(self, ctx) }
-                            { Self::clear_button(self, ctx) }
+                            { self.load_as_bounded_button(ctx) }
+                            { self.load_as_filtered_button(ctx) }
+                            { self.download_button(ctx) }
+                            { self.download_detailed_button(ctx) }
+
+                            // WHOIS - NEW
+                            { self.whois_button(ctx) }
+
+                            { self.clear_button(ctx) }
                         </div>
                     </div>
 
                     <div class="p-4 rounded-xl text-sm border border-slate-800 bg-slate-900/60 shadow">
-                        { Self::filter_menu(self, ctx) }
+                        { self.filter_menu(ctx) }
                     </div>
 
+                    { self.whois_panel() }
+
                     <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/60 text-sm">
-                        { Self::debug_counter(self, ctx) }
+                        { self.debug_counter(ctx) }
                     </div>
                 </div>
             </div>
@@ -801,7 +933,6 @@ impl Component for MapComponent {
 // ============================================================================
 // LEAFLET HELPERS - Map initialization and marker creation
 // ============================================================================
-
 fn add_tile_layer(map: &Map) {
     TileLayer::new("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").add_to(map);
 }
