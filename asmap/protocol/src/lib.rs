@@ -1,10 +1,8 @@
-// TODO GIS nowe wiadomosci websocketowe do wyslania zapytania o sprawdzenie whoisa i odczytania detali z whoisem
-
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use asdb_models::{As, Bound};
+use asdb_models::{As, Bound, WhoIsAsn};
 // TODO remove pub and switch references to asdb_models
 pub use asdb_models::AsForFrontend;
 
@@ -16,6 +14,10 @@ pub enum WSRequest {
     FilteredAS(AsFilters),
     /// details for single As
     AsDetails(Asn),
+    /// request to fetch and cache WHOIS data for an AS
+    FetchWhois(Asn),
+    /// request cached WHOIS data for an AS
+    GetWhois(Asn),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -24,6 +26,10 @@ pub enum WSResponse {
     FilteredAS((AsFilters, Vec<AsForFrontend>)),
     /// details for single As
     AsDetails(As),
+    /// WHOIS data for an AS (None if not found or fetch failed)
+    WhoisData(Option<WhoIsAsn>),
+    /// Error message
+    Error(String),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

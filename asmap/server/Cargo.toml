@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 asdb = { path = "../../asdb" }
+asdb-builder = { path = "../../asdb-builder" }
 asdb-models = { path = "../../asdb-models" }
 config = { path = "../../config" }
 protocol = { path = "../protocol" }
@@ -21,3 +22,4 @@ bincode = { workspace = true }
 tower_governor = { version = "0.8", features = ["tracing"] }
 governor = "0.10.4"
 nonzero_ext = "0.3.0"
+chrono = "0.4"

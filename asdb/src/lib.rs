@@ -266,6 +266,33 @@ impl Asdb {
         collection.update_one(doc! {"asn": asn}, update).await?;
         Ok(())
     }
+
+    /// Updates the record for given ASN with WHOIS data
+    #[tracing::instrument]
+    pub async fn update_whois_data(
+        &self,
+        asn: u32,
+        whois_data: &asdb_models::WhoIsAsn,
+    ) -> Result<()> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let update = doc! {
+            "$set": {
+                "whois_data": mongodb::bson::to_bson(whois_data).expect("WhoIsAsn should always be serializable to bson")
+            }
+        };
+        collection.update_one(doc! {"asn": asn}, update).await?;
+        Ok(())
+    }
+
+    /// Gets cached WHOIS data for an ASN if available
+    #[tracing::instrument]
+    pub async fn get_whois_data(&self, asn: u32) -> Result<Option<asdb_models::WhoIsAsn>> {
+        let as_data = self.get_as(asn).await?;
+        Ok(as_data.whois_data)
+    }
 }
 
 #[cfg(test)]

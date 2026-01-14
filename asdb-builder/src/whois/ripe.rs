@@ -11,8 +11,15 @@ use super::models::*;
 const RIPE_API_BASE: &str = "https://rest.db.ripe.net";
 
 /// Client for RIPE NCC REST API.
+#[derive(Clone)]
 pub struct RipeClient {
     client: Client,
+}
+
+impl std::fmt::Debug for RipeClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RipeClient").finish()
+    }
 }
 
 impl RipeClient {
