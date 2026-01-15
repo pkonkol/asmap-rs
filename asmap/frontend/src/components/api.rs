@@ -150,10 +150,3 @@ pub async fn fetch_as_whois_data(asn: u32) -> anyhow::Result<Option<asdb_models:
     ws.close(None, None)?;
     Ok(whois_data)
 }
-
-// GET /api/as/{asn}/whois -> plain text
-pub async fn get_as_whois(asn: u32) -> anyhow::Result<String> {
-    let url = format!("/api/as/{asn}/whois");
-    let resp = Request::get(&url).send().await?;
-    Ok(resp.text().await?)
-}

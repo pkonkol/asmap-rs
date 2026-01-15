@@ -91,154 +91,171 @@ pub struct Props {}
 // UI COMPONENTS - Render filter menu, buttons, and debug info
 // ============================================================================
 impl MapComponent {
+    /// Format large numbers with K/M suffix
+    fn format_number(n: u64) -> String {
+        if n >= 1_000_000 {
+            format!("{:.1}M", n as f64 / 1_000_000.0)
+        } else if n >= 1_000 {
+            format!("{:.1}K", n as f64 / 1_000.0)
+        } else {
+            n.to_string()
+        }
+    }
+
     fn filter_menu(&self, ctx: &Context<Self>) -> Html {
-        // TODO GIS style tailwindowe
-        // TODO GIS
         html! {
-            <div class="space-y-4">
+            <div class="space-y-3">
                 // Bounded Checkbox
-                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-                <div class="flex items-center gap-2 pt-1">
+                <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-700/30 border border-slate-600/30 hover:bg-slate-700/40 transition-colors">
                     <input
                         type="checkbox"
                         id="isBounded"
                         checked={self.next_filters.bounds.is_some()}
-                        class="w-4 h-4 bg-slate-900 border-slate-600 rounded focus:ring-2 focus:ring-blue-500"
+                        class="w-4 h-4 bg-slate-800 border-slate-600 rounded text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0"
                         oninput={ctx.link().callback(|_e: InputEvent| {
                             Msg::UpdateFilters(FilterForm::IsBounded)
                         })}
                     />
-                    <label for="isBounded" class="text-xs text-slate-400 cursor-pointer">{"Bound to visible area"}</label>
+                    <label for="isBounded" class="text-sm text-slate-300 cursor-pointer select-none">{"Limit to visible area"}</label>
                 </div>
-                </div>
-                // Address Range Filter
-                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-                    <div class="space-y-2">
-                        <label class="block text-xs font-medium text-slate-400">{"Min Addresses"}</label>
-                        <input
-                            type="number"
-                            id="minAddresses"
-                            value={self.next_filters.addresses.unwrap().0.to_string()}
-                            min="0"
-                            max="99999999"
-                            class="w-full px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            oninput={ctx.link().callback(|e: InputEvent| {
-                                Msg::UpdateFilters(FilterForm::MinAddresses(
-                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
-                            })}
-                        />
 
-                        <label class="block text-xs font-medium text-slate-400 mt-3">{"Max Addresses"}</label>
-                        <input
-                            type="number"
-                            id="maxAddresses"
-                            value={self.next_filters.addresses.unwrap().1.to_string()}
-                            min="0"
-                            max="99999999"
-                            class="w-full px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            oninput={ctx.link().callback(|e: InputEvent| {
-                                Msg::UpdateFilters(FilterForm::MaxAddresses(
-                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
-                            })}
-                        />
+                // Address Range Filter
+                <div class="p-3 rounded-xl bg-slate-700/30 border border-slate-600/30">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">{"Address Range"}</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">{"Min"}</label>
+                            <input
+                                type="number"
+                                id="minAddresses"
+                                value={self.next_filters.addresses.unwrap().0.to_string()}
+                                min="0"
+                                max="99999999"
+                                class="w-full px-3 py-2 bg-slate-800/80 border border-slate-600/50 rounded-lg text-sm text-slate-200 
+                                       focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                                oninput={ctx.link().callback(|e: InputEvent| {
+                                    Msg::UpdateFilters(FilterForm::MinAddresses(
+                                        e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                                })}
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">{"Max"}</label>
+                            <input
+                                type="number"
+                                id="maxAddresses"
+                                value={self.next_filters.addresses.unwrap().1.to_string()}
+                                min="0"
+                                max="99999999"
+                                class="w-full px-3 py-2 bg-slate-800/80 border border-slate-600/50 rounded-lg text-sm text-slate-200 
+                                       focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                                oninput={ctx.link().callback(|e: InputEvent| {
+                                    Msg::UpdateFilters(FilterForm::MaxAddresses(
+                                        e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                                })}
+                            />
+                        </div>
                     </div>
                 </div>
 
                 // Country Filter
-                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-                    <div class="space-y-2">
-                        <label class="block text-xs font-medium text-slate-400">{"Country Code"}</label>
+                <div class="p-3 rounded-xl bg-slate-700/30 border border-slate-600/30">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">{"Country"}</label>
+                    <div class="flex items-center gap-3">
                         <input
                             type="text"
                             id="countryCode"
                             value={self.next_filters.country.clone()}
                             maxlength="2"
                             placeholder="PL"
-                            class="w-20 px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            class="w-20 px-3 py-2 bg-slate-800/80 border border-slate-600/50 rounded-lg text-sm text-slate-200 uppercase 
+                                   focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder-slate-500"
                             oninput={ctx.link().callback(|e: InputEvent| {
                                 Msg::UpdateFilters(FilterForm::CountryCode(
                                     e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
                             })}
                         />
-
-                        <div class="flex items-center gap-2 mt-2">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
                             <input
                                 type="checkbox"
                                 id="excludeCountry"
                                 checked={self.next_filters.exclude_country}
-                                class="w-4 h-4 bg-slate-900 border-slate-600 rounded focus:ring-2 focus:ring-blue-500"
+                                class="w-4 h-4 bg-slate-800 border-slate-600 rounded text-red-500 focus:ring-2 focus:ring-red-500/50 focus:ring-offset-0"
                                 oninput={ctx.link().callback(|_e: InputEvent| {
                                     Msg::UpdateFilters(FilterForm::ExcludeCountry)
                                 })}
                             />
-                            <label for="excludeCountry" class="text-xs text-slate-400 cursor-pointer">{"Exclude country"}</label>
-                        </div>
+                            <span class="text-xs text-slate-400">{"Exclude"}</span>
+                        </label>
                     </div>
                 </div>
 
                 // Rank Range Filter
-                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-                    <div class="space-y-2">
-                        <label class="block text-xs font-medium text-slate-400">{"Min Rank"}</label>
-                        <input
-                            type="number"
-                            id="minRank"
-                            value={self.next_filters.rank.unwrap().0.to_string()}
-                            min="0"
-                            max="999999"
-                            class="w-24 px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            oninput={ctx.link().callback(|e: InputEvent| {
-                                Msg::UpdateFilters(FilterForm::MinRank(
-                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
-                            })}
-                        />
-
-                        <label class="block text-xs font-medium text-slate-400 mt-3">{"Max Rank"}</label>
-                        <input
-                            type="number"
-                            id="maxRank"
-                            value={self.next_filters.rank.unwrap().1.to_string()}
-                            min="0"
-                            max="999999"
-                            class="w-24 px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            oninput={ctx.link().callback(|e: InputEvent| {
-                                Msg::UpdateFilters(FilterForm::MaxRank(
-                                    e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
-                            })}
-                        />
+                <div class="p-3 rounded-xl bg-slate-700/30 border border-slate-600/30">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">{"Rank Range"}</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">{"Min"}</label>
+                            <input
+                                type="number"
+                                id="minRank"
+                                value={self.next_filters.rank.unwrap().0.to_string()}
+                                min="0"
+                                max="999999"
+                                class="w-full px-3 py-2 bg-slate-800/80 border border-slate-600/50 rounded-lg text-sm text-slate-200 
+                                       focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                                oninput={ctx.link().callback(|e: InputEvent| {
+                                    Msg::UpdateFilters(FilterForm::MinRank(
+                                        e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                                })}
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">{"Max"}</label>
+                            <input
+                                type="number"
+                                id="maxRank"
+                                value={self.next_filters.rank.unwrap().1.to_string()}
+                                min="0"
+                                max="999999"
+                                class="w-full px-3 py-2 bg-slate-800/80 border border-slate-600/50 rounded-lg text-sm text-slate-200 
+                                       focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                                oninput={ctx.link().callback(|e: InputEvent| {
+                                    Msg::UpdateFilters(FilterForm::MaxRank(
+                                        e.target_unchecked_into::<HtmlInputElement>().value().parse().unwrap()))
+                                })}
+                            />
+                        </div>
                     </div>
                 </div>
 
-                // Organization & Bounds Filter
-                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-                    <div class="space-y-3">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-2">{"Has Organization"}</label>
-                            <select
-                                id="hasOrg"
-                                name="hasOrgSel"
-                                class="w-full px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                onchange={ctx.link().callback(|e: Event| {
-                                    let selected = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("value")).unwrap().as_string().unwrap();
-                                    Msg::UpdateFilters(FilterForm::HasOrg(selected))
-                            })}>
-                                <option value="yes">{"Yes"}</option>
-                                <option value="no">{"No"}</option>
-                                <option value="both">{"Both"}</option>
-                            </select>
-                        </div>
-
-                    </div>
+                // Organization Filter
+                <div class="p-3 rounded-xl bg-slate-700/30 border border-slate-600/30">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">{"Organization"}</label>
+                    <select
+                        id="hasOrg"
+                        name="hasOrgSel"
+                        class="w-full px-3 py-2 bg-slate-800/80 border border-slate-600/50 rounded-lg text-sm text-slate-200 
+                               focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all cursor-pointer"
+                        onchange={ctx.link().callback(|e: Event| {
+                            let selected = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("value")).unwrap().as_string().unwrap();
+                            Msg::UpdateFilters(FilterForm::HasOrg(selected))
+                    })}>
+                        <option value="yes">{"Has organization"}</option>
+                        <option value="no">{"No organization"}</option>
+                        <option value="both" selected=true>{"Both"}</option>
+                    </select>
                 </div>
 
                 // Category Filter
-                <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-                    <label class="block text-xs font-medium text-slate-400 mb-2">{"Category"}</label>
+                <div class="p-3 rounded-xl bg-slate-700/30 border border-slate-600/30">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">{"Category"}</label>
                     <select
                         id="category"
                         name="category"
                         multiple=true
-                        class="w-full h-40 px-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        class="w-full h-32 px-3 py-2 bg-slate-800/80 border border-slate-600/50 rounded-lg text-sm text-slate-200 
+                               focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                         onchange={ctx.link().callback(|e: Event| {
                             let selected_options = js_sys::Reflect::get(&e.target().unwrap(), &JsValue::from_str("selectedOptions"))
                                 .unwrap()
@@ -268,7 +285,9 @@ impl MapComponent {
         html! {
             <button
                 onclick={cb}
-                class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg transition-colors duration-150"
+                class="w-full px-4 py-2.5 bg-slate-700/60 hover:bg-slate-600/60 active:bg-slate-500/60 
+                       text-slate-200 text-sm font-medium rounded-xl border border-slate-600/50
+                       transition-all duration-200 hover:border-slate-500/50"
             >
                 {"Load visible range"}
             </button>
@@ -280,9 +299,15 @@ impl MapComponent {
         html! {
             <button
                 onclick={cb}
-                class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium rounded-lg transition-colors duration-150"
+                class="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 
+                       active:from-blue-700 active:to-blue-800 text-white text-sm font-semibold rounded-xl 
+                       shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40
+                       transition-all duration-200 flex items-center justify-center gap-2"
             >
-                {"Apply filters →"}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                {"Apply Filters"}
             </button>
         }
     }
@@ -292,9 +317,14 @@ impl MapComponent {
         html! {
             <button
                 onclick={cb}
-                class="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 text-sm font-medium rounded-lg transition-colors duration-150"
+                class="w-full px-3 py-2 bg-slate-700/40 hover:bg-slate-600/50 active:bg-slate-500/50 
+                       text-slate-300 text-xs font-medium rounded-lg border border-slate-600/40
+                       transition-all duration-200 flex items-center justify-center gap-1.5"
             >
-                {"Download loaded"}
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                {"CSV"}
             </button>
         }
     }
@@ -304,44 +334,14 @@ impl MapComponent {
         html! {
             <button
                 onclick={cb}
-                class="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 text-sm font-medium rounded-lg transition-colors duration-150"
+                class="w-full px-3 py-2 bg-slate-700/40 hover:bg-slate-600/50 active:bg-slate-500/50 
+                       text-slate-300 text-xs font-medium rounded-lg border border-slate-600/40
+                       transition-all duration-200 flex items-center justify-center gap-1.5"
             >
-                {"Download detailed"}
-            </button>
-        }
-    }
-
-    fn whois_button(&self, ctx: &Context<Self>) -> Html {
-        let (disabled, label) = match (self.active_asn, self.active_marker_id) {
-            (Some(asn), Some(_)) => {
-                let loading = self.whois_loading.contains(&asn);
-                (false, if loading { "Checking WHOIS..." } else { "Check WHOIS" })
-            }
-            _ => (true, "Check WHOIS"),
-        };
-
-        let active = (self.active_asn, self.active_marker_id);
-        let cb = ctx.link().callback(move |_| {
-            if let (Some(asn), Some(mid)) = active {
-                Msg::CheckWhois(asn, mid)
-            } else {
-                Msg::Noop
-            }
-        });
-
-        html! {
-            <button
-                disabled={disabled}
-                onclick={cb}
-                class={classes!("w-full","px-4","py-2","text-sm", "font-medium", "rounded-lg", "transition-colors", "duration-150",
-                                if disabled {
-                                    "bg-slate-700 text-slate-400 cursor-not-allowed"
-                                } else {
-                                    "bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white"
-                                }
-                            )}
-            >
-                { label }
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                {"Detailed"}
             </button>
         }
     }
@@ -351,23 +351,28 @@ impl MapComponent {
         html! {
             <button
                 onclick={cb}
-                class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-sm font-medium rounded-lg transition-colors duration-150"
+                class="w-full px-4 py-2.5 bg-red-600/20 hover:bg-red-600/30 active:bg-red-600/40 
+                       text-red-400 hover:text-red-300 text-sm font-medium rounded-xl border border-red-600/30
+                       transition-all duration-200 flex items-center justify-center gap-2"
             >
-                {"Clear map"}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                {"Clear Map"}
             </button>
         }
     }
 
     fn debug_counter(&self, _ctx: &Context<Self>) -> Html {
         html! {
-            <div class="space-y-1">
-                <div class="flex justify-between">
-                    <span class="font-semibold text-slate-400">{"Drawn:"}</span>
-                    <span class="text-slate-200">{self.drawn_ases.len()}</span>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                    <p class="text-2xl font-bold text-emerald-400 tabular-nums">{self.drawn_ases.len()}</p>
+                    <p class="text-xs text-slate-400">{"Drawn"}</p>
                 </div>
-                <div class="flex justify-between">
-                    <span class="font-semibold text-slate-400">{"Detailed:"}</span>
-                    <span class="text-slate-200">{self.detailed_ases.len()}</span>
+                <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <p class="text-2xl font-bold text-purple-400 tabular-nums">{self.detailed_ases.len()}</p>
+                    <p class="text-xs text-slate-400">{"Detailed"}</p>
                 </div>
             </div>
         }
@@ -377,9 +382,14 @@ impl MapComponent {
         if let Some(asn) = self.active_asn {
             if let Some(w) = self.whois_cache.get(&asn) {
                 return html! {
-                    <div class="p-3 rounded-lg border border-slate-800 bg-slate-950/60 text-sm">
-                        <div class="text-xs text-slate-400 mb-2">{ format!("WHOIS (AS{})", asn) }</div>
-                        <pre class="text-xs whitespace-pre-wrap max-h-64 overflow-auto">{ w.clone() }</pre>
+                    <div class="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm">
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span class="text-sm font-semibold text-slate-300">{ format!("WHOIS AS{}", asn) }</span>
+                        </div>
+                        <pre class="text-xs text-slate-400 whitespace-pre-wrap max-h-48 overflow-auto p-3 rounded-lg bg-slate-900/50 border border-slate-700/30">{ w.clone() }</pre>
                     </div>
                 };
             }
@@ -658,29 +668,10 @@ impl Component for MapComponent {
                     }
                 });
             }
-            Msg::UpdateWhois(asn, marker_id, whois) => {
+            Msg::UpdateWhois(asn, _marker_id, whois) => {
+                // Just cache WHOIS data, don't add to popup
                 self.whois_loading.remove(&asn);
-                self.whois_cache.insert(asn, whois.clone());
-
-                // update popup content
-                let marker = self.marker_cluster.getLayer(marker_id);
-                let old_str = marker
-                    .get_popup()
-                    .get_content()
-                    .as_string()
-                    .unwrap_or_default();
-
-                // minimal escape to avoid breaking HTML
-                let safe = whois
-                    .replace('&', "&amp;")
-                    .replace('<', "&lt;")
-                    .replace('>', "&gt;");
-
-                let appended = format!(
-                    r#"{old}<br><b>whois</b>:<pre style="white-space:pre-wrap;max-height:250px;overflow:auto;">{safe}</pre>"#,
-                    old = old_str
-                );
-                marker.set_popup_content(&JsValue::from_str(&appended));
+                self.whois_cache.insert(asn, whois);
             }
             Msg::UpdateFilters(filter) => {
                 log!(format!("got filter update request for {filter:?}"));
@@ -764,25 +755,49 @@ impl Component for MapComponent {
 
                     let m = create_marker(
                         &format!(
-                            "<b>asn</b>:{} <b>rank</b>:{} <b>prefixes</b>:{} <b>addresses</b>:{}<br>
-                            <b>links</b>:<a href=\"https://bgp.he.net/AS{asn}\" target=\"_blank\">bgp.he</a>, shodan<br>
-                            <b>name</b>:{}<br>
-                            <b>org</b>:{}<br>
-                            <b>country</b>:{}",
+                            r#"<div style="font-family: system-ui, -apple-system, sans-serif; min-width: 300px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 16px; padding: 16px; border: 1px solid rgba(71, 85, 105, 0.5); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(71, 85, 105, 0.4);">
+                                <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); padding: 8px 14px; border-radius: 10px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);">
+                                    <span style="color: white; font-weight: 700; font-size: 15px; letter-spacing: -0.5px;">AS{}</span>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 600; color: #f1f5f9; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}</div>
+                                    <div style="color: #94a3b8; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}</div>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
+                                <div style="background: rgba(251, 191, 36, 0.1); padding: 10px 8px; border-radius: 10px; text-align: center; border: 1px solid rgba(251, 191, 36, 0.2);">
+                                    <div style="color: #fbbf24; font-weight: 700; font-size: 16px;">#{}</div>
+                                    <div style="color: #64748b; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Rank</div>
+                                </div>
+                                <div style="background: rgba(52, 211, 153, 0.1); padding: 10px 8px; border-radius: 10px; text-align: center; border: 1px solid rgba(52, 211, 153, 0.2);">
+                                    <div style="color: #34d399; font-weight: 700; font-size: 16px;">{}</div>
+                                    <div style="color: #64748b; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Prefixes</div>
+                                </div>
+                                <div style="background: rgba(167, 139, 250, 0.1); padding: 10px 8px; border-radius: 10px; text-align: center; border: 1px solid rgba(167, 139, 250, 0.2);">
+                                    <div style="color: #a78bfa; font-weight: 700; font-size: 16px;">{}</div>
+                                    <div style="color: #64748b; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">IPs</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <a href="/details/{asn}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25); transition: all 0.2s;">Details</a>
+                                <a href="https://bgp.he.net/AS{asn}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(71, 85, 105, 0.5); color: #e2e8f0; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 500; border: 1px solid rgba(71, 85, 105, 0.5);">BGP.HE</a>
+                                <span id="shodan-link-{asn}" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(51, 65, 85, 0.5); color: #64748b; border-radius: 8px; font-size: 12px; border: 1px solid rgba(51, 65, 85, 0.5);">Shodan</span>
+                            </div>
+                            </div>"#,
                             as_.asn,
+                            as_.name,
+                            as_.organization.as_deref().unwrap_or("—"),
                             as_.rank,
                             as_.prefixes,
-                            as_.addresses,
-                            as_.name,
-                            as_.organization.as_deref().unwrap_or("none"),
-                            country.map(|c| c.long_name).unwrap_or(""),
+                            Self::format_number(as_.addresses as u64),
                         ),
                         &format!("AS{}:{}:{:.20}",as_.asn, as_.name, as_.organization.as_deref().unwrap_or("")),
                         &Point(as_.coordinates.lat, as_.coordinates.lon),
                         marker_size,
                     );
 
-                    // popup open handler: set active + fetch details
+                    // popup open handler: set active + fetch details + fetch whois
                     let set_active_cb = ctx2
                         .lock()
                         .unwrap()
@@ -794,6 +809,12 @@ impl Component for MapComponent {
                         .unwrap()
                         .link()
                         .callback(move |marker_id: u64| Msg::GetDetails(asn, marker_id));
+
+                    let whois_cb = ctx2
+                        .lock()
+                        .unwrap()
+                        .link()
+                        .callback(move |marker_id: u64| Msg::CheckWhois(asn, marker_id));
 
                     let detail_update_closure = Closure::wrap(Box::new(move |e: JsValue| {
                         #[derive(Deserialize, Debug)]
@@ -812,6 +833,7 @@ impl Component for MapComponent {
 
                         set_active_cb.emit(id);
                         details_cb.emit(id);
+                        whois_cb.emit(id);
                     }) as Box<dyn Fn(JsValue)>);
 
                     let js = detail_update_closure.into_js_value();
@@ -835,61 +857,72 @@ impl Component for MapComponent {
                 let marker = self.marker_cluster.getLayer(marker_id);
                 let mut old_str = marker.get_popup().get_content().as_string().unwrap_or_default();
 
-                let mut details = String::new();
+                // Build styled details section
+                let degree = as_.asrank_data.as_ref().map(|d| d.degree.total).unwrap_or(0);
+                
+                let mut details = String::from(r#"<div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(71, 85, 105, 0.4);">"#);
+                
+                // Degree badge
                 details.push_str(&format!(
-                    "<b>degree</b>: {}",
-                    as_.asrank_data.as_ref().unwrap().degree
+                    r#"<div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <span style="background: rgba(249, 115, 22, 0.15); color: #fb923c; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; border: 1px solid rgba(249, 115, 22, 0.2);">{} connections</span>
+                    </div>"#,
+                    degree
                 ));
 
                 // Add prefix details with Shodan links
-                let prefixes = if let Some(ipnetdb) = as_.ipnetdb_data.as_ref() {
+                if let Some(ipnetdb) = as_.ipnetdb_data.as_ref() {
+                    // Update shodan placeholder with actual link
+                    let first_prefix = ipnetdb.ipv4_prefixes.first().map(|p| p.range.to_string()).unwrap_or_default();
                     old_str = old_str.replace(
-                        "shodan",
+                        &format!(r#"<span id="shodan-link-{}" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(51, 65, 85, 0.5); color: #64748b; border-radius: 8px; font-size: 12px; border: 1px solid rgba(51, 65, 85, 0.5);">Shodan</span>"#, as_.asn),
                         &format!(
-                            "<a href=\"https://www.shodan.io/search?query=net:{}\" target=\"_blank\">shodan</a>",
-                            ipnetdb
-                                .ipv4_prefixes
-                                .iter()
-                                .map(|x| x.range.to_string())
-                                .map(|mut x| {
-                                    x.push(',');
-                                    x
-                                })
-                                .collect::<String>()
+                            r#"<a href="https://www.shodan.io/search?query=net:{}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);">Shodan</a>"#,
+                            first_prefix
                         ),
                     );
-                    format!(
-                        "<br><b>prefixes</b>: {}",
-                        ipnetdb.ipv4_prefixes.iter().fold(String::new(), |mut output, x| {
-                            let cidr = x.range.to_string();
-                            let _ = write!(
-                                output,
-                                "{cidr}:<b><a href=\"https://www.shodan.io/search?query=net%3A{cidr}\" target=\"_blank\">s</a>\
-                                </b>|<b><a href=\"https://www.zoomeye.org/searchResult?q=cidr%3A{cidr}\" target=\"_blank\">z</a>\
-                                </b>|<b><a href=\"https://search.censys.io/search?resource=hosts&sort=RELEVANCE&per_page=25&virtual_hosts=EXCLUDE&q=ip%3A{cidr}\" target=\"_blank\">c</a></b> ",
-                            );
-                            output
-                        })
-                    )
-                } else {
-                    String::new()
+                    
+                    // Prefix list
+                    if !ipnetdb.ipv4_prefixes.is_empty() {
+                        details.push_str(r#"<div style="margin-top: 12px;"><div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600;">Prefixes</div><div style="display: flex; flex-wrap: wrap; gap: 6px;">"#);
+                        for prefix in ipnetdb.ipv4_prefixes.iter().take(8) {
+                            let cidr = prefix.range.to_string();
+                            details.push_str(&format!(
+                                r#"<div style="background: rgba(30, 41, 59, 0.8); padding: 6px 10px; border-radius: 6px; font-size: 11px; border: 1px solid rgba(71, 85, 105, 0.3);">
+                                    <span style="color: #e2e8f0; font-weight: 500;">{cidr}</span>
+                                    <a href="https://www.shodan.io/search?query=net%3A{cidr}" target="_blank" style="color: #ef4444; margin-left: 6px; text-decoration: none; font-weight: 600;">S</a>
+                                    <a href="https://www.zoomeye.org/searchResult?q=cidr%3A{cidr}" target="_blank" style="color: #3b82f6; margin-left: 4px; text-decoration: none; font-weight: 600;">Z</a>
+                                    <a href="https://search.censys.io/search?resource=hosts&q=ip%3A{cidr}" target="_blank" style="color: #a855f7; margin-left: 4px; text-decoration: none; font-weight: 600;">C</a>
+                                </div>"#
+                            ));
+                        }
+                        if ipnetdb.ipv4_prefixes.len() > 8 {
+                            details.push_str(&format!(r#"<span style="color: #64748b; font-size: 11px; padding: 6px; font-weight: 500;">+{} more</span>"#, ipnetdb.ipv4_prefixes.len() - 8));
+                        }
+                        details.push_str("</div></div>");
+                    }
                 };
-                details.push_str(&prefixes);
 
                 // Add Stanford ASDB categories
                 let mut stanford = HashSet::new();
                 for c in as_.stanford_asdb.iter() {
                     stanford.insert(c.layer1.as_str());
                 }
-                details.push_str(&format!(
-                    "<br><b>categories</b>: {}",
-                    stanford.iter().fold(String::new(), |mut output, x| {
-                        let _ = writeln!(output, "<b>></b>{x}<b>.</b><br>");
-                        output
-                    })
-                ));
+                if !stanford.is_empty() {
+                    details.push_str(r#"<div style="margin-top: 14px;"><div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600;">Categories</div><div style="display: flex; flex-wrap: wrap; gap: 6px;">"#);
+                    for cat in stanford.iter() {
+                        details.push_str(&format!(
+                            r#"<span style="background: rgba(6, 182, 212, 0.15); color: #22d3ee; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; border: 1px solid rgba(6, 182, 212, 0.2);">{cat}</span>"#
+                        ));
+                    }
+                    details.push_str("</div></div>");
+                }
+                
+                details.push_str("</div>");
 
-                marker.set_popup_content(&JsValue::from_str(&format!("{old_str}<br>{details}")));
+                // Insert details inside the main container (before the closing </div>)
+                let new_content = old_str.replacen("</div></div></div>", &format!("{}</div></div></div>", details), 1);
+                marker.set_popup_content(&JsValue::from_str(&new_content));
                 self.detailed_ases.insert(as_.asn, as_);
                 log!("marker updated");
             }
@@ -928,35 +961,63 @@ impl Component for MapComponent {
     // TODO GIS obsluga zapytania o skan whoisa w popupie i na stronie z detalami
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <div class="min-h-screen bg-slate-50 text-slate-100 flex flex-col md:flex-row gap-4 p-4">
-                <div class="flex-1 min-h-[60vh] rounded-xl border border-slate-800 shadow-lg overflow-hidden">
-                    <div class="h-full">{ self.render_map() }</div>
+            <div class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col lg:flex-row">
+                // Map container
+                <div class="flex-1 min-h-[50vh] lg:min-h-screen relative">
+                    <div class="absolute inset-0">{ self.render_map() }</div>
                 </div>
 
-                <div class="w-full md:w-96 space-y-4">
-                    <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow">
-                        <div class="flex flex-col gap-2">
-                            { self.load_as_bounded_button(ctx) }
-                            { self.load_as_filtered_button(ctx) }
-                            { self.download_button(ctx) }
-                            { self.download_detailed_button(ctx) }
-
-                            // WHOIS - NEW
-                            { self.whois_button(ctx) }
-
-                            { self.clear_button(ctx) }
+                // Sidebar
+                <div class="w-full lg:w-80 xl:w-96 p-4 lg:p-6 space-y-4 lg:max-h-screen lg:overflow-y-auto 
+                            bg-slate-900/80 backdrop-blur-xl border-t lg:border-t-0 lg:border-l border-slate-700/50">
+                    
+                    // Header
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="p-2 bg-blue-500/20 rounded-xl border border-blue-500/30">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold text-white">{"AS Map"}</h1>
+                            <p class="text-xs text-slate-400">{"Autonomous Systems Explorer"}</p>
                         </div>
                     </div>
 
-                    <div class="p-4 rounded-xl text-sm border border-slate-800 bg-slate-900/60 shadow">
+                    // Action buttons
+                    <div class="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm space-y-2">
+                        { self.load_as_filtered_button(ctx) }
+                        { self.load_as_bounded_button(ctx) }
+                        { self.clear_button(ctx) }
+                        <div class="grid grid-cols-2 gap-2">
+                            { self.download_button(ctx) }
+                            { self.download_detailed_button(ctx) }
+                        </div>
+                    </div>
+
+                    // Filters
+                    <div class="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm">
+                        <div class="flex items-center gap-2 mb-4">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                            </svg>
+                            <span class="text-sm font-semibold text-slate-300">{"Filters"}</span>
+                        </div>
                         { self.filter_menu(ctx) }
                     </div>
 
-                    { self.whois_panel() }
-
-                    <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/60 text-sm">
+                    // Stats
+                    <div class="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm">
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                            <span class="text-sm font-semibold text-slate-300">{"Statistics"}</span>
+                        </div>
                         { self.debug_counter(ctx) }
                     </div>
+
+                    { self.whois_panel() }
                 </div>
             </div>
         }

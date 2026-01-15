@@ -1,8 +1,9 @@
-use axum::{Router, http, routing::get};
+use axum::{Router, http, routing::get, response::IntoResponse, extract::State};
 use clap::Parser;
 use std::{
     net::{IpAddr, Ipv6Addr, SocketAddr},
     str::FromStr,
+    sync::Arc,
 };
 use tokio::{net::TcpListener, task::yield_now, time::interval};
 use tower::ServiceBuilder;
@@ -75,9 +76,25 @@ async fn main() {
     );
     let state = ServerState::new(&cfg.mongo_conn_str, &cfg.db_name).await;
     tokio::spawn(governor_cleanup(state.clone()));
+    
+    // SPA fallback: serve index.html for unknown routes (client-side routing)
+    let static_dir_for_spa = Arc::new(opt.static_dir.clone());
+    let spa_fallback = {
+        let static_dir = static_dir_for_spa.clone();
+        move || async move {
+            let index_path = format!("{}/index.html", static_dir);
+            match tokio::fs::read_to_string(&index_path).await {
+                Ok(html) => axum::response::Html(html).into_response(),
+                Err(_) => (http::StatusCode::NOT_FOUND, "Not Found").into_response(),
+            }
+        }
+    };
+    
     let app = Router::new()
         .route("/as", get(as_handler))
-        .fallback_service(ServeDir::new(opt.static_dir))
+        .fallback_service(
+            ServeDir::new(&opt.static_dir).fallback(axum::routing::get(spa_fallback))
+        )
         .layer(
             ServiceBuilder::new()
                 // .layer(HandleErrorLayer::new(|e: BoxError| async move {
