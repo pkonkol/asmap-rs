@@ -52,6 +52,10 @@ impl NormalizationRule {
 ///
 /// The normalizer applies a series of rules to transform WHOIS addresses
 /// into a format more suitable for geocoding APIs.
+///
+/// Note: Nominatim is designed to handle free-form addresses including common
+/// abbreviations like "ul.", "al.", etc. We keep normalization minimal to
+/// avoid breaking the search.
 #[derive(Debug, Clone)]
 pub struct AddressNormalizer {
     rules: Vec<NormalizationRule>,
@@ -59,58 +63,38 @@ pub struct AddressNormalizer {
 
 lazy_static! {
     /// Default normalization rules for common WHOIS address formats.
+    /// 
+    /// These rules do minimal transformation - Nominatim handles most
+    /// address formats well on its own. We mainly:
+    /// - Remove organization prefixes that confuse geocoding
+    /// - Clean up whitespace and punctuation
     static ref DEFAULT_RULES: Vec<NormalizationRule> = vec![
         // Remove organization names at the beginning (before street address)
         // Matches patterns like "Company Name, ul." or "Organization, Trakt"
         NormalizationRule::new(
-            "remove_org_prefix",
-            r"(?i)^[^,]+,\s*(ul\.|ulica|al\.|aleja|pl\.|plac|trakt|st\.)",
+            "remove_org_prefix_ul",
+            r"(?i)^[^,]+,\s*(ul\.)",
             "$1"
         ),
-        
-        // Normalize Polish street prefixes
         NormalizationRule::new(
-            "normalize_ul",
-            r"(?i)\bul\.\s*",
-            "ulica "
+            "remove_org_prefix_al",
+            r"(?i)^[^,]+,\s*(al\.)",
+            "$1"
         ),
         NormalizationRule::new(
-            "normalize_al",
-            r"(?i)\bal\.\s*",
-            "aleja "
+            "remove_org_prefix_pl",
+            r"(?i)^[^,]+,\s*(pl\.)",
+            "$1"
         ),
         NormalizationRule::new(
-            "normalize_pl",
-            r"(?i)\bpl\.\s*",
-            "plac "
+            "remove_org_prefix_trakt",
+            r"(?i)^[^,]+,\s*(trakt)",
+            "$1"
         ),
-        
-        // Normalize "st." (street) abbreviation
         NormalizationRule::new(
-            "normalize_st",
-            r"(?i)\bst\.\s*",
-            "ulica "
-        ),
-        
-        // Remove "sw." (świętego/saint) abbreviation dots
-        NormalizationRule::new(
-            "normalize_sw",
-            r"(?i)\bsw\.\s*",
-            "świętego "
-        ),
-        
-        // Remove "no" or "nr" before house numbers
-        NormalizationRule::new(
-            "remove_no_prefix",
-            r"(?i),?\s*\b(no|nr)\.?\s*(\d)",
-            " $2"
-        ),
-        
-        // Normalize Polish postal codes (add space if missing: 80233 -> 80-233)
-        NormalizationRule::new(
-            "normalize_postal_code_no_dash",
-            r"\b(\d{2})(\d{3})\b",
-            "$1-$2"
+            "remove_org_prefix_number",
+            r"(?i)^[^,]+,\s*(\d+\s)",
+            "$1"
         ),
         
         // Remove extra commas and spaces
@@ -123,18 +107,6 @@ lazy_static! {
             "normalize_spaces",
             r"\s+",
             " "
-        ),
-        
-        // Normalize country names to title case
-        NormalizationRule::new(
-            "normalize_poland",
-            r"(?i)\bPOLAND\b",
-            "Poland"
-        ),
-        NormalizationRule::new(
-            "normalize_germany",
-            r"(?i)\bGERMANY\b",
-            "Germany"
         ),
         
         // Trim leading/trailing whitespace and commas
@@ -201,8 +173,8 @@ impl AddressNormalizer {
         // First normalize the address
         let normalized = self.normalize(address);
         
-        // Try to find postal code pattern followed by city name
-        let postal_city_re = Regex::new(r"(\d{2}-\d{3})\s+([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ]+)").ok()?;
+        // Try to find postal code pattern (XX-XXX or XXXXX) followed by city name
+        let postal_city_re = Regex::new(r"(\d{2}-?\d{3})\s+([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ]+)").ok()?;
         if let Some(caps) = postal_city_re.captures(&normalized) {
             let city = caps.get(2)?.as_str();
             // Try to find country at the end
@@ -211,6 +183,13 @@ impl AddressNormalizer {
                 return Some(format!("{}, {}", city, country_caps.get(1)?.as_str()));
             }
             return Some(city.to_string());
+        }
+        
+        // Fallback: try to get the last two comma-separated parts (city, country)
+        let parts: Vec<&str> = normalized.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+        if parts.len() >= 2 {
+            let last_two = &parts[parts.len()-2..];
+            return Some(last_two.join(", "));
         }
         
         None
@@ -222,14 +201,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_normalize_polish_ul() {
+    fn test_normalize_preserves_address() {
         let normalizer = AddressNormalizer::default();
         
+        // Nominatim handles "ul." well - we should preserve it
         let input = "ul. Narutowicza 11/12, 80-233 Gdansk, Poland";
         let result = normalizer.normalize(input);
         
-        assert!(result.contains("ulica"));
-        assert!(!result.contains("ul."));
+        // Address should be mostly preserved (just whitespace cleanup)
+        assert!(result.contains("ul."));
+        assert!(result.contains("Narutowicza"));
         assert!(result.contains("Gdansk"));
         assert!(result.contains("Poland"));
     }
@@ -238,25 +219,28 @@ mod tests {
     fn test_normalize_trakt_address() {
         let normalizer = AddressNormalizer::default();
         
+        // Nominatim handles Polish addresses well - preserve original format
         let input = "Trakt sw.Wojciecha 253, 80018, Gdansk, POLAND";
         let result = normalizer.normalize(input);
         
-        assert!(result.contains("świętego"));
-        assert!(result.contains("Poland")); // Normalized from POLAND
-        assert!(result.contains("80-018")); // Postal code normalized
+        assert!(result.contains("Trakt"));
+        assert!(result.contains("sw.Wojciecha"));
+        assert!(result.contains("80018"));
+        assert!(result.contains("POLAND"));
     }
 
     #[test]
-    fn test_normalize_st_with_no() {
+    fn test_normalize_address_with_no() {
         let normalizer = AddressNormalizer::default();
         
         let input = "st. Józef Wassowski, no 12, 80-225, Gdansk, POLAND";
         let result = normalizer.normalize(input);
         
-        assert!(result.contains("ulica"));
-        assert!(!result.contains("no 12")); // "no" should be removed
-        assert!(result.contains("12"));
-        assert!(result.contains("Poland"));
+        // Should preserve the address format
+        assert!(result.contains("st."));
+        assert!(result.contains("no 12") || result.contains("12"));
+        assert!(result.contains("Gdansk"));
+        assert!(result.contains("POLAND")); // Preserved as-is
     }
 
     #[test]
@@ -279,7 +263,8 @@ mod tests {
         let input = "Street 1, 80233 Gdansk, Poland";
         let result = normalizer.normalize(input);
         
-        assert!(result.contains("80-233")); // Dash should be added
+        // Postal code format is preserved (Nominatim handles both)
+        assert!(result.contains("80233"));
     }
 
     #[test]
@@ -321,9 +306,11 @@ mod tests {
         let results = normalizer.normalize_all(&addresses);
         
         assert_eq!(results.len(), 2);
-        assert!(results[0].contains("ulica"));
-        assert!(results[1].contains("aleja"));
-        assert!(results[1].contains("Poland")); // Not POLAND
+        // Abbreviations are preserved (Nominatim handles them)
+        assert!(results[0].contains("ul."));
+        assert!(results[1].contains("al."));
+        // POLAND stays as-is (minimal normalization)
+        assert!(results[1].contains("POLAND"));
     }
 
     #[test]
