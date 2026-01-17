@@ -97,6 +97,30 @@ lazy_static! {
             "$1"
         ),
         
+        // Add space after street abbreviations if missing: "ul.Narutowicza" -> "ul. Narutowicza"
+        NormalizationRule::new(
+            "add_space_after_ul",
+            r"(?i)\bul\.([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ])",
+            "ul. $1"
+        ),
+        NormalizationRule::new(
+            "add_space_after_al",
+            r"(?i)\bal\.([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ])",
+            "al. $1"
+        ),
+        NormalizationRule::new(
+            "add_space_after_pl",
+            r"(?i)\bpl\.([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ])",
+            "pl. $1"
+        ),
+        
+        // Fix postal code followed by comma then city: ", 80-233, Gdansk" -> ", 80-233 Gdansk"
+        NormalizationRule::new(
+            "fix_postal_city_comma",
+            r"(\d{2}-\d{3}),\s*([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ])",
+            "$1 $2"
+        ),
+        
         // Remove extra commas and spaces
         NormalizationRule::new(
             "remove_extra_commas",
@@ -227,6 +251,32 @@ mod tests {
         assert!(result.contains("sw.Wojciecha"));
         assert!(result.contains("80018"));
         assert!(result.contains("POLAND"));
+    }
+
+    #[test]
+    fn test_normalize_adds_space_after_abbreviation() {
+        let normalizer = AddressNormalizer::default();
+        
+        // Missing space after "ul." should be fixed
+        let input = "ul.Narutowicza 11/12, 80-233, Gdansk, POLAND";
+        let result = normalizer.normalize(input);
+        
+        // Space should be added: "ul.Narutowicza" -> "ul. Narutowicza"
+        assert!(result.contains("ul. Narutowicza"));
+        assert!(!result.contains("ul.Narutowicza")); // No missing space
+    }
+
+    #[test]
+    fn test_normalize_fixes_postal_city_comma() {
+        let normalizer = AddressNormalizer::default();
+        
+        // Comma between postal code and city should be removed
+        let input = "ul. Test 1, 80-233, Gdansk, Poland";
+        let result = normalizer.normalize(input);
+        
+        // Should become "80-233 Gdansk" not "80-233, Gdansk"
+        assert!(result.contains("80-233 Gdansk"));
+        assert!(!result.contains("80-233, Gdansk"));
     }
 
     #[test]
