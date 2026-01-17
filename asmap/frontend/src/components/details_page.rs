@@ -29,6 +29,7 @@ pub struct DetailsPage {
     whois_loading: bool,
     geocoding: bool,
     error: Option<String>,
+    geocoded_addresses: Vec<GeocodedAddress>,
 }
 
 impl Component for DetailsPage {
@@ -50,6 +51,7 @@ impl Component for DetailsPage {
             whois_loading: true,
             geocoding: false,
             error: None,
+            geocoded_addresses: Vec::new(),
         }
     }
 
@@ -120,6 +122,7 @@ impl Component for DetailsPage {
                     log!("---");
                 }
                 log!(format!("=== Total: {} addresses geocoded ===", results.len()));
+                self.geocoded_addresses = results;
             }
         }
         true
@@ -234,6 +237,11 @@ impl DetailsPage {
 
                             // WHOIS Section
                             { self.render_whois(ctx) }
+                            
+                            // Geocoding Results Section
+                            if !self.geocoded_addresses.is_empty() {
+                                { self.render_geocoding_results() }
+                            }
                         </div>
 
                         // Right Column - Quick Links & Info
@@ -459,6 +467,127 @@ impl DetailsPage {
                         }
                     }).collect::<Html>() }
                 </div>
+            </div>
+        }
+    }
+
+    fn render_geocoding_results(&self) -> Html {
+        let successful: Vec<_> = self.geocoded_addresses.iter()
+            .filter(|a| a.coordinate.is_some())
+            .collect();
+        let failed: Vec<_> = self.geocoded_addresses.iter()
+            .filter(|a| a.coordinate.is_none())
+            .collect();
+
+        html! {
+            <div class="p-6 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-sm
+                        shadow-[0_10px_40px_-25px_rgba(0,0,0,0.85)]
+                        transition-all duration-300 hover:border-slate-700/70 hover:shadow-[0_18px_60px_-35px_rgba(0,0,0,0.9)]">
+                <div class="flex items-start gap-3 mb-5">
+                    <div class="p-2 bg-emerald-500/15 rounded-xl border border-emerald-500/20">
+                        <svg class="w-5 h-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="text-lg font-semibold text-white tracking-tight">{"Geocoding Results"}</h3>
+                        <p class="text-sm text-slate-400">
+                            { format!("{} of {} addresses resolved", successful.len(), self.geocoded_addresses.len()) }
+                        </p>
+                    </div>
+                </div>
+
+                // Successfully geocoded addresses
+                if !successful.is_empty() {
+                    <div class="space-y-3 mb-4">
+                        { successful.iter().map(|addr| {
+                            let coord = addr.coordinate.as_ref().unwrap();
+                            let osm_url = format!(
+                                "https://www.openstreetmap.org/?mlat={:.6}&mlon={:.6}#map=15/{:.6}/{:.6}",
+                                coord.latitude, coord.longitude, coord.latitude, coord.longitude
+                            );
+                            let gmaps_url = format!(
+                                "https://www.google.com/maps/search/?api=1&query={:.6},{:.6}",
+                                coord.latitude, coord.longitude
+                            );
+                            
+                            html! {
+                                <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                    <div class="flex items-start justify-between gap-4 mb-3">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm text-slate-300 break-words mb-1">
+                                                { &addr.original_address }
+                                            </p>
+                                            if let Some(display) = &addr.display_name {
+                                                <p class="text-xs text-slate-400 break-words">
+                                                    { format!("→ {}", display) }
+                                                </p>
+                                            }
+                                        </div>
+                                        <div class="flex items-center gap-1 flex-shrink-0">
+                                            <a
+                                                href={osm_url}
+                                                target="_blank"
+                                                class="p-2 rounded-lg bg-slate-800/50 border border-slate-700/40 
+                                                       hover:bg-blue-500/20 hover:border-blue-500/30 transition-all
+                                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
+                                                title="View on OpenStreetMap"
+                                            >
+                                                <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                                                </svg>
+                                            </a>
+                                            <a
+                                                href={gmaps_url}
+                                                target="_blank"
+                                                class="p-2 rounded-lg bg-slate-800/50 border border-slate-700/40 
+                                                       hover:bg-red-500/20 hover:border-red-500/30 transition-all
+                                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"
+                                                title="View on Google Maps"
+                                            >
+                                                <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <span class="px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded-md font-mono">
+                                            { format!("{:.5}°", coord.latitude) }
+                                        </span>
+                                        <span class="text-slate-500">{","}</span>
+                                        <span class="px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded-md font-mono">
+                                            { format!("{:.5}°", coord.longitude) }
+                                        </span>
+                                    </div>
+                                </div>
+                            }
+                        }).collect::<Html>() }
+                    </div>
+                }
+
+                // Failed geocoding attempts
+                if !failed.is_empty() {
+                    <div class="space-y-2">
+                        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">{"Failed to resolve"}</p>
+                        { failed.iter().map(|addr| {
+                            html! {
+                                <div class="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                                    <p class="text-sm text-slate-300 break-words mb-1">
+                                        { &addr.original_address }
+                                    </p>
+                                    if let Some(err) = &addr.error {
+                                        <p class="text-xs text-red-300/80">
+                                            { format!("Error: {}", err) }
+                                        </p>
+                                    }
+                                </div>
+                            }
+                        }).collect::<Html>() }
+                    </div>
+                }
             </div>
         }
     }
