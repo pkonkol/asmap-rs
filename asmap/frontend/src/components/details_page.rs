@@ -722,25 +722,41 @@ impl DetailsPage {
         }
     }
 
-    /// Collect all addresses from WHOIS data for geocoding
+    /// Collect all addresses from WHOIS data for geocoding.
+    /// 
+    /// WHOIS data stores addresses as Vec<String> where each element is one line
+    /// (e.g., ["ul. Narutowicza 11/12", "80-233 Gdansk", "Poland"]).
+    /// This method joins each address's lines into a single string for geocoding.
     fn collect_whois_addresses(&self) -> Vec<String> {
         let mut addresses = Vec::new();
         
         if let Some(whois) = &self.whois_data {
-            // Add organisation addresses
+            // Add organisation address (all lines joined as one address)
             if let Some(org) = &whois.organisation {
-                for addr in &org.address {
-                    if !addr.trim().is_empty() {
-                        addresses.push(addr.clone());
+                if !org.address.is_empty() {
+                    let full_address = org.address
+                        .iter()
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    if !full_address.is_empty() {
+                        addresses.push(full_address);
                     }
                 }
             }
             
-            // Add contact addresses
+            // Add contact addresses (each contact's address lines joined as one address)
             for contact in &whois.contacts {
-                for addr in &contact.address {
-                    if !addr.trim().is_empty() {
-                        addresses.push(addr.clone());
+                if !contact.address.is_empty() {
+                    let full_address = contact.address
+                        .iter()
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    if !full_address.is_empty() {
+                        addresses.push(full_address);
                     }
                 }
             }
