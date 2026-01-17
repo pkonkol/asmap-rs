@@ -1,4 +1,5 @@
 pub mod api;
+pub mod geocoding;
 pub mod map_component;
 pub mod details_page;
 

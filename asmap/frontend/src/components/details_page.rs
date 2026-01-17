@@ -5,12 +5,15 @@ use yew_router::prelude::*;
 use asdb_models::{As, WhoIsAsn};
 use crate::routes::Route;
 use super::api::{get_as_details, fetch_as_whois_data};
+use super::geocoding::{geocode_addresses, GeocodedAddress};
 
 pub enum Msg {
     LoadData,
     SetAsDetails(As),
     SetWhois(Option<WhoIsAsn>),
     Error(String),
+    GeocodeAddresses,
+    GeocodeResult(Vec<GeocodedAddress>),
 }
 
 #[derive(Properties, PartialEq)]
@@ -24,6 +27,7 @@ pub struct DetailsPage {
     whois_data: Option<WhoIsAsn>,
     loading: bool,
     whois_loading: bool,
+    geocoding: bool,
     error: Option<String>,
 }
 
@@ -44,6 +48,7 @@ impl Component for DetailsPage {
             whois_data: None,
             loading: true,
             whois_loading: true,
+            geocoding: false,
             error: None,
         }
     }
@@ -82,11 +87,45 @@ impl Component for DetailsPage {
                 self.error = Some(e);
                 self.loading = false;
             }
+            Msg::GeocodeAddresses => {
+                self.geocoding = true;
+                // Collect all addresses from WHOIS data
+                let addresses = self.collect_whois_addresses();
+                if addresses.is_empty() {
+                    log!("No addresses found in WHOIS data to geocode");
+                    self.geocoding = false;
+                } else {
+                    log!(format!("Geocoding {} addresses...", addresses.len()));
+                    ctx.link().send_future(async move {
+                        let results = geocode_addresses(addresses).await;
+                        Msg::GeocodeResult(results)
+                    });
+                }
+            }
+            Msg::GeocodeResult(results) => {
+                self.geocoding = false;
+                log!("=== GEOCODING RESULTS ===");
+                for result in &results {
+                    log!(format!("Original: {}", result.original_address));
+                    log!(format!("Normalized: {}", result.normalized_address));
+                    if let Some(coord) = &result.coordinate {
+                        log!(format!("📍 Coordinates: {:.6}, {:.6}", coord.latitude, coord.longitude));
+                    }
+                    if let Some(display) = &result.display_name {
+                        log!(format!("Display name: {}", display));
+                    }
+                    if let Some(err) = &result.error {
+                        log!(format!("❌ Error: {}", err));
+                    }
+                    log!("---");
+                }
+                log!(format!("=== Total: {} addresses geocoded ===", results.len()));
+            }
         }
         true
     }
 
-    fn view(&self, _ctx: &Context<Self>) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
                 // Top navigation bar
@@ -118,7 +157,7 @@ impl Component for DetailsPage {
 
                 <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <div class="space-y-8">
-                        { self.render_content() }
+                        { self.render_content(ctx) }
                     </div>
                 </main>
             </div>
@@ -127,7 +166,7 @@ impl Component for DetailsPage {
 }
 
 impl DetailsPage {
-    fn render_content(&self) -> Html {
+    fn render_content(&self, ctx: &Context<Self>) -> Html {
         if let Some(error) = &self.error {
             return html! {
                 <div class="flex items-center justify-center min-h-[60vh]">
@@ -194,7 +233,7 @@ impl DetailsPage {
                             }
 
                             // WHOIS Section
-                            { self.render_whois() }
+                            { self.render_whois(ctx) }
                         </div>
 
                         // Right Column - Quick Links & Info
@@ -472,21 +511,56 @@ impl DetailsPage {
         }
     }
 
-    fn render_whois(&self) -> Html {
+    fn render_whois(&self, ctx: &Context<Self>) -> Html {
+        let on_geocode_click = ctx.link().callback(|_| Msg::GeocodeAddresses);
+        let has_addresses = self.whois_data.as_ref().map_or(false, |w| {
+            !w.organisation.as_ref().map_or(true, |o| o.address.is_empty())
+            || w.contacts.iter().any(|c| !c.address.is_empty())
+        });
+
         html! {
             <div class="p-6 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-sm
                         shadow-[0_10px_40px_-25px_rgba(0,0,0,0.85)]
                         transition-all duration-300 hover:border-slate-700/70 hover:shadow-[0_18px_60px_-35px_rgba(0,0,0,0.9)]">
-                <div class="flex items-start gap-3 mb-5">
-                    <div class="p-2 bg-amber-500/15 rounded-xl border border-amber-500/20">
-                        <svg class="w-5 h-5 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                        </svg>
+                <div class="flex items-start justify-between gap-3 mb-5">
+                    <div class="flex items-start gap-3">
+                        <div class="p-2 bg-amber-500/15 rounded-xl border border-amber-500/20">
+                            <svg class="w-5 h-5 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="text-lg font-semibold text-white tracking-tight">{"WHOIS Information"}</h3>
+                            <p class="text-sm text-slate-400">{"Registry data from RIPE"}</p>
+                        </div>
                     </div>
-                    <div class="min-w-0">
-                        <h3 class="text-lg font-semibold text-white tracking-tight">{"WHOIS Information"}</h3>
-                        <p class="text-sm text-slate-400">{"Registry data from RIPE"}</p>
-                    </div>
+                    // Geocode button
+                    if has_addresses && !self.whois_loading {
+                        <button
+                            onclick={on_geocode_click}
+                            disabled={self.geocoding}
+                            class={classes!(
+                                "inline-flex", "items-center", "gap-2", "px-4", "py-2",
+                                "rounded-xl", "text-sm", "font-medium", "transition-all", "duration-200",
+                                if self.geocoding {
+                                    "bg-slate-700/50 text-slate-400 cursor-not-allowed"
+                                } else {
+                                    "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 hover:border-emerald-400/40"
+                                }
+                            )}
+                        >
+                            if self.geocoding {
+                                <div class="w-4 h-4 border-2 border-slate-500/70 border-t-emerald-400 rounded-full animate-spin"></div>
+                                {"Geocoding..."}
+                            } else {
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                {"Geocode"}
+                            }
+                        </button>
+                    }
                 </div>
 
                 {
@@ -646,5 +720,36 @@ impl DetailsPage {
             "hosting" | "cloud" => "bg-cyan-500/15 border-cyan-500/25 text-cyan-200",
             _ => "bg-slate-700/35 border-slate-600/40 text-slate-200",
         }
+    }
+
+    /// Collect all addresses from WHOIS data for geocoding
+    fn collect_whois_addresses(&self) -> Vec<String> {
+        let mut addresses = Vec::new();
+        
+        if let Some(whois) = &self.whois_data {
+            // Add organisation addresses
+            if let Some(org) = &whois.organisation {
+                for addr in &org.address {
+                    if !addr.trim().is_empty() {
+                        addresses.push(addr.clone());
+                    }
+                }
+            }
+            
+            // Add contact addresses
+            for contact in &whois.contacts {
+                for addr in &contact.address {
+                    if !addr.trim().is_empty() {
+                        addresses.push(addr.clone());
+                    }
+                }
+            }
+        }
+        
+        // Remove duplicates while preserving order
+        let mut seen = std::collections::HashSet::new();
+        addresses.retain(|addr| seen.insert(addr.clone()));
+        
+        addresses
     }
 }
