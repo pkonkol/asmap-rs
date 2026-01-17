@@ -3,9 +3,7 @@
 //! This module provides geocoding functionality that runs in the browser,
 //! calling the Nominatim API directly to convert addresses to coordinates.
 //!
-//! Nominatim uses free-form search and is designed to handle addresses as-is,
-//! including common abbreviations. We do minimal normalization to avoid
-//! breaking the search.
+//! Uses Nominatim's structured query for better accuracy with Polish addresses.
 
 use gloo_console::log;
 use gloo_net::http::Request;
@@ -37,29 +35,92 @@ struct NominatimResponse {
     display_name: String,
 }
 
-/// Normalize an address for geocoding.
-/// 
-/// Reorders address parts into format: "postal_code city; street number"
-/// This format works better with Nominatim for Polish addresses.
-fn normalize_address(address: &str) -> String {
-    let mut result = address.to_string();
+/// Parsed address components for structured query.
+#[derive(Debug, Clone, Default)]
+struct AddressComponents {
+    street: Option<String>,
+    city: Option<String>,
+    postalcode: Option<String>,
+    country: Option<String>,
+}
+
+impl AddressComponents {
+    /// Format as human-readable string for logging
+    fn to_display_string(&self) -> String {
+        let mut parts = Vec::new();
+        if let Some(ref s) = self.street {
+            parts.push(format!("street={}", s));
+        }
+        if let Some(ref c) = self.city {
+            parts.push(format!("city={}", c));
+        }
+        if let Some(ref p) = self.postalcode {
+            parts.push(format!("postalcode={}", p));
+        }
+        if let Some(ref c) = self.country {
+            parts.push(format!("country={}", c));
+        }
+        parts.join(", ")
+    }
     
-    // Remove organization/institution names at the beginning
+    /// Build URL query string for Nominatim structured search
+    fn to_query_string(&self) -> String {
+        let mut params = Vec::new();
+        if let Some(ref s) = self.street {
+            params.push(format!("street={}", urlencoding::encode(s)));
+        }
+        if let Some(ref c) = self.city {
+            params.push(format!("city={}", urlencoding::encode(c)));
+        }
+        if let Some(ref p) = self.postalcode {
+            params.push(format!("postalcode={}", urlencoding::encode(p)));
+        }
+        if let Some(ref c) = self.country {
+            params.push(format!("country={}", urlencoding::encode(c)));
+        }
+        params.join("&")
+    }
+    
+    /// Check if we have enough components for a meaningful query
+    fn is_valid(&self) -> bool {
+        self.city.is_some() || self.street.is_some()
+    }
+    
+    /// Create a fallback with just city and country
+    fn city_country_fallback(&self) -> Option<AddressComponents> {
+        if self.city.is_some() {
+            Some(AddressComponents {
+                street: None,
+                city: self.city.clone(),
+                postalcode: None,
+                country: self.country.clone(),
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// Parse address string into structured components.
+fn parse_address(address: &str) -> AddressComponents {
+    let mut components = AddressComponents::default();
+    
+    // Clean up the address first - remove org names at the beginning
+    let mut cleaned = address.to_string();
     let org_patterns = [
         r"(?i)^[^,]+,\s*(ul\.)",
         r"(?i)^[^,]+,\s*(al\.)",
         r"(?i)^[^,]+,\s*(pl\.)",
         r"(?i)^[^,]+,\s*(trakt)",
-        r"(?i)^[^,]+,\s*(\d+\s)",
     ];
     
     for pattern in org_patterns {
         if let Ok(re) = regex_lite::Regex::new(pattern) {
-            result = re.replace(&result, "$1").to_string();
+            cleaned = re.replace(&cleaned, "$1").to_string();
         }
     }
     
-    // Add space after street abbreviations if missing
+    // Add space after street abbreviations if missing: "ul.X" -> "ul. X"
     let abbrev_patterns = [
         (r"(?i)\bul\.([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ])", "ul. $1"),
         (r"(?i)\bal\.([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ])", "al. $1"),
@@ -68,115 +129,83 @@ fn normalize_address(address: &str) -> String {
     
     for (pattern, replacement) in abbrev_patterns {
         if let Ok(re) = regex_lite::Regex::new(pattern) {
-            result = re.replace_all(&result, replacement).to_string();
+            cleaned = re.replace_all(&cleaned, replacement).to_string();
         }
     }
     
-    // Try to extract and reorder components: postal_code city, street number
-    if let Some(reordered) = reorder_address_parts(&result) {
-        return reordered;
-    }
-    
-    // Fallback: just clean up whitespace
-    if let Ok(re) = regex_lite::Regex::new(r"\s+") {
-        result = re.replace_all(&result, " ").to_string();
-    }
-    result.trim().to_string()
-}
-
-/// Reorder address parts into: "postal_code city; street number"
-fn reorder_address_parts(address: &str) -> Option<String> {
     // Extract postal code (XX-XXX or XXXXX format)
-    let postal_re = regex_lite::Regex::new(r"(\d{2}-?\d{3})").ok()?;
-    let postal_code = postal_re.captures(address)?.get(1)?.as_str();
-    
-    // Extract city - word after postal code, or before country
-    let city = extract_city(address)?;
-    
-    // Extract street with number (ul./al./pl./Trakt + name + number)
-    let street = extract_street(address)?;
-    
-    // Build reordered address: "postal_code city; street"
-    Some(format!("{} {}; {}", postal_code, city, street))
-}
-
-/// Extract city name from address
-fn extract_city(address: &str) -> Option<String> {
-    // Try: postal code followed by city
-    let postal_city_re = regex_lite::Regex::new(r"\d{2}-?\d{3}\s+([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ]+)").ok()?;
-    if let Some(caps) = postal_city_re.captures(address) {
-        return Some(caps.get(1)?.as_str().to_string());
-    }
-    
-    // Try: city before country (last two parts)
-    let parts: Vec<&str> = address.split(',').map(|s| s.trim()).collect();
-    if parts.len() >= 2 {
-        // Look for city in second-to-last part (before country)
-        let maybe_city = parts[parts.len() - 2];
-        // Extract just the city name (might have postal code)
-        let city_re = regex_lite::Regex::new(r"([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ]{3,})").ok()?;
-        if let Some(caps) = city_re.captures(maybe_city) {
-            return Some(caps.get(1)?.as_str().to_string());
+    if let Ok(re) = regex_lite::Regex::new(r"(\d{2}-?\d{3})") {
+        if let Some(caps) = re.captures(&cleaned) {
+            components.postalcode = Some(caps.get(1).unwrap().as_str().to_string());
         }
     }
     
-    None
-}
-
-/// Extract street name and number from address
-fn extract_street(address: &str) -> Option<String> {
-    // Match: ul./al./pl. + street name + optional number
-    let street_re = regex_lite::Regex::new(
+    // Extract country (last word, typically POLAND/Poland)
+    if let Ok(re) = regex_lite::Regex::new(r",\s*([A-Za-z]+)\s*$") {
+        if let Some(caps) = re.captures(&cleaned) {
+            let country = caps.get(1).unwrap().as_str();
+            // Normalize country name
+            components.country = Some(country.to_string());
+        }
+    }
+    
+    // Extract city - word after postal code
+    if let Ok(re) = regex_lite::Regex::new(r"\d{2}-?\d{3}\s+([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ]+)") {
+        if let Some(caps) = re.captures(&cleaned) {
+            components.city = Some(caps.get(1).unwrap().as_str().to_string());
+        }
+    }
+    
+    // If no city found after postal code, try second-to-last comma-separated part
+    if components.city.is_none() {
+        let parts: Vec<&str> = cleaned.split(',').map(|s| s.trim()).collect();
+        if parts.len() >= 2 {
+            let maybe_city = parts[parts.len() - 2];
+            // Extract city name (might have postal code mixed in)
+            if let Ok(re) = regex_lite::Regex::new(r"([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ]{3,})") {
+                if let Some(caps) = re.captures(maybe_city) {
+                    components.city = Some(caps.get(1).unwrap().as_str().to_string());
+                }
+            }
+        }
+    }
+    
+    // Extract street with number
+    // Match: ul./al./pl./Trakt + street name + number
+    if let Ok(re) = regex_lite::Regex::new(
         r"(?i)((?:ul\.|al\.|pl\.|trakt)\s*[A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ\.]+(?:\s+[A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ\.]+)*\s*\d*(?:/\d+)?)"
-    ).ok()?;
-    
-    if let Some(caps) = street_re.captures(address) {
-        return Some(caps.get(1)?.as_str().trim().to_string());
-    }
-    
-    // Fallback: try to get first part that looks like a street
-    let parts: Vec<&str> = address.split(',').map(|s| s.trim()).collect();
-    if !parts.is_empty() {
-        let first = parts[0];
-        // Check if it starts with street indicator
-        if regex_lite::Regex::new(r"(?i)^(ul\.|al\.|pl\.|trakt)").ok()?.is_match(first) {
-            return Some(first.to_string());
+    ) {
+        if let Some(caps) = re.captures(&cleaned) {
+            let street = caps.get(1).unwrap().as_str().trim().to_string();
+            components.street = Some(street);
         }
     }
     
-    None
-}
-
-/// Try to extract just city and country from an address for fallback geocoding.
-fn extract_city_country(address: &str) -> Option<String> {
-    // Try to find postal code pattern (XX-XXX or XXXXX) followed by city name
-    let postal_city_re = regex_lite::Regex::new(r"(\d{2}-?\d{3})\s+([A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ]+)").ok()?;
-    if let Some(caps) = postal_city_re.captures(address) {
-        let city = caps.get(2)?.as_str();
-        // Try to find country at the end (last word after comma)
-        let country_re = regex_lite::Regex::new(r",\s*([A-Za-z]+)\s*$").ok()?;
-        if let Some(country_caps) = country_re.captures(address) {
-            return Some(format!("{}, {}", city, country_caps.get(1)?.as_str()));
+    // If no street found with prefix, try first comma-separated part
+    if components.street.is_none() {
+        let parts: Vec<&str> = cleaned.split(',').map(|s| s.trim()).collect();
+        if !parts.is_empty() && !parts[0].is_empty() {
+            // Check if first part looks like an address (has numbers)
+            if let Ok(re) = regex_lite::Regex::new(r"\d") {
+                if re.is_match(parts[0]) {
+                    components.street = Some(parts[0].to_string());
+                }
+            }
         }
-        return Some(city.to_string());
     }
     
-    // Fallback: try to get the last two comma-separated parts (city, country)
-    let parts: Vec<&str> = address.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-    if parts.len() >= 2 {
-        let last_two = &parts[parts.len()-2..];
-        return Some(last_two.join(", "));
-    }
-    
-    None
+    components
 }
 
-/// Geocode a single address using Nominatim API.
-async fn geocode_single(address: &str) -> Result<(Coordinate, String), String> {
+/// Geocode using Nominatim structured query.
+async fn geocode_structured(components: &AddressComponents) -> Result<(Coordinate, String), String> {
+    let query_string = components.to_query_string();
     let url = format!(
-        "https://nominatim.openstreetmap.org/search?q={}&format=json&limit=1",
-        urlencoding::encode(address)
+        "https://nominatim.openstreetmap.org/search?{}&format=json&limit=1",
+        query_string
     );
+    
+    log!(format!("Nominatim URL: {}", url));
     
     let response = Request::get(&url)
         .header("User-Agent", "asmap-rs/0.1 (https://github.com/pkonkol/asmap-rs)")
@@ -221,15 +250,27 @@ pub async fn geocode_addresses(addresses: Vec<String>) -> Vec<GeocodedAddress> {
             TimeoutFuture::new(1100).await;
         }
         
-        let normalized = normalize_address(&original);
-        log!(format!("Geocoding: {} -> {}", original, normalized));
+        let components = parse_address(&original);
+        let display = components.to_display_string();
+        log!(format!("Geocoding: {} -> {}", original, display));
         
-        // Try full normalized address first
-        match geocode_single(&normalized).await {
+        if !components.is_valid() {
+            results.push(GeocodedAddress {
+                original_address: original,
+                normalized_address: display,
+                coordinate: None,
+                display_name: None,
+                error: Some("Could not parse address components".to_string()),
+            });
+            continue;
+        }
+        
+        // Try structured query with all components
+        match geocode_structured(&components).await {
             Ok((coord, display_name)) => {
                 results.push(GeocodedAddress {
                     original_address: original,
-                    normalized_address: normalized,
+                    normalized_address: display,
                     coordinate: Some(coord),
                     display_name: Some(display_name),
                     error: None,
@@ -237,18 +278,19 @@ pub async fn geocode_addresses(addresses: Vec<String>) -> Vec<GeocodedAddress> {
                 continue;
             }
             Err(e) if e.contains("No results") => {
-                // Try fallback with city/country only
-                log!(format!("No results for: {}", normalized));
-                if let Some(city_country) = extract_city_country(&normalized) {
-                    log!(format!("Trying fallback: {}", city_country));
+                // Try fallback with just city/country
+                log!(format!("No results for: {}", display));
+                if let Some(fallback) = components.city_country_fallback() {
+                    let fallback_display = fallback.to_display_string();
+                    log!(format!("Trying fallback: {}", fallback_display));
                     // Wait for rate limiting
                     TimeoutFuture::new(1100).await;
                     
-                    match geocode_single(&city_country).await {
+                    match geocode_structured(&fallback).await {
                         Ok((coord, display_name)) => {
                             results.push(GeocodedAddress {
                                 original_address: original,
-                                normalized_address: city_country,
+                                normalized_address: fallback_display,
                                 coordinate: Some(coord),
                                 display_name: Some(display_name),
                                 error: None,
@@ -258,7 +300,7 @@ pub async fn geocode_addresses(addresses: Vec<String>) -> Vec<GeocodedAddress> {
                         Err(fallback_err) => {
                             results.push(GeocodedAddress {
                                 original_address: original,
-                                normalized_address: normalized,
+                                normalized_address: display,
                                 coordinate: None,
                                 display_name: None,
                                 error: Some(format!("Fallback failed: {}", fallback_err)),
@@ -269,7 +311,7 @@ pub async fn geocode_addresses(addresses: Vec<String>) -> Vec<GeocodedAddress> {
                 }
                 results.push(GeocodedAddress {
                     original_address: original,
-                    normalized_address: normalized,
+                    normalized_address: display,
                     coordinate: None,
                     display_name: None,
                     error: Some(e),
@@ -278,7 +320,7 @@ pub async fn geocode_addresses(addresses: Vec<String>) -> Vec<GeocodedAddress> {
             Err(e) => {
                 results.push(GeocodedAddress {
                     original_address: original,
-                    normalized_address: normalized,
+                    normalized_address: display,
                     coordinate: None,
                     display_name: None,
                     error: Some(e),
