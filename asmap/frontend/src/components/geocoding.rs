@@ -173,11 +173,11 @@ fn parse_address(address: &str) -> AddressComponents {
     // Extract street with number
     // Match: ul./al./pl./Trakt + street name + number
     if let Ok(re) = regex_lite::Regex::new(
-        r"(?i)((?:ul\.|al\.|pl\.|trakt)\s*[A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ\.]+(?:\s+[A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ\.]+)*\s*\d*(?:/\d+)?)"
+        r"(?i)((?:ul\.|ulica|al\.|aleja|pl\.|plac|trakt)\s*[A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ\.]+(?:\s+[A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ\.]+)*\s*\d*(?:/\d+)?)"
     ) {
         if let Some(caps) = re.captures(&cleaned) {
             let street = caps.get(1).unwrap().as_str().trim().to_string();
-            components.street = Some(street);
+            components.street = Some(normalize_street(&street));
         }
     }
     
@@ -188,13 +188,44 @@ fn parse_address(address: &str) -> AddressComponents {
             // Check if first part looks like an address (has numbers)
             if let Ok(re) = regex_lite::Regex::new(r"\d") {
                 if re.is_match(parts[0]) {
-                    components.street = Some(parts[0].to_string());
+                    components.street = Some(normalize_street(parts[0]));
                 }
             }
         }
     }
     
     components
+}
+
+/// Normalize street for Nominatim structured query.
+/// - Remove "ul." or "ulica" prefix (Nominatim doesn't need it)
+/// - Keep "al." or "aleja" (avenue is meaningful)
+/// - If number has slash (10/11), keep only first part (10)
+fn normalize_street(street: &str) -> String {
+    let mut result = street.to_string();
+    
+    // Remove "ul." or "ulica" prefix (case insensitive)
+    if let Ok(re) = regex_lite::Regex::new(r"(?i)^(ul\.|ulica)\s*") {
+        result = re.replace(&result, "").to_string();
+    }
+    
+    // Normalize "aleja" to "al." for consistency
+    if let Ok(re) = regex_lite::Regex::new(r"(?i)^aleja\s+") {
+        result = re.replace(&result, "al. ").to_string();
+    }
+    
+    // Normalize "plac" to "pl." for consistency
+    if let Ok(re) = regex_lite::Regex::new(r"(?i)^plac\s+") {
+        result = re.replace(&result, "pl. ").to_string();
+    }
+    
+    // If number has slash (10/11), keep only first part
+    // Match: number/number at the end
+    if let Ok(re) = regex_lite::Regex::new(r"(\d+)/\d+\s*$") {
+        result = re.replace(&result, "$1").to_string();
+    }
+    
+    result.trim().to_string()
 }
 
 /// Geocode using Nominatim structured query.
