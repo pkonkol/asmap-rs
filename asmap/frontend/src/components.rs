@@ -1,12 +1,27 @@
 pub mod api;
+pub mod geocoding;
 pub mod map_component;
+pub mod details_page;
 
-use crate::components::map_component::MapComponent;
 use yew::prelude::*;
+use yew_router::prelude::*;
 
-pub struct MapContainer;
+use crate::routes::Route;
+use details_page::DetailsPage;
+use map_component::MapComponent;
 
-impl Component for MapContainer {
+
+pub struct App;
+
+fn switch(route: Route) -> Html {
+    match route {
+        Route::Map => html!(<MapComponent />),
+        Route::Details { id } => html!(<DetailsPage id={id} />),
+        Route::NotFound => html!(<h1>{"404"}</h1>),
+    }
+}
+
+impl Component for App {
     type Message = ();
     type Properties = ();
 
@@ -24,10 +39,10 @@ impl Component for MapContainer {
 
     // TODO GIS dodatkowa podstrona z detalami
     fn view(&self, _ctx: &Context<Self>) -> Html {
-        html! {
-            <>
-                <MapComponent  />
-            </>
+         html! {
+            <BrowserRouter>
+                <Switch<Route> render={switch} />
+            </BrowserRouter>
         }
     }
 }

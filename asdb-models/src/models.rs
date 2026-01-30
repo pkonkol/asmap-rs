@@ -144,11 +144,64 @@ pub struct WhoIsPrefix {
     pub mnt_by: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct WhoIsAsn {}
+/// WHOIS data for an Autonomous System from RIR databases.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct WhoIsAsn {
+    /// AS name from WHOIS
+    pub as_name: Option<String>,
+    /// Description lines
+    pub descr: Vec<String>,
+    /// Organisation reference (e.g., "ORG-TUoG1-RIPE")
+    pub org_id: Option<String>,
+    /// Admin contact references
+    pub admin_c: Vec<String>,
+    /// Technical contact references
+    pub tech_c: Vec<String>,
+    /// Abuse contact reference
+    pub abuse_c: Option<String>,
+    /// Country code
+    pub country: Option<String>,
+    /// Organisation details (fetched separately)
+    pub organisation: Option<WhoIsOrg>,
+    /// Contact persons/roles
+    pub contacts: Vec<WhoIsPerson>,
+    /// When this data was fetched
+    pub fetched_at: Option<String>,
+}
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct WhoIsOrg {}
+/// WHOIS Organisation data.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct WhoIsOrg {
+    /// Organisation ID (e.g., "ORG-TUoG1-RIPE")
+    pub org_id: String,
+    /// Organisation name
+    pub org_name: String,
+    /// Organisation type (e.g., "LIR", "OTHER")
+    pub org_type: Option<String>,
+    /// Address lines
+    pub address: Vec<String>,
+    /// Country code
+    pub country: Option<String>,
+    /// Phone number
+    pub phone: Option<String>,
+    /// Email address
+    pub email: Option<String>,
+}
+
+/// WHOIS Person/Role data.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct WhoIsPerson {
+    /// NIC handle (e.g., "JD1234-RIPE")
+    pub nic_hdl: String,
+    /// Person or role name
+    pub name: String,
+    /// Address lines
+    pub address: Vec<String>,
+    /// Phone number
+    pub phone: Option<String>,
+    /// Email address
+    pub email: Option<String>,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum InternetRegistry {
