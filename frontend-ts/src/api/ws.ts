@@ -66,3 +66,14 @@ export async function getAsDetails(asn: number): Promise<As> {
     }
     throw new Error("Unexpected response for AS details");
 }
+
+export async function fetchAsWhoisData(asn: number): Promise<As["whois_data"]> {
+    const response = await sendWsRequest({ FetchWhois: asn });
+    if ("WhoisData" in response) {
+        return response.WhoisData;
+    }
+    if ("Error" in response) {
+        throw new Error(response.Error);
+    }
+    throw new Error("Unexpected response for WHOIS data");
+}
