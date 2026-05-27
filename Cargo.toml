@@ -12,6 +12,7 @@ members = [
     "leaflet-markercluster",
     "asmap-cli",
 ]
+exclude = ["frontend-ts/wasm-protocol"]
 resolver = "3"
 
 [workspace.package]

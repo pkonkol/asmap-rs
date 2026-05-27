@@ -14,7 +14,7 @@ To initialize the database with all available datasources at once
 
 ### to update database partially
 
-`cargo run -p asmap-cli -- load-asrank` will download the data directly from caida's graphql API. Slower but 
+`cargo run -p asmap-cli -- load-asrank` will download the data directly from caida's graphql API. Slower but
     needs no external steps.
 `cargo run -p asmap-cli -- load-asrank -a asns.jsonl` will use file downloaded by official `asrank-download.py`
     from caida website.
