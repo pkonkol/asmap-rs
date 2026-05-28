@@ -6,6 +6,7 @@ use asdb_builder::AsdbBuilder;
 use clap::{Args, Parser, Subcommand};
 
 mod details;
+mod export;
 
 const CONFIG_PATH: &str = "config.yaml";
 
@@ -37,7 +38,25 @@ enum Commands {
     GetDetailed(GetDetailedArgs),
     /// Starts a server with the map
     Start(StartServerArgs),
+    /// Export database to a compressed JSONL file (overwrites output)
+    ExportDb(ExportDbArgs),
+    /// Import database from a compressed JSONL file (drops existing collections)
+    ImportDb(ImportDbArgs),
     // Todo LoadWhois (for range?), LoadIpnetDB, Georesolve(Persons|Orgs|Somethin else?)
+}
+
+#[derive(Args)]
+struct ExportDbArgs {
+    /// Output file path, should end with .jsonl.gz
+    #[arg(short, long)]
+    pub output: String,
+}
+
+#[derive(Args)]
+struct ImportDbArgs {
+    /// Input file path, should be .jsonl.gz created by export-db
+    #[arg(short, long)]
+    pub input: String,
 }
 
 #[derive(Args)]
@@ -235,6 +254,16 @@ async fn main() {
                 println!("{l}");
             }
             server_cmd.wait().unwrap();
+        }
+        Commands::ExportDb(a) => {
+            export::export_db(&cfg.mongo_conn_str, &cfg.db_name, &a.output)
+                .await
+                .unwrap();
+        }
+        Commands::ImportDb(a) => {
+            export::import_db(&cfg.mongo_conn_str, &cfg.db_name, &a.input)
+                .await
+                .unwrap();
         }
     }
 }

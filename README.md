@@ -9,6 +9,8 @@ run `./cleanup.sh --database --generated --downloaded` and then `docker-compose 
 
 ## fill DB with data
 
+For developer quickstart use the command provided below import from asmap.jsonl.gz.
+
 To initialize the database with all available datasources at once
 `cargo run -p asmap-cli -- load-all`
 
@@ -26,6 +28,18 @@ To initialize the database with all available datasources at once
 ## start web service
 
 `cargo run -p asmap-cli -- start`
+
+## export/import database (jsonl.gz)
+
+Export the full database (all collections) to a compressed JSONL file:
+
+`cargo run -p asmap-cli -- export-db -o asmap.jsonl.gz`
+
+Import from an exported file:
+
+`cargo run -p asmap-cli -- import-db -i asmap.jsonl.gz`
+
+WARNING: `import-db` drops existing collections before importing.
 
 ### development
 
