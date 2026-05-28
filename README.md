@@ -29,6 +29,8 @@ To initialize the database with all available datasources at once
 
 `cargo run -p asmap-cli -- start`
 
+This builds and serves the React frontend in `asmap/frontend-ts`.
+
 ## export/import database (jsonl.gz)
 
 Export the full database (all collections) to a compressed JSONL file:

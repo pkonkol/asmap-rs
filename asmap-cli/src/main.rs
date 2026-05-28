@@ -187,36 +187,22 @@ async fn main() {
             } else {
                 "--release"
             };
-            println!("starting trunk build {release_flag} of frondend app");
+            println!("building frontend-ts ({release_flag})");
 
-            // trunk also needs to build with _a.ip correct
-            // TODO, now default works ok tho
-            let mut trunk_args = vec![
-                "--config",
-                "./Trunk.toml",
-                "-v",
-                "build",
-                "--public-url",
-                "/",
-            ];
-            if !release_flag.is_empty() {
-                trunk_args.push(release_flag)
-            };
-            let mut trunk_cmd = Command::new("trunk")
-                .args(trunk_args)
-                .current_dir("asmap/frontend/")
-                .env("CARGO_TARGET_DIR", "../target-trunk")
+            let mut npm_cmd = Command::new("npm")
+                .args(["run", "build"])
+                .current_dir("asmap/frontend-ts/")
                 .stdout(Stdio::piped())
                 .spawn()
                 .unwrap();
-            for line in BufReader::new(trunk_cmd.stdout.as_mut().unwrap()).lines() {
+            for line in BufReader::new(npm_cmd.stdout.as_mut().unwrap()).lines() {
                 let l = line.unwrap();
                 println!("{l}");
             }
-            if !trunk_cmd.wait().unwrap().success() {
-                panic!("trunk build failed")
+            if !npm_cmd.wait().unwrap().success() {
+                panic!("frontend-ts build failed")
             };
-            println!("built trunk");
+            println!("built frontend-ts");
 
             println!("starting server {release_flag}");
             let (port, addr, config) = (
@@ -236,7 +222,7 @@ async fn main() {
                 "--log",
                 "debug",
                 "--static-dir",
-                "./dist",
+                "../asmap/frontend-ts/dist",
                 "--config",
                 &config,
             ];
