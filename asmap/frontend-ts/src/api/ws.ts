@@ -1,4 +1,12 @@
-import type { As, AsFilters, AsForFrontend, WSRequest, WSResponse } from "../protocol/types";
+import type {
+    As,
+    AsFilters,
+    AsForFrontend,
+    GeocodedAddress,
+    UserData,
+    WSRequest,
+    WSResponse
+} from "../protocol/types";
 import { decodeResponse, encodeRequest, ensureProtocolReady } from "../protocol/wasm";
 
 const API_URL = "ws://[::1]:8080/as";
@@ -7,20 +15,48 @@ async function sendWsRequest(request: WSRequest): Promise<WSResponse> {
     await ensureProtocolReady();
 
     return new Promise((resolve, reject) => {
+        let settled = false;
+        let timeoutId = 0;
+        const finish = (handler: (value: unknown) => void, value: unknown) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            window.clearTimeout(timeoutId);
+            handler(value);
+        };
+
+        console.debug("[ws] opening socket", request);
         const socket = new WebSocket(API_URL);
         socket.binaryType = "arraybuffer";
+
+        timeoutId = window.setTimeout(() => {
+            finish(reject, new Error("WebSocket timeout"));
+            socket.close();
+        }, 8000);
 
         socket.onopen = () => {
             try {
                 const payload = encodeRequest(request);
+                console.debug("[ws] sending", request, payload.byteLength);
                 socket.send(payload);
             } catch (error) {
-                reject(error);
+                console.error("[ws] encode failed", request, error);
+                finish(reject, error instanceof Error ? error : new Error(String(error)));
+                socket.close();
             }
         };
 
         socket.onerror = () => {
-            reject(new Error("WebSocket error"));
+            console.error("[ws] socket error", request);
+            finish(reject, new Error("WebSocket error"));
+            socket.close();
+        };
+
+        socket.onclose = () => {
+            if (!settled) {
+                finish(reject, new Error("WebSocket closed without response"));
+            }
         };
 
         socket.onmessage = async (event) => {
@@ -34,12 +70,13 @@ async function sendWsRequest(request: WSRequest): Promise<WSResponse> {
                     throw new Error("Unexpected message type");
                 }
 
+                console.debug("[ws] received", request, bytes.byteLength);
                 const response = decodeResponse(bytes);
-                resolve(response);
+                console.debug("[ws] decoded", response);
+                finish(resolve, response);
             } catch (error) {
-                reject(error);
-            } finally {
-                socket.close();
+                console.error("[ws] decode failed", request, error);
+                finish(reject, error instanceof Error ? error : new Error(String(error)));
             }
         };
     });
@@ -76,4 +113,62 @@ export async function fetchAsWhoisData(asn: number): Promise<As["whois_data"]> {
         throw new Error(response.Error);
     }
     throw new Error("Unexpected response for WHOIS data");
+}
+
+export async function getUserData(asn: number): Promise<UserData> {
+    const response = await sendWsRequest({ GetUserData: asn });
+    if ("UserData" in response) {
+        return response.UserData;
+    }
+    if ("Error" in response) {
+        throw new Error(response.Error);
+    }
+    throw new Error("Unexpected response for user data");
+}
+
+export async function updateUserData(
+    asn: number,
+    lists?: string[] | null,
+    comment?: string | null
+): Promise<UserData> {
+    const payload: { asn: number; lists?: string[] | null; comment?: string | null } = { asn };
+    if (lists !== undefined) {
+        payload.lists = lists;
+    }
+    if (comment !== undefined) {
+        payload.comment = comment;
+    }
+    const response = await sendWsRequest({ UpdateUserData: payload });
+    if ("UserData" in response) {
+        return response.UserData;
+    }
+    if ("Error" in response) {
+        throw new Error(response.Error);
+    }
+    throw new Error("Unexpected response for user data update");
+}
+
+export async function saveGeocoding(
+    asn: number,
+    geocoded: GeocodedAddress[]
+): Promise<UserData> {
+    const response = await sendWsRequest({ SaveGeocoding: { asn, geocoded } });
+    if ("UserData" in response) {
+        return response.UserData;
+    }
+    if ("Error" in response) {
+        throw new Error(response.Error);
+    }
+    throw new Error("Unexpected response for geocoding save");
+}
+
+export async function getListNames(): Promise<string[]> {
+    const response = await sendWsRequest({ GetListNames: null });
+    if ("ListNames" in response) {
+        return response.ListNames;
+    }
+    if ("Error" in response) {
+        throw new Error(response.Error);
+    }
+    throw new Error("Unexpected response for list names");
 }

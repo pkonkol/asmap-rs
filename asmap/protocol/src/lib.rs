@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use asdb_models::{As, Bound, WhoIsAsn};
+use asdb_models::{As, Bound, GeocodedAddress, UserData, WhoIsAsn};
 // TODO remove pub and switch references to asdb_models
 pub use asdb_models::AsForFrontend;
 
@@ -18,6 +18,21 @@ pub enum WSRequest {
     FetchWhois(Asn),
     /// request cached WHOIS data for an AS
     GetWhois(Asn),
+    /// update user data (lists/comment) for an AS
+    UpdateUserData {
+        asn: Asn,
+        lists: Option<Vec<String>>,
+        comment: Option<String>,
+    },
+    /// get user data for an AS
+    GetUserData(Asn),
+    /// save geocoding results for an AS
+    SaveGeocoding {
+        asn: Asn,
+        geocoded: Vec<GeocodedAddress>,
+    },
+    /// get all list names
+    GetListNames,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -28,6 +43,10 @@ pub enum WSResponse {
     AsDetails(As),
     /// WHOIS data for an AS (None if not found or fetch failed)
     WhoisData(Option<WhoIsAsn>),
+    /// user data for an AS
+    UserData(UserData),
+    /// list names available in user data
+    ListNames(Vec<String>),
     /// Error message
     Error(String),
 }
@@ -65,6 +84,8 @@ pub struct AsFilters {
     pub has_org: AsFiltersHasOrg,
     /// layer 1 category from stanford asdb
     pub category: Vec<String>,
+    /// filter by saved user lists (empty = disabled)
+    pub lists: Vec<String>,
 }
 
 impl From<AsFilters> for asdb_models::AsFilters {
@@ -82,6 +103,7 @@ impl From<AsFilters> for asdb_models::AsFilters {
             rank: value.rank,
             has_org,
             category: value.category,
+            lists: value.lists,
             // ..Default::default()
         }
     }
@@ -97,6 +119,7 @@ impl Default for AsFilters {
             rank: None,
             has_org: AsFiltersHasOrg::Both,
             category: vec![],
+            lists: vec![],
         }
     }
 }
@@ -115,7 +138,7 @@ impl Display for AsFilters {
         let r = self.rank.as_ref().unwrap_or(&(0, 0));
         write!(
             f,
-            "c{}-exc{}-{}-a{}-{}-r{}-{}-org{}-ncat{}",
+            "c{}-exc{}-{}-a{}-{}-r{}-{}-org{}-ncat{}-nlist{}",
             self.country.as_deref().unwrap_or(""),
             self.exclude_country,
             bound_str,
@@ -125,6 +148,7 @@ impl Display for AsFilters {
             r.1,
             self.has_org,
             self.category.len(),
+            self.lists.len(),
         )
     }
 }

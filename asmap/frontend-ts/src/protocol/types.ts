@@ -18,6 +18,7 @@ export interface AsFilters {
     rank: [number, number] | null;
     has_org: AsFiltersHasOrg;
     category: string[];
+    lists: string[];
 }
 
 export interface AsForFrontend {
@@ -140,16 +141,37 @@ export interface As {
     ipnetdb_data: IPNetDBAsn | null;
     whois_data: WhoIsAsn | null;
     stanford_asdb: StanfordASdbCategory[];
+    user_data: UserData | null;
+}
+
+export interface UserData {
+    lists: string[];
+    comment: string | null;
+    geocoded_addresses: GeocodedAddress[];
+}
+
+export interface GeocodedAddress {
+    original_address: string;
+    normalized_address: string;
+    coordinate: Coord | null;
+    display_name: string | null;
+    error: string | null;
 }
 
 export type WSRequest =
     | { FilteredAS: AsFilters }
     | { AsDetails: number }
     | { FetchWhois: number }
-    | { GetWhois: number };
+    | { GetWhois: number }
+    | { UpdateUserData: { asn: number; lists?: string[] | null; comment?: string | null } }
+    | { GetUserData: number }
+    | { SaveGeocoding: { asn: number; geocoded: GeocodedAddress[] } }
+    | { GetListNames: null };
 
 export type WSResponse =
     | { FilteredAS: [AsFilters, AsForFrontend[]] }
     | { AsDetails: As }
     | { WhoisData: WhoIsAsn | null }
+    | { UserData: UserData }
+    | { ListNames: string[] }
     | { Error: string };

@@ -2,12 +2,13 @@ use futures::stream::TryStreamExt;
 use itertools::Itertools;
 use mongodb::{
     Client, IndexModel,
-    bson::{Document, doc},
+    bson::{Bson, Document, doc},
     options::{ClientOptions, IndexOptions},
 };
 
 use asdb_models::{
-    As, AsFilters, AsForFrontend, AsForFrontendFromDB, IPNetDBAsn, StanfordASdbCategory,
+    As, AsFilters, AsForFrontend, AsForFrontendFromDB, GeocodedAddress, IPNetDBAsn,
+    StanfordASdbCategory, UserData,
 };
 pub use error::{Error, Result};
 use tracing::debug;
@@ -157,6 +158,9 @@ impl Asdb {
                 doc! { "$all": filters.category.as_slice() },
             );
         }
+        if !filters.lists.is_empty() {
+            db_filter.insert("user_data.lists", doc! { "$in": filters.lists.as_slice() });
+        }
         db_filter
     }
 
@@ -292,6 +296,86 @@ impl Asdb {
     pub async fn get_whois_data(&self, asn: u32) -> Result<Option<asdb_models::WhoIsAsn>> {
         let as_data = self.get_as(asn).await?;
         Ok(as_data.whois_data)
+    }
+
+    /// Updates user data (lists/comment) for an ASN
+    #[tracing::instrument]
+    pub async fn update_user_data(
+        &self,
+        asn: u32,
+        lists: Option<Vec<String>>,
+        comment: Option<String>,
+    ) -> Result<()> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let mut set_doc = Document::new();
+        if let Some(lists_value) = lists {
+            set_doc.insert("user_data.lists", lists_value);
+        }
+        if let Some(comment_value) = comment {
+            let trimmed = comment_value.trim();
+            if trimmed.is_empty() {
+                set_doc.insert("user_data.comment", Bson::Null);
+            } else {
+                set_doc.insert("user_data.comment", trimmed);
+            }
+        }
+        if !set_doc.is_empty() {
+            let update = doc! { "$set": set_doc };
+            collection.update_one(doc! {"asn": asn}, update).await?;
+        }
+        Ok(())
+    }
+
+    /// Updates geocoding results for an ASN
+    #[tracing::instrument]
+    pub async fn update_geocoded_addresses(
+        &self,
+        asn: u32,
+        geocoded: Vec<GeocodedAddress>,
+    ) -> Result<()> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let update = doc! {
+            "$set": {
+                "user_data.geocoded_addresses": mongodb::bson::to_bson(&geocoded)
+                    .expect("GeocodedAddress should always be serializable to bson")
+            }
+        };
+        collection.update_one(doc! {"asn": asn}, update).await?;
+        Ok(())
+    }
+
+    /// Gets user data for an ASN (empty if missing)
+    #[tracing::instrument]
+    pub async fn get_user_data(&self, asn: u32) -> Result<UserData> {
+        let as_data = self.get_as(asn).await?;
+        Ok(as_data.user_data.unwrap_or_default())
+    }
+
+    /// Gets all list names from user data
+    #[tracing::instrument]
+    pub async fn get_list_names(&self) -> Result<Vec<String>> {
+        let collection = self
+            .client
+            .database(&self.database)
+            .collection::<As>("asns");
+        let values = collection.distinct("user_data.lists", doc! {}).await?;
+        let mut out = Vec::new();
+        for v in values {
+            if let Bson::String(s) = v {
+                if !s.trim().is_empty() {
+                    out.push(s);
+                }
+            }
+        }
+        out.sort();
+        out.dedup();
+        Ok(out)
     }
 }
 

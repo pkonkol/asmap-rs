@@ -11,6 +11,25 @@ pub struct As {
     pub ipnetdb_data: Option<IPNetDBAsn>,
     pub whois_data: Option<WhoIsAsn>,
     pub stanford_asdb: Vec<StanfordASdbCategory>,
+    pub user_data: Option<UserData>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct UserData {
+    #[serde(default)]
+    pub lists: Vec<String>,
+    pub comment: Option<String>,
+    #[serde(default)]
+    pub geocoded_addresses: Vec<GeocodedAddress>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct GeocodedAddress {
+    pub original_address: String,
+    pub normalized_address: String,
+    pub coordinate: Option<Coord>,
+    pub display_name: Option<String>,
+    pub error: Option<String>,
 }
 
 // TODO GIS dodac tutaj nowe modele danych dla tego co wczytamy z whoisa
@@ -270,6 +289,8 @@ pub struct AsFilters {
     pub has_org: Option<bool>,
     /// layer 1 category from stanford asdb
     pub category: Vec<String>,
+    /// filter by saved user lists (empty = disabled)
+    pub lists: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

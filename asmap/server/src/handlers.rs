@@ -25,14 +25,44 @@ pub async fn as_handler(
 pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: ServerState) {
     loop {
         trace!("handle_as_socket loop start");
-        let msg = if let Some(Ok(msg)) = socket.recv().await {
-            msg
-        } else {
-            continue;
+        let msg = match socket.recv().await {
+            Some(Ok(msg)) => msg,
+            Some(Err(e)) => {
+                warn!("websocket recv error from {}: {e:?}", addr.ip());
+                break;
+            }
+            None => break,
         };
         match msg {
             Message::Binary(b) => {
-                let req: WSRequest = bincode::deserialize(&b).unwrap();
+                if b.is_empty() {
+                    continue;
+                }
+                debug!("ws binary frame from {} ({} bytes)", addr.ip(), b.len());
+                let req: WSRequest = match bincode::deserialize(&b) {
+                    Ok(req) => req,
+                    Err(e) => {
+                        let is_eof = matches!(
+                            e.as_ref(),
+                            bincode::ErrorKind::Io(io) if io.kind() == std::io::ErrorKind::UnexpectedEof
+                        );
+                        if is_eof {
+                            let _ = socket.send(Message::Close(None)).await;
+                            break;
+                        }
+                        warn!(
+                            "invalid WSRequest from {} ({} bytes): {e:?}",
+                            addr.ip(),
+                            b.len()
+                        );
+                        let resp = WSResponse::Error("Invalid request payload".to_string());
+                        let _ = socket
+                            .send(Message::Binary(bincode::serialize(&resp).unwrap().into()))
+                            .await;
+                        let _ = socket.send(Message::Close(None)).await;
+                        break;
+                    }
+                };
                 match req {
                     WSRequest::FilteredAS(filters) => {
                         info!(
@@ -74,18 +104,60 @@ pub async fn handle_as_socket(mut socket: WebSocket, addr: SocketAddr, state: Se
                         socket.send(Message::Close(None)).await.unwrap();
                         break;
                     }
+                    WSRequest::UpdateUserData {
+                        asn,
+                        lists,
+                        comment,
+                    } => {
+                        info!(
+                            "received WSRequest::UpdateUserData for asn {asn} from {}",
+                            addr.ip()
+                        );
+                        let resp = update_user_data(asn, lists, comment, addr, &state).await;
+                        socket.send(Message::Binary(resp.into())).await.unwrap();
+                        socket.send(Message::Close(None)).await.unwrap();
+                        break;
+                    }
+                    WSRequest::GetUserData(asn) => {
+                        info!(
+                            "received WSRequest::GetUserData for asn {asn} from {}",
+                            addr.ip()
+                        );
+                        let resp = get_user_data(asn, addr, &state).await;
+                        socket.send(Message::Binary(resp.into())).await.unwrap();
+                        socket.send(Message::Close(None)).await.unwrap();
+                        break;
+                    }
+                    WSRequest::SaveGeocoding { asn, geocoded } => {
+                        info!(
+                            "received WSRequest::SaveGeocoding for asn {asn} from {}",
+                            addr.ip()
+                        );
+                        let resp = save_geocoding(asn, geocoded, addr, &state).await;
+                        socket.send(Message::Binary(resp.into())).await.unwrap();
+                        socket.send(Message::Close(None)).await.unwrap();
+                        break;
+                    }
+                    WSRequest::GetListNames => {
+                        info!("received WSRequest::GetListNames from {}", addr.ip());
+                        let resp = get_list_names(addr, &state).await;
+                        socket.send(Message::Binary(resp.into())).await.unwrap();
+                        socket.send(Message::Close(None)).await.unwrap();
+                        break;
+                    }
                 };
             }
             Message::Close(_x) => {
                 info!("reveived websocket Message::Close from {}", addr.ip());
                 break;
             }
-            _ => {
-                info!(
-                    "Received unsupported message type: {msg:?} from {}",
-                    addr.ip()
-                );
-                socket.send(Message::Close(None)).await.unwrap();
+            Message::Ping(payload) => {
+                let _ = socket.send(Message::Pong(payload)).await;
+            }
+            Message::Pong(_payload) => {}
+            Message::Text(_text) => {
+                warn!("Received unexpected text message from {}", addr.ip());
+                let _ = socket.send(Message::Close(None)).await;
                 break;
             }
         };
@@ -102,11 +174,20 @@ async fn filtered_as(filters: AsFilters, addr: SocketAddr, state: &ServerState) 
         .unwrap();
     debug!("ases count for current filters is {ases_count}");
 
-    state
+    match state
         .simple_limiter
         .check_key_n(&addr.ip(), NonZeroU32::new(ases_count as u32).unwrap())
-        .unwrap()
-        .unwrap();
+    {
+        Ok(Ok(_)) => {}
+        Ok(Err(_)) => {
+            let resp = WSResponse::Error("Rate limited. Try again in a moment.".to_string());
+            return bincode::serialize(&resp).unwrap();
+        }
+        Err(e) => {
+            let resp = WSResponse::Error(format!("Rate limit error: {e:?}"));
+            return bincode::serialize(&resp).unwrap();
+        }
+    }
 
     let ases = state
         .asdb
@@ -140,9 +221,22 @@ async fn as_details(asn: u32, addr: SocketAddr, state: &ServerState) -> Vec<u8> 
 #[tracing::instrument(skip(state))]
 async fn fetch_whois(asn: u32, addr: SocketAddr, state: &ServerState) -> Vec<u8> {
     // Use detailed limiter for WHOIS requests (rate limited)
-    if let Err(e) = state.detailed_limiter.check_key_n(&addr.ip(), nonzero!(1u32)) {
-        warn!("Rate limit exceeded for WHOIS fetch from {}: {:?}", addr.ip(), e);
+    if let Err(e) = state
+        .detailed_limiter
+        .check_key_n(&addr.ip(), nonzero!(1u32))
+    {
+        warn!(
+            "Rate limit exceeded for WHOIS fetch from {}: {:?}",
+            addr.ip(),
+            e
+        );
         let resp = WSResponse::Error("Rate limit exceeded".to_string());
+        return bincode::serialize(&resp).unwrap();
+    }
+
+    // Return cached WHOIS data if present
+    if let Ok(Some(cached)) = state.asdb.get_whois_data(asn).await {
+        let resp = WSResponse::WhoisData(Some(cached));
         return bincode::serialize(&resp).unwrap();
     }
 
@@ -223,4 +317,99 @@ async fn get_whois(asn: u32, addr: SocketAddr, state: &ServerState) -> Vec<u8> {
     let serialized = bincode::serialize(&resp).unwrap();
     debug!("Successfully encoded cached WHOIS response for AS{}", asn);
     serialized
+}
+
+#[tracing::instrument(skip(state))]
+async fn update_user_data(
+    asn: u32,
+    lists: Option<Vec<String>>,
+    comment: Option<String>,
+    addr: SocketAddr,
+    state: &ServerState,
+) -> Vec<u8> {
+    match state.simple_limiter.check_key_n(&addr.ip(), nonzero!(1u32)) {
+        Ok(Ok(_)) => {}
+        Ok(Err(_)) => {
+            let resp = WSResponse::Error("Rate limited. Try again in a moment.".to_string());
+            return bincode::serialize(&resp).unwrap();
+        }
+        Err(e) => {
+            let resp = WSResponse::Error(format!("Rate limit error: {e:?}"));
+            return bincode::serialize(&resp).unwrap();
+        }
+    }
+
+    let resp = match state.asdb.update_user_data(asn, lists, comment).await {
+        Ok(_) => match state.asdb.get_user_data(asn).await {
+            Ok(user_data) => WSResponse::UserData(user_data),
+            Err(e) => WSResponse::Error(format!("Failed to read user data: {e:?}")),
+        },
+        Err(e) => WSResponse::Error(format!("Failed to update user data: {e:?}")),
+    };
+    bincode::serialize(&resp).unwrap()
+}
+
+#[tracing::instrument(skip(state))]
+async fn get_user_data(asn: u32, addr: SocketAddr, state: &ServerState) -> Vec<u8> {
+    match state.simple_limiter.check_key_n(&addr.ip(), nonzero!(1u32)) {
+        Ok(Ok(_)) => {}
+        Ok(Err(_)) => {
+            let resp = WSResponse::Error("Rate limited. Try again in a moment.".to_string());
+            return bincode::serialize(&resp).unwrap();
+        }
+        Err(e) => {
+            let resp = WSResponse::Error(format!("Rate limit error: {e:?}"));
+            return bincode::serialize(&resp).unwrap();
+        }
+    }
+
+    let resp = match state.asdb.get_user_data(asn).await {
+        Ok(user_data) => WSResponse::UserData(user_data),
+        Err(e) => WSResponse::Error(format!("Failed to read user data: {e:?}")),
+    };
+    bincode::serialize(&resp).unwrap()
+}
+
+#[tracing::instrument(skip(state))]
+async fn save_geocoding(
+    asn: u32,
+    geocoded: Vec<asdb_models::GeocodedAddress>,
+    addr: SocketAddr,
+    state: &ServerState,
+) -> Vec<u8> {
+    match state.simple_limiter.check_key_n(&addr.ip(), nonzero!(1u32)) {
+        Ok(Ok(_)) => {}
+        Ok(Err(_)) => {
+            let resp = WSResponse::Error("Rate limited. Try again in a moment.".to_string());
+            return bincode::serialize(&resp).unwrap();
+        }
+        Err(e) => {
+            let resp = WSResponse::Error(format!("Rate limit error: {e:?}"));
+            return bincode::serialize(&resp).unwrap();
+        }
+    }
+
+    let resp = match state.asdb.update_geocoded_addresses(asn, geocoded).await {
+        Ok(_) => match state.asdb.get_user_data(asn).await {
+            Ok(user_data) => WSResponse::UserData(user_data),
+            Err(e) => WSResponse::Error(format!("Failed to read user data: {e:?}")),
+        },
+        Err(e) => WSResponse::Error(format!("Failed to save geocoding: {e:?}")),
+    };
+    bincode::serialize(&resp).unwrap()
+}
+
+#[tracing::instrument(skip(state))]
+async fn get_list_names(addr: SocketAddr, state: &ServerState) -> Vec<u8> {
+    state
+        .simple_limiter
+        .check_key_n(&addr.ip(), nonzero!(1u32))
+        .unwrap()
+        .unwrap();
+
+    let resp = match state.asdb.get_list_names().await {
+        Ok(names) => WSResponse::ListNames(names),
+        Err(e) => WSResponse::Error(format!("Failed to load list names: {e:?}")),
+    };
+    bincode::serialize(&resp).unwrap()
 }

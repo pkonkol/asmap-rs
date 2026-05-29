@@ -7,9 +7,17 @@ import type {
     AsFiltersHasOrg,
     AsForFrontend,
     Bound,
+    UserData,
     WhoIsAsn
 } from "./protocol/types";
-import { fetchAsWhoisData, getAllAsFiltered, getAsDetails } from "./api/ws";
+import {
+    fetchAsWhoisData,
+    getAllAsFiltered,
+    getAsDetails,
+    getListNames,
+    getUserData,
+    updateUserData
+} from "./api/ws";
 
 const POLAND_LAT = 52.11431;
 const POLAND_LON = 19.423672;
@@ -22,7 +30,8 @@ const DEFAULT_FILTERS: AsFilters = {
     addresses: [0, 21000000],
     rank: [0, 115000],
     has_org: "Both",
-    category: []
+    category: [],
+    lists: []
 };
 
 function formatFilters(filters: AsFilters): string {
@@ -34,7 +43,7 @@ function formatFilters(filters: AsFilters): string {
     const rank = filters.rank ?? [0, 0];
     const hasOrg = filters.has_org === "Both" ? "both" : filters.has_org === "Yes" ? "yes" : "no";
 
-    return `c${filters.country ?? ""}-exc${filters.exclude_country}-${boundStr}-a${addresses[0]}-${addresses[1]}-r${rank[0]}-${rank[1]}-org${hasOrg}-ncat${filters.category.length}`;
+    return `c${filters.country ?? ""}-exc${filters.exclude_country}-${boundStr}-a${addresses[0]}-${addresses[1]}-r${rank[0]}-${rank[1]}-org${hasOrg}-ncat${filters.category.length}-nl${filters.lists.length}`;
 }
 
 function csvEscape(value: string): string {
@@ -94,8 +103,9 @@ function buildBasePopup(asn: AsForFrontend): string {
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <a href="/details/${asn.asn}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25); transition: all 0.2s;">Details</a>
                 <a href="https://bgp.he.net/AS${asn.asn}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(71, 85, 105, 0.5); color: #e2e8f0; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 500; border: 1px solid rgba(71, 85, 105, 0.5);">BGP.HE</a>
-                <span id="shodan-link-${asn.asn}" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(51, 65, 85, 0.5); color: #64748b; border-radius: 8px; font-size: 12px; border: 1px solid rgba(51, 65, 85, 0.5);">Shodan</span>
+                <a id="shodan-link-${asn.asn}" href="https://www.shodan.io/search?query=asn:AS${asn.asn}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(51, 65, 85, 0.5); color: #e2e8f0; border-radius: 8px; font-size: 12px; border: 1px solid rgba(51, 65, 85, 0.5); text-decoration: none;">Shodan</a>
             </div>
+            <!--details-start--><!--details-end-->
         </div>
     `;
 }
@@ -119,8 +129,8 @@ function applyDetailsHtml(details: As, baseHtml: string): string {
         const prefixes = details.ipnetdb_data.ipv4_prefixes;
         const firstPrefix = prefixes[0]?.range ?? "";
         html = html.replace(
-            `<span id="shodan-link-${details.asn}" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(51, 65, 85, 0.5); color: #64748b; border-radius: 8px; font-size: 12px; border: 1px solid rgba(51, 65, 85, 0.5);">Shodan</span>`,
-            `<a href="https://www.shodan.io/search?query=net:${firstPrefix}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);">Shodan</a>`
+            `<a id="shodan-link-${details.asn}" href="https://www.shodan.io/search?query=asn:AS${details.asn}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(51, 65, 85, 0.5); color: #e2e8f0; border-radius: 8px; font-size: 12px; border: 1px solid rgba(51, 65, 85, 0.5); text-decoration: none;">Shodan</a>`,
+            `<a id="shodan-link-${details.asn}" href="https://www.shodan.io/search?query=net:${firstPrefix}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);">Shodan</a>`
         );
 
         detailBlock += "<div style=\"margin-top: 12px;\"><div style=\"color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600;\">Prefixes</div><div style=\"display: flex; flex-wrap: wrap; gap: 6px;\">";
@@ -154,10 +164,17 @@ function applyDetailsHtml(details: As, baseHtml: string): string {
 
     detailBlock += "</div>";
 
-    if (html.includes("</div></div></div>")) {
-        return html.replace("</div></div></div>", `${detailBlock}</div></div></div>`);
+    const startToken = "<!--details-start-->";
+    const endToken = "<!--details-end-->";
+    const detailWrapper = `${startToken}${detailBlock}${endToken}`;
+    if (html.includes(startToken) && html.includes(endToken)) {
+        const blockPattern = new RegExp(`${startToken}[\\s\\S]*?${endToken}`);
+        return html.replace(blockPattern, detailWrapper);
     }
-    return `${html}${detailBlock}`;
+    if (html.includes("</div></div></div>")) {
+        return html.replace("</div></div></div>", `${detailWrapper}</div></div></div>`);
+    }
+    return `${html}${detailWrapper}`;
 }
 
 function formatWhoisText(whois: WhoIsAsn | null): string {
@@ -200,6 +217,7 @@ export default function MapView() {
     const markersByAsnRef = useRef<Map<number, L.Marker>>(new Map());
     const drawnAsRef = useRef<Map<number, AsForFrontend>>(new Map());
     const detailedAsRef = useRef<Map<number, As>>(new Map());
+    const userDataByAsnRef = useRef<Map<number, UserData>>(new Map());
     const whoisLoadingRef = useRef<Set<number>>(new Set());
 
     const [filters, setFilters] = useState<AsFilters>(DEFAULT_FILTERS);
@@ -208,6 +226,13 @@ export default function MapView() {
     const [detailedCount, setDetailedCount] = useState(0);
     const [activeAsn, setActiveAsn] = useState<number | null>(null);
     const [whoisCache, setWhoisCache] = useState<Map<number, string>>(new Map());
+    const [listNames, setListNames] = useState<string[]>([]);
+    const [listInput, setListInput] = useState("");
+    const [activeUserData, setActiveUserData] = useState<UserData | null>(null);
+    const [userDataLoading, setUserDataLoading] = useState(false);
+    const [commentDraft, setCommentDraft] = useState("");
+    const [saveToast, setSaveToast] = useState<string | null>(null);
+    const saveToastTimeoutRef = useRef<number | null>(null);
 
     const updateCounts = useCallback(() => {
         setDrawnCount(drawnAsRef.current.size);
@@ -237,6 +262,24 @@ export default function MapView() {
         setTimeout(() => map.invalidateSize(), 0);
     }, []);
 
+    useEffect(() => {
+        getListNames()
+            .then((names) => setListNames(names))
+            .catch((error) => console.error(error));
+    }, []);
+
+    useEffect(() => {
+        setCommentDraft(activeUserData?.comment ?? "");
+    }, [activeUserData, activeAsn]);
+
+    useEffect(() => {
+        return () => {
+            if (saveToastTimeoutRef.current !== null) {
+                window.clearTimeout(saveToastTimeoutRef.current);
+            }
+        };
+    }, []);
+
     const updateMarkerPopup = useCallback((asn: number, details: As) => {
         const marker = markersByAsnRef.current.get(asn);
         if (!marker) {
@@ -256,6 +299,26 @@ export default function MapView() {
     const handlePopupOpen = useCallback(
         async (asn: number) => {
             setActiveAsn(asn);
+
+            const cachedUser = userDataByAsnRef.current.get(asn);
+            if (cachedUser) {
+                setActiveUserData(cachedUser);
+            } else {
+                setUserDataLoading(true);
+                try {
+                    const userData = await getUserData(asn);
+                    userDataByAsnRef.current.set(asn, userData);
+                    setActiveUserData(userData);
+                    setListNames((current) =>
+                        Array.from(new Set([...current, ...userData.lists])).sort()
+                    );
+                } catch (error) {
+                    console.error(error);
+                    setActiveUserData(null);
+                } finally {
+                    setUserDataLoading(false);
+                }
+            }
 
             if (detailedAsRef.current.has(asn)) {
                 updateMarkerPopup(asn, detailedAsRef.current.get(asn) as As);
@@ -342,7 +405,8 @@ export default function MapView() {
             addresses: null,
             rank: null,
             has_org: "Both",
-            category: []
+            category: [],
+            lists: []
         };
 
         try {
@@ -461,6 +525,64 @@ export default function MapView() {
         setFilters((current) => ({ ...current, category: selected }));
     }, []);
 
+    const persistUserData = useCallback(
+        async (asn: number, lists?: string[] | null, comment?: string | null) => {
+            try {
+                const updated = await updateUserData(asn, lists, comment);
+                userDataByAsnRef.current.set(asn, updated);
+                setActiveUserData(updated);
+                setListNames((current) =>
+                    Array.from(new Set([...current, ...updated.lists])).sort()
+                );
+                setSaveToast("Saved");
+                if (saveToastTimeoutRef.current !== null) {
+                    window.clearTimeout(saveToastTimeoutRef.current);
+                }
+                saveToastTimeoutRef.current = window.setTimeout(() => {
+                    setSaveToast(null);
+                    saveToastTimeoutRef.current = null;
+                }, 1600);
+            } catch (error) {
+                console.error(error);
+            }
+        },
+        []
+    );
+
+    const removeListForActive = useCallback(
+        (listName: string) => {
+            if (!activeAsn || !activeUserData) {
+                return;
+            }
+            const nextLists = activeUserData.lists.filter((name) => name !== listName);
+            persistUserData(activeAsn, nextLists, undefined);
+        },
+        [activeAsn, activeUserData, persistUserData]
+    );
+
+    const addListForActive = useCallback(() => {
+        if (!activeAsn || !activeUserData) {
+            return;
+        }
+        const next = listInput.trim();
+        if (!next) {
+            return;
+        }
+        const already = activeUserData.lists.includes(next);
+        const nextLists = already ? activeUserData.lists : [...activeUserData.lists, next];
+        persistUserData(activeAsn, nextLists, undefined);
+        setListInput("");
+    }, [activeAsn, activeUserData, commentDraft, listInput, persistUserData]);
+
+    const saveCommentForActive = useCallback(() => {
+        if (!activeAsn || !activeUserData) {
+            return;
+        }
+        const commentValue = commentDraft.trim();
+        const payload = commentValue.length ? commentValue : "";
+        persistUserData(activeAsn, undefined, payload);
+    }, [activeAsn, activeUserData, commentDraft, persistUserData]);
+
     const categoryOptions = useMemo(
         () => [
             "Any",
@@ -490,6 +612,11 @@ export default function MapView() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col lg:flex-row">
+            {saveToast && (
+                <div className="fixed right-4 top-4 z-50 px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 shadow-lg shadow-emerald-500/20 text-sm font-semibold">
+                    {saveToast}
+                </div>
+            )}
             <div className="flex-1 min-h-[50vh] lg:min-h-screen relative">
                 <div ref={mapContainerRef} className="absolute inset-0" />
             </div>
@@ -725,8 +852,114 @@ export default function MapView() {
                                 ))}
                             </select>
                         </div>
+
+                        <div className="p-3 rounded-xl bg-slate-700/30 border border-slate-600/30">
+                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">{"Lists"}</label>
+                            {listNames.length ? (
+                                <select
+                                    id="lists"
+                                    name="lists"
+                                    multiple
+                                    className="w-full h-24 px-3 py-2 bg-slate-800/80 border border-slate-600/50 rounded-lg text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                                    value={filters.lists}
+                                    onChange={(e) => {
+                                        const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                                        setFilters((current) => ({ ...current, lists: selected }));
+                                    }}
+                                >
+                                    {listNames.map((name) => (
+                                        <option key={name} value={name}>
+                                            {name}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <p className="text-xs text-slate-500">{"No lists yet"}</p>
+                            )}
+                        </div>
                     </div>
                 </div>
+
+                {activeAsn && (
+                    <div className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span className="text-sm font-semibold text-slate-300">{`Favorites for AS${activeAsn}`}</span>
+                            </div>
+                            {userDataLoading && (
+                                <span className="text-xs text-slate-500">{"Loading..."}</span>
+                            )}
+                        </div>
+
+                        {activeUserData ? (
+                            <div className="space-y-3">
+                                <div className="space-y-2">
+                                    {activeUserData.lists.length ? (
+                                        <div className="space-y-2">
+                                            {activeUserData.lists.map((name) => (
+                                                <div
+                                                    key={name}
+                                                    className="flex items-center justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/40 px-2 py-1.5 text-xs text-slate-300"
+                                                >
+                                                    <span className="truncate">{name}</span>
+                                                    <button
+                                                        onClick={() => removeListForActive(name)}
+                                                        className="p-1 rounded-md text-slate-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition"
+                                                        aria-label={`Remove ${name}`}
+                                                        title="Remove list"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-500">{"No lists yet"}</p>
+                                    )}
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={listInput}
+                                        placeholder="New list name"
+                                        className="flex-1 px-3 py-2 bg-slate-900/70 border border-slate-700/50 rounded-lg text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400/40"
+                                        onChange={(e) => setListInput(e.target.value)}
+                                    />
+                                    <button
+                                        onClick={addListForActive}
+                                        className="px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500/20 text-amber-200 border border-amber-500/30 hover:bg-amber-500/30 transition"
+                                    >
+                                        {"Add"}
+                                    </button>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{"Comment"}</label>
+                                    <textarea
+                                        value={commentDraft}
+                                        rows={3}
+                                        className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700/50 rounded-lg text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400/40"
+                                        onChange={(e) => setCommentDraft(e.target.value)}
+                                    />
+                                    <button
+                                        onClick={saveCommentForActive}
+                                        className="mt-2 w-full px-3 py-2 text-xs font-semibold rounded-lg bg-slate-700/50 text-slate-200 border border-slate-600/40 hover:bg-slate-600/60 transition"
+                                    >
+                                        {"Save comment"}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-500">{"No user data loaded"}</p>
+                        )}
+                    </div>
+                )}
 
                 <div className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm">
                     <div className="flex items-center gap-2 mb-3">

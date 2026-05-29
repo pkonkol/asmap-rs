@@ -9,9 +9,19 @@ export function ensureProtocolReady(): Promise<void> {
 }
 
 export function encodeRequest(request: WSRequest): Uint8Array {
-    return encode_ws_request(request);
+    try {
+        return encode_ws_request(request);
+    } catch (error) {
+        console.error("[protocol] encode_ws_request failed", request, error);
+        throw error;
+    }
 }
 
 export function decodeResponse(bytes: Uint8Array): WSResponse {
-    return decode_ws_response(bytes) as WSResponse;
+    try {
+        return decode_ws_response(bytes) as WSResponse;
+    } catch (error) {
+        console.error("[protocol] decode_ws_response failed", bytes.byteLength, error);
+        throw error;
+    }
 }

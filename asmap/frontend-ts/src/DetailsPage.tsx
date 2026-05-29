@@ -1,30 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import countries from "i18n-iso-countries";
 import en from "i18n-iso-countries/langs/en.json";
 import type {
     As,
     AsrankAsn,
+    Coord,
+    GeocodedAddress,
     IPNetDBAsn,
     StanfordASdbCategory,
+    UserData,
     WhoIsAsn
 } from "./protocol/types";
-import { fetchAsWhoisData, getAsDetails } from "./api/ws";
+import {
+    fetchAsWhoisData,
+    getAsDetails,
+    getListNames,
+    getUserData,
+    saveGeocoding,
+    updateUserData
+} from "./api/ws";
 
 countries.registerLocale(en);
-
-interface Coordinate {
-    latitude: number;
-    longitude: number;
-}
-
-interface GeocodedAddress {
-    original_address: string;
-    normalized_address: string;
-    coordinate: Coordinate | null;
-    display_name: string | null;
-    error: string | null;
-}
 
 interface AddressComponents {
     street?: string;
@@ -176,7 +173,7 @@ function componentsToQuery(components: AddressComponents): string {
     return params.toString();
 }
 
-async function geocodeStructured(components: AddressComponents): Promise<{ coord: Coordinate; display: string }> {
+async function geocodeStructured(components: AddressComponents): Promise<{ coord: Coord; display: string }> {
     const query = componentsToQuery(components);
     const url = `https://nominatim.openstreetmap.org/search?${query}&format=json&limit=1`;
     const response = await fetch(url, { headers: { "Accept-Language": "en" } });
@@ -192,7 +189,7 @@ async function geocodeStructured(components: AddressComponents): Promise<{ coord
     }
     const first = results[0];
     return {
-        coord: { latitude: Number(first.lat), longitude: Number(first.lon) },
+        coord: { lat: Number(first.lat), lon: Number(first.lon) },
         display: first.display_name
     };
 }
@@ -283,6 +280,13 @@ export default function DetailsPage() {
 
     const [asDetails, setAsDetails] = useState<As | null>(null);
     const [whoisData, setWhoisData] = useState<WhoIsAsn | null>(null);
+    const [userData, setUserData] = useState<UserData | null>(null);
+    const [userDataLoading, setUserDataLoading] = useState(true);
+    const [listNames, setListNames] = useState<string[]>([]);
+    const [listInput, setListInput] = useState("");
+    const [commentDraft, setCommentDraft] = useState("");
+    const [saveToast, setSaveToast] = useState<string | null>(null);
+    const saveToastTimeoutRef = useRef<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [whoisLoading, setWhoisLoading] = useState(true);
     const [geocoding, setGeocoding] = useState(false);
@@ -298,9 +302,11 @@ export default function DetailsPage() {
 
         setLoading(true);
         setWhoisLoading(true);
+        setUserDataLoading(true);
         setError(null);
         setAsDetails(null);
         setWhoisData(null);
+        setUserData(null);
         setGeocodedAddresses([]);
 
         getAsDetails(asn)
@@ -322,7 +328,41 @@ export default function DetailsPage() {
                 setWhoisData(null);
                 setWhoisLoading(false);
             });
+
+        getUserData(asn)
+            .then((data) => {
+                setUserData(data);
+                if (data.geocoded_addresses?.length) {
+                    setGeocodedAddresses(data.geocoded_addresses);
+                }
+                setUserDataLoading(false);
+            })
+            .catch(() => {
+                setUserData(null);
+                setUserDataLoading(false);
+            });
     }, [asn]);
+
+    useEffect(() => {
+        getListNames()
+            .then((names) => setListNames(names))
+            .catch((error) => console.error(error));
+    }, []);
+
+    useEffect(() => {
+        setCommentDraft(userData?.comment ?? "");
+        if (userData?.lists?.length) {
+            setListNames((current) => Array.from(new Set([...current, ...userData.lists])).sort());
+        }
+    }, [userData]);
+
+    useEffect(() => {
+        return () => {
+            if (saveToastTimeoutRef.current !== null) {
+                window.clearTimeout(saveToastTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const onGeocode = useCallback(async () => {
         if (geocoding || !whoisData) {
@@ -345,8 +385,72 @@ export default function DetailsPage() {
             results.push(result);
         }
         setGeocodedAddresses(results);
+        try {
+            const updated = await saveGeocoding(asn, results);
+            setUserData(updated);
+        } catch (error) {
+            console.error(error);
+        }
         setGeocoding(false);
-    }, [geocoding, whoisData]);
+    }, [asn, geocoding, whoisData]);
+
+    const persistUserData = useCallback(
+        async (lists?: string[] | null, comment?: string | null) => {
+            try {
+                const updated = await updateUserData(asn, lists, comment);
+                setUserData(updated);
+                setListNames((current) =>
+                    Array.from(new Set([...current, ...updated.lists])).sort()
+                );
+                setSaveToast("Saved");
+                if (saveToastTimeoutRef.current !== null) {
+                    window.clearTimeout(saveToastTimeoutRef.current);
+                }
+                saveToastTimeoutRef.current = window.setTimeout(() => {
+                    setSaveToast(null);
+                    saveToastTimeoutRef.current = null;
+                }, 1600);
+            } catch (error) {
+                console.error(error);
+            }
+        },
+        [asn]
+    );
+
+    const removeList = useCallback(
+        (name: string) => {
+            if (!userData) {
+                return;
+            }
+            const nextLists = userData.lists.filter((list) => list !== name);
+            persistUserData(nextLists, undefined);
+        },
+        [persistUserData, userData]
+    );
+
+    const addList = useCallback(() => {
+        if (!userData) {
+            return;
+        }
+        const next = listInput.trim();
+        if (!next) {
+            return;
+        }
+        const nextLists = userData.lists.includes(next)
+            ? userData.lists
+            : [...userData.lists, next];
+        persistUserData(nextLists, undefined);
+        setListInput("");
+    }, [commentDraft, listInput, persistUserData, userData]);
+
+    const saveComment = useCallback(() => {
+        if (!userData) {
+            return;
+        }
+        const commentValue = commentDraft.trim();
+        const payload = commentValue.length ? commentValue : "";
+        persistUserData(undefined, payload);
+    }, [commentDraft, persistUserData, userData]);
 
     if (error) {
         return (
@@ -433,6 +537,11 @@ export default function DetailsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+            {saveToast && (
+                <div className="fixed right-4 top-4 z-50 px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 shadow-lg shadow-emerald-500/20 text-sm font-semibold">
+                    {saveToast}
+                </div>
+            )}
             <nav className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/60 border-b border-slate-800/70">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center justify-between gap-4">
@@ -653,13 +762,16 @@ export default function DetailsPage() {
                                             <p className="text-sm text-slate-400">{"Registry data from RIPE"}</p>
                                         </div>
                                     </div>
+                                    {userDataLoading && (
+                                        <span className="text-xs text-slate-500">{"Loading saved data..."}</span>
+                                    )}
                                     {whoisHasAddresses && !whoisLoading && (
                                         <button
                                             onClick={onGeocode}
                                             disabled={geocoding}
                                             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${geocoding
-                                                    ? "bg-slate-700/50 text-slate-400 cursor-not-allowed"
-                                                    : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 hover:border-emerald-400/40"
+                                                ? "bg-slate-700/50 text-slate-400 cursor-not-allowed"
+                                                : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 hover:border-emerald-400/40"
                                                 }`}
                                         >
                                             {geocoding ? (
@@ -806,12 +918,12 @@ export default function DetailsPage() {
                                     {successful.length > 0 && (
                                         <div className="space-y-3 mb-4">
                                             {successful.map((addr) => {
-                                                const coord = addr.coordinate as Coordinate;
-                                                const osmUrl = `https://www.openstreetmap.org/?mlat=${coord.latitude.toFixed(6)}&mlon=${coord.longitude.toFixed(6)}#map=15/${coord.latitude.toFixed(6)}/${coord.longitude.toFixed(6)}`;
-                                                const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${coord.latitude.toFixed(6)},${coord.longitude.toFixed(6)}`;
+                                                const coord = addr.coordinate as Coord;
+                                                const osmUrl = `https://www.openstreetmap.org/?mlat=${coord.lat.toFixed(6)}&mlon=${coord.lon.toFixed(6)}#map=15/${coord.lat.toFixed(6)}/${coord.lon.toFixed(6)}`;
+                                                const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${coord.lat.toFixed(6)},${coord.lon.toFixed(6)}`;
 
                                                 return (
-                                                    <div key={`${addr.original_address}-${coord.latitude}`} className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                                    <div key={`${addr.original_address}-${coord.lat}`} className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                                         <div className="flex items-start justify-between gap-4 mb-3">
                                                             <div className="min-w-0 flex-1">
                                                                 <p className="text-sm text-slate-300 break-words mb-1">{addr.original_address}</p>
@@ -845,11 +957,11 @@ export default function DetailsPage() {
                                                         </div>
                                                         <div className="flex items-center gap-2 text-xs">
                                                             <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded-md font-mono">
-                                                                {`${coord.latitude.toFixed(5)}°`}
+                                                                {`${coord.lat.toFixed(5)}°`}
                                                             </span>
                                                             <span className="text-slate-500">{","}</span>
                                                             <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded-md font-mono">
-                                                                {`${coord.longitude.toFixed(5)}°`}
+                                                                {`${coord.lon.toFixed(5)}°`}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -874,6 +986,87 @@ export default function DetailsPage() {
                         </div>
 
                         <div className="space-y-6">
+                            <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-sm shadow-[0_10px_40px_-25px_rgba(0,0,0,0.85)] transition-all duration-300 hover:border-slate-700/70 hover:shadow-[0_18px_60px_-35px_rgba(0,0,0,0.9)]">
+                                <div className="flex items-center gap-3 mb-5">
+                                    <div className="p-2 bg-amber-500/15 rounded-xl border border-amber-500/20">
+                                        <svg className="w-5 h-5 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="text-lg font-semibold text-white tracking-tight">{"Favorites"}</h3>
+                                        <p className="text-sm text-slate-400">{"Lists and notes for this ASN"}</p>
+                                    </div>
+                                </div>
+
+                                {userDataLoading ? (
+                                    <p className="text-sm text-slate-400">{"Loading saved lists..."}</p>
+                                ) : userData ? (
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            {userData.lists.length ? (
+                                                <div className="space-y-2">
+                                                    {userData.lists.map((name) => (
+                                                        <div
+                                                            key={name}
+                                                            className="flex items-center justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-950/40 px-2 py-1.5 text-xs text-slate-300"
+                                                        >
+                                                            <span className="truncate">{name}</span>
+                                                            <button
+                                                                onClick={() => removeList(name)}
+                                                                className="p-1 rounded-md text-slate-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition"
+                                                                aria-label={`Remove ${name}`}
+                                                                title="Remove list"
+                                                            >
+                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-slate-500">{"No lists yet"}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={listInput}
+                                                placeholder="New list name"
+                                                className="flex-1 px-3 py-2 bg-slate-950/70 border border-slate-700/50 rounded-lg text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400/40"
+                                                onChange={(e) => setListInput(e.target.value)}
+                                            />
+                                            <button
+                                                onClick={addList}
+                                                className="px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500/20 text-amber-200 border border-amber-500/30 hover:bg-amber-500/30 transition"
+                                            >
+                                                {"Add"}
+                                            </button>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{"Comment"}</label>
+                                            <textarea
+                                                value={commentDraft}
+                                                rows={3}
+                                                className="w-full px-3 py-2 bg-slate-950/70 border border-slate-700/50 rounded-lg text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400/40"
+                                                onChange={(e) => setCommentDraft(e.target.value)}
+                                            />
+                                            <button
+                                                onClick={saveComment}
+                                                className="mt-2 w-full px-3 py-2 text-xs font-semibold rounded-lg bg-slate-700/50 text-slate-200 border border-slate-600/40 hover:bg-slate-600/60 transition"
+                                            >
+                                                {"Save comment"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-slate-400">{"No user data loaded"}</p>
+                                )}
+                            </div>
+
                             <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-sm shadow-[0_10px_40px_-25px_rgba(0,0,0,0.85)] transition-all duration-300 hover:border-slate-700/70 hover:shadow-[0_18px_60px_-35px_rgba(0,0,0,0.9)]">
                                 <div className="flex items-center gap-3 mb-5">
                                     <div className="p-2 bg-blue-500/15 rounded-xl border border-blue-500/20">
