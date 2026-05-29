@@ -5,7 +5,6 @@ members = [
     "asdb-builder",
     "config",
     "geocoding",
-    "asmap/frontend",
     "asmap/server",
     "asmap/protocol",
     "test-context",
