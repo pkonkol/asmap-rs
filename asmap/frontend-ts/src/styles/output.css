@@ -701,6 +701,12 @@
       border-color: color-mix(in oklab, var(--color-red-800) 40%, transparent);
     }
   }
+  .border-slate-400\/70 {
+    border-color: color-mix(in srgb, oklch(70.4% 0.04 256.788) 70%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-slate-400) 70%, transparent);
+    }
+  }
   .border-slate-500\/70 {
     border-color: color-mix(in srgb, oklch(55.4% 0.046 257.417) 70%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -802,6 +808,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       border-color: color-mix(in oklab, var(--color-violet-500) 25%, transparent);
     }
+  }
+  .border-t-amber-300 {
+    border-top-color: var(--color-amber-300);
   }
   .border-t-blue-400 {
     border-top-color: var(--color-blue-400);
@@ -1413,6 +1422,9 @@
   .opacity-0 {
     opacity: 0%;
   }
+  .opacity-70 {
+    opacity: 70%;
+  }
   .opacity-85 {
     opacity: 85%;
   }
@@ -1450,6 +1462,10 @@
     @supports (color: color-mix(in lab, red, red)) {
       --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-emerald-500) 20%, transparent) var(--tw-shadow-alpha), transparent);
     }
+  }
+  .blur {
+    --tw-blur: blur(8px);
+    filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
   }
   .blur-3xl {
     --tw-blur: blur(var(--blur-3xl));

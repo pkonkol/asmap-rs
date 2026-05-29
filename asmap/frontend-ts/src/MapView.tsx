@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet.markercluster";
+import "leaflet.heat";
 import type {
     As,
     AsFilters,
@@ -23,12 +24,26 @@ const POLAND_LAT = 52.11431;
 const POLAND_LON = 19.423672;
 const MARKER_ICON_URL = "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png";
 
+type HeatPoint = [number, number, number?];
+
+type HeatLayer = {
+    addTo: (map: L.Map) => HeatLayer;
+    remove: () => void;
+    setLatLngs: (points: HeatPoint[]) => void;
+    setOptions: (options: {
+        radius?: number;
+        blur?: number;
+        maxZoom?: number;
+        gradient?: Record<number, string>;
+    }) => void;
+};
+
 const DEFAULT_FILTERS: AsFilters = {
     country: "PL",
-    exclude_country: false,
+    exclude_country: true,
     bounds: null,
-    addresses: [0, 21000000],
-    rank: [0, 115000],
+    addresses: null,
+    rank: null,
     has_org: "Both",
     category: [],
     lists: []
@@ -219,6 +234,8 @@ export default function MapView() {
     const detailedAsRef = useRef<Map<number, As>>(new Map());
     const userDataByAsnRef = useRef<Map<number, UserData>>(new Map());
     const whoisLoadingRef = useRef<Set<number>>(new Set());
+    const heatLayerRef = useRef<HeatLayer | null>(null);
+    const heatmapDataRef = useRef<AsForFrontend[]>([]);
 
     const [filters, setFilters] = useState<AsFilters>(DEFAULT_FILTERS);
     const [prevFilters, setPrevFilters] = useState<AsFilters>(DEFAULT_FILTERS);
@@ -233,11 +250,128 @@ export default function MapView() {
     const [commentDraft, setCommentDraft] = useState("");
     const [saveToast, setSaveToast] = useState<string | null>(null);
     const saveToastTimeoutRef = useRef<number | null>(null);
+    const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+    const [heatmapLoading, setHeatmapLoading] = useState(false);
 
     const updateCounts = useCallback(() => {
         setDrawnCount(drawnAsRef.current.size);
         setDetailedCount(detailedAsRef.current.size);
     }, []);
+
+    const buildHeatmapPoints = useCallback((ases: AsForFrontend[], bounds: L.LatLngBounds | null): HeatPoint[] => {
+        // const visibleAses = bounds
+        //     ? ases.filter((as) => bounds.contains([as.coordinates.lat, as.coordinates.lon]))
+        //     : ases;
+        // const visibleAses = ases;
+        const visibleAses = bounds
+            ? ases.filter((as) => bounds.contains([as.coordinates.lat, as.coordinates.lon]))
+            : ases;
+
+        return visibleAses.map((as) => [as.coordinates.lat, as.coordinates.lon, 1] as HeatPoint);
+    }, []);
+
+    const clearHeatmap = useCallback(() => {
+        if (heatLayerRef.current) {
+            heatLayerRef.current.remove();
+            heatLayerRef.current = null;
+        }
+        heatmapDataRef.current = [];
+        setHeatmapEnabled(false);
+    }, []);
+
+    const ensureHeatLayer = useCallback(
+        (points: HeatPoint[]) => {
+            const map = mapRef.current;
+            if (!map) {
+                return;
+            }
+
+            // USUŃ TO:
+            // const heatFactory = (L as unknown as {
+            //     heatLayer?: (pts: HeatPoint[], options: { radius?: number; blur?: number; maxZoom?: number }) => HeatLayer;
+            // }).heatLayer;
+
+            // ZAMIEŃ NA (dodajemy minOpacity):
+            const heatFactory = (L as unknown as {
+                heatLayer?: (pts: HeatPoint[], options: { radius?: number; blur?: number; maxZoom?: number; minOpacity?: number; gradient?: Record<number, string> }) => HeatLayer;
+            }).heatLayer;
+
+            if (!heatFactory) {
+                console.error("Heatmap plugin is not available");
+                return;
+            }
+
+            if (heatLayerRef.current) {
+                heatLayerRef.current.setLatLngs(points);
+                return;
+            }
+
+            // USUŃ TO:
+            // heatLayerRef.current = heatFactory(points, {}).addTo(map);
+
+            // ZAMIEŃ NA:
+            heatLayerRef.current = heatFactory(points, {
+                radius: 25,       // Wielkość pojedynczego punktu w pikselach
+                blur: 15,         // Rozmycie krawędzi (im większe, tym płynniejsze łączenie)
+                maxZoom: 12,      // KRYTYCZNE: Odłącza algorytm od aktualnego zooma mapy. Zapobiega znikaniu punktów.
+                minOpacity: 0.2,   // KRYTYCZNE: Pojedynczy AS (np. na wsi) nie zniknie, będzie na stałe widoczny na 30% intensywności
+                gradient: {
+                    0.4: 'rgba(0, 0, 255, 0.3)',   // Błękit - 30% widoczności (bardzo delikatne tło)
+                    0.6: 'rgba(0, 255, 255, 0.3)', // Cyjan - 40% widoczności
+                    0.7: 'rgba(0, 255, 0, 0.3)',   // Zielony - 50% widoczności
+                    0.8: 'rgba(255, 255, 0, 0.3)',// Żółty - 65% widoczności
+                    1.0: 'rgba(255, 0, 0, 0.3)'   // Czerwony MAX - 75% widoczności (zamiast litych 100%, widać przez to mapę!)
+                }
+            }).addTo(map);
+        },
+        []
+    );
+
+    const refreshHeatmapPoints = useCallback(() => {
+        const map = mapRef.current;
+        if (!map || !heatmapEnabled) {
+            return;
+        }
+        const points = buildHeatmapPoints(heatmapDataRef.current, map.getBounds());
+        ensureHeatLayer(points);
+    }, [buildHeatmapPoints, ensureHeatLayer, heatmapEnabled]);
+
+    const loadHeatmap = useCallback(async () => {
+        const map = mapRef.current;
+        if (!map) {
+            return;
+        }
+
+        if (heatmapEnabled) {
+            clearHeatmap();
+            return;
+        }
+
+        setHeatmapLoading(true);
+        // Request everything from the backend (no filters/bounds)
+        const requestFilters: AsFilters = {
+            country: null,
+            exclude_country: false,
+            bounds: null,
+            addresses: null,
+            rank: null,
+            has_org: "Both",
+            category: [],
+            lists: []
+        };
+
+        try {
+            const ases = await getAllAsFiltered(requestFilters);
+            heatmapDataRef.current = ases;
+            const points = buildHeatmapPoints(ases, map.getBounds());
+            ensureHeatLayer(points);
+            setHeatmapEnabled(true);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setHeatmapLoading(false);
+        }
+    }, [buildHeatmapPoints, clearHeatmap, ensureHeatLayer, filters, heatmapEnabled]);
 
     useEffect(() => {
         if (!mapContainerRef.current || mapRef.current) {
@@ -259,8 +393,18 @@ export default function MapView() {
         mapRef.current = map;
         clusterRef.current = cluster;
 
+        const onViewChanged = () => {
+            refreshHeatmapPoints();
+        };
+        map.on("zoomend", onViewChanged);
+        map.on("moveend", onViewChanged);
+
         setTimeout(() => map.invalidateSize(), 0);
-    }, []);
+        return () => {
+            map.off("zoomend", onViewChanged);
+            map.off("moveend", onViewChanged);
+        };
+    }, [refreshHeatmapPoints]);
 
     useEffect(() => {
         getListNames()
@@ -453,8 +597,9 @@ export default function MapView() {
         whoisLoadingRef.current.clear();
         setActiveAsn(null);
         setWhoisCache(new Map());
+        clearHeatmap();
         updateCounts();
-    }, [updateCounts]);
+    }, [clearHeatmap, updateCounts]);
 
     const downloadCsv = useCallback(
         (detailed: boolean) => {
@@ -649,6 +794,25 @@ export default function MapView() {
                         className="w-full px-4 py-2.5 bg-slate-700/60 hover:bg-slate-600/60 active:bg-slate-500/60 text-slate-200 text-sm font-medium rounded-xl border border-slate-600/50 transition-all duration-200 hover:border-slate-500/50"
                     >
                         {"Load visible range"}
+                    </button>
+                    <button
+                        onClick={loadHeatmap}
+                        disabled={heatmapLoading}
+                        className={`w-full px-4 py-2.5 text-sm font-medium rounded-xl border transition-all duration-200 flex items-center justify-center gap-2 ${heatmapEnabled
+                            ? "bg-amber-500/20 text-amber-200 border-amber-500/30 hover:bg-amber-500/30"
+                            : "bg-slate-700/60 text-slate-200 border-slate-600/50 hover:bg-slate-600/60"
+                            } ${heatmapLoading ? "opacity-70 cursor-not-allowed" : ""}`}
+                    >
+                        {heatmapLoading ? (
+                            <>
+                                <span className="w-3.5 h-3.5 border-2 border-slate-400/70 border-t-amber-300 rounded-full animate-spin"></span>
+                                {"Loading heatmap"}
+                            </>
+                        ) : heatmapEnabled ? (
+                            "Hide heatmap (all)"
+                        ) : (
+                            "Load heatmap (all)"
+                        )}
                     </button>
                     <button
                         onClick={clearMap}
