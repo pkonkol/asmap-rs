@@ -41,7 +41,7 @@ done
 if [ "$clean_downloaded" = true ]; then
     echo "Cleaning downloaded"
     # Safety check: verify we're in the correct repository
-    if [ ! -f "Cargo.toml" ] || [ ! -d "asmap/frontend" ]; then
+    if [ ! -f "Cargo.toml" ] || [ ! -d "asmap/frontend-ts" ]; then
         echo "Error: Not in asmap-gis repository root. Aborting inputs/ deletion."
         exit 1
     fi
@@ -74,8 +74,8 @@ fi
 
 if [ "$clean_frontend" = true ]; then
     echo "Cleaning frontend build artifacts..."
-    rm -rf asmap/frontend/dist
-    rm -rf asmap/frontend/node_modules
+    rm -rf asmap/frontend-ts/dist
+    rm -rf asmap/frontend-ts/node_modules
     echo "Removed dist/ and node_modules/"
 fi
 

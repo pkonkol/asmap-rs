@@ -26,5 +26,5 @@ dist/
 /.log/
 .env
 .DS_Store
-asmap/frontend/css/output.css
+asmap/frontend-ts/src/styles/output.css
 notes.md

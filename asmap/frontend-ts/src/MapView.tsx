@@ -572,7 +572,7 @@ export default function MapView() {
         const nextLists = already ? activeUserData.lists : [...activeUserData.lists, next];
         persistUserData(activeAsn, nextLists, undefined);
         setListInput("");
-    }, [activeAsn, activeUserData, commentDraft, listInput, persistUserData]);
+    }, [activeAsn, activeUserData, listInput, persistUserData]);
 
     const saveCommentForActive = useCallback(() => {
         if (!activeAsn || !activeUserData) {

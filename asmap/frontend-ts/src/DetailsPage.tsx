@@ -15,7 +15,6 @@ import type {
 import {
     fetchAsWhoisData,
     getAsDetails,
-    getListNames,
     getUserData,
     saveGeocoding,
     updateUserData
@@ -282,7 +281,6 @@ export default function DetailsPage() {
     const [whoisData, setWhoisData] = useState<WhoIsAsn | null>(null);
     const [userData, setUserData] = useState<UserData | null>(null);
     const [userDataLoading, setUserDataLoading] = useState(true);
-    const [listNames, setListNames] = useState<string[]>([]);
     const [listInput, setListInput] = useState("");
     const [commentDraft, setCommentDraft] = useState("");
     const [saveToast, setSaveToast] = useState<string | null>(null);
@@ -344,16 +342,7 @@ export default function DetailsPage() {
     }, [asn]);
 
     useEffect(() => {
-        getListNames()
-            .then((names) => setListNames(names))
-            .catch((error) => console.error(error));
-    }, []);
-
-    useEffect(() => {
         setCommentDraft(userData?.comment ?? "");
-        if (userData?.lists?.length) {
-            setListNames((current) => Array.from(new Set([...current, ...userData.lists])).sort());
-        }
     }, [userData]);
 
     useEffect(() => {
@@ -399,9 +388,6 @@ export default function DetailsPage() {
             try {
                 const updated = await updateUserData(asn, lists, comment);
                 setUserData(updated);
-                setListNames((current) =>
-                    Array.from(new Set([...current, ...updated.lists])).sort()
-                );
                 setSaveToast("Saved");
                 if (saveToastTimeoutRef.current !== null) {
                     window.clearTimeout(saveToastTimeoutRef.current);
@@ -441,7 +427,7 @@ export default function DetailsPage() {
             : [...userData.lists, next];
         persistUserData(nextLists, undefined);
         setListInput("");
-    }, [commentDraft, listInput, persistUserData, userData]);
+    }, [listInput, persistUserData, userData]);
 
     const saveComment = useCallback(() => {
         if (!userData) {

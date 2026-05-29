@@ -26,7 +26,6 @@ async function sendWsRequest(request: WSRequest): Promise<WSResponse> {
             handler(value);
         };
 
-        console.debug("[ws] opening socket", request);
         const socket = new WebSocket(API_URL);
         socket.binaryType = "arraybuffer";
 
@@ -38,7 +37,6 @@ async function sendWsRequest(request: WSRequest): Promise<WSResponse> {
         socket.onopen = () => {
             try {
                 const payload = encodeRequest(request);
-                console.debug("[ws] sending", request, payload.byteLength);
                 socket.send(payload);
             } catch (error) {
                 console.error("[ws] encode failed", request, error);
@@ -70,9 +68,7 @@ async function sendWsRequest(request: WSRequest): Promise<WSResponse> {
                     throw new Error("Unexpected message type");
                 }
 
-                console.debug("[ws] received", request, bytes.byteLength);
                 const response = decodeResponse(bytes);
-                console.debug("[ws] decoded", response);
                 finish(resolve, response);
             } catch (error) {
                 console.error("[ws] decode failed", request, error);
