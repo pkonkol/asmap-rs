@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import L from "leaflet";
 import countries from "i18n-iso-countries";
 import en from "i18n-iso-countries/langs/en.json";
 import type {
@@ -21,6 +22,8 @@ import {
 } from "./api/ws";
 
 countries.registerLocale(en);
+
+const MINI_MAP_MARKER_URL = "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png";
 
 interface AddressComponents {
     street?: string;
@@ -271,6 +274,118 @@ function collectWhoisAddresses(whois: WhoIsAsn | null): string[] {
 
     const seen = new Set<string>();
     return addresses.filter((addr) => (seen.has(addr) ? false : seen.add(addr)));
+}
+
+function createMiniMapIcon(size: number): L.Icon {
+    return L.icon({
+        iconUrl: MINI_MAP_MARKER_URL,
+        iconSize: [size, Math.round(size * 1.5)],
+        iconAnchor: [Math.round(size / 2), Math.round(size * 1.5)],
+        popupAnchor: [0, -Math.round(size * 1.4)]
+    });
+}
+
+function GeocodingMiniMap({
+    mainCoordinate,
+    geocodedAddresses
+}: {
+    mainCoordinate: Coord | null;
+    geocodedAddresses: GeocodedAddress[];
+}) {
+    const mapContainerRef = useRef<HTMLDivElement | null>(null);
+    const mapRef = useRef<L.Map | null>(null);
+    const layerRef = useRef<L.LayerGroup | null>(null);
+
+    const resolvedPins = useMemo(
+        () => geocodedAddresses.filter((addr): addr is GeocodedAddress & { coordinate: Coord } => Boolean(addr.coordinate)),
+        [geocodedAddresses]
+    );
+
+    useEffect(() => {
+        if (!mapContainerRef.current || mapRef.current) {
+            return;
+        }
+
+        const map = L.map(mapContainerRef.current, {
+            zoomControl: true,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            dragging: true,
+            attributionControl: true
+        });
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19
+        }).addTo(map);
+
+        const layer = L.layerGroup().addTo(map);
+        mapRef.current = map;
+        layerRef.current = layer;
+
+        setTimeout(() => map.invalidateSize(), 0);
+
+        return () => {
+            map.remove();
+            mapRef.current = null;
+            layerRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        const layer = layerRef.current;
+        if (!map || !layer) {
+            return;
+        }
+
+        layer.clearLayers();
+
+        const points: Array<{ coordinate: Coord; primary: boolean; label: string }> = [];
+        if (mainCoordinate) {
+            points.push({ coordinate: mainCoordinate, primary: true, label: "Database coordinate" });
+        }
+        resolvedPins.forEach((addr) => {
+            points.push({
+                coordinate: addr.coordinate,
+                primary: false,
+                label: addr.display_name ?? addr.original_address
+            });
+        });
+
+        if (!points.length) {
+            return;
+        }
+
+        const bounds = L.latLngBounds([]);
+        points.forEach((point) => {
+            const marker = L.marker([point.coordinate.lat, point.coordinate.lon], {
+                icon: createMiniMapIcon(point.primary ? 28 : 18),
+                title: point.label
+            }).bindPopup(point.label);
+            marker.addTo(layer);
+            bounds.extend([point.coordinate.lat, point.coordinate.lon]);
+        });
+
+        if (points.length === 1) {
+            map.setView([points[0].coordinate.lat, points[0].coordinate.lon], 13);
+        } else {
+            map.fitBounds(bounds.pad(0.2), { animate: false });
+        }
+    }, [mainCoordinate, resolvedPins]);
+
+    if (!mainCoordinate && !resolvedPins.length) {
+        return null;
+    }
+
+    return (
+        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-950/40">
+            <div className="border-b border-slate-800/60 px-4 py-3">
+                <h4 className="text-sm font-semibold text-white tracking-tight">{"Geocoding map"}</h4>
+                <p className="text-xs text-slate-400">{"Main database pin + geocoded addresses"}</p>
+            </div>
+            <div ref={mapContainerRef} className="h-[85vh] min-h-112 lg:h-[90vh] w-full" />
+        </div>
+    );
 }
 
 export default function DetailsPage() {
@@ -967,6 +1082,11 @@ export default function DetailsPage() {
                                             ))}
                                         </div>
                                     )}
+
+                                    <GeocodingMiniMap
+                                        mainCoordinate={asrank?.coordinates ?? null}
+                                        geocodedAddresses={successful}
+                                    />
                                 </div>
                             )}
                         </div>

@@ -314,6 +314,9 @@
   .mt-2 {
     margin-top: calc(var(--spacing) * 2);
   }
+  .mt-4 {
+    margin-top: calc(var(--spacing) * 4);
+  }
   .mt-8 {
     margin-top: calc(var(--spacing) * 8);
   }
@@ -383,6 +386,9 @@
   .h-\[34rem\] {
     height: 34rem;
   }
+  .h-\[85vh\] {
+    height: 85vh;
+  }
   .h-full {
     height: 100%;
   }
@@ -394,6 +400,9 @@
   }
   .max-h-80 {
     max-height: calc(var(--spacing) * 80);
+  }
+  .min-h-112 {
+    min-height: calc(var(--spacing) * 112);
   }
   .min-h-\[50vh\] {
     min-height: 50vh;
@@ -2131,6 +2140,11 @@
   .lg\:col-span-2 {
     @media (width >= 64rem) {
       grid-column: span 2 / span 2;
+    }
+  }
+  .lg\:h-\[90vh\] {
+    @media (width >= 64rem) {
+      height: 90vh;
     }
   }
   .lg\:max-h-screen {
